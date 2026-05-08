@@ -58,6 +58,8 @@ export function profileRowToUser(r: ProfileRow): User {
     longestStreak: r.longest_streak,
     lastTrainingActivityDate: r.last_training_activity_date ?? undefined,
     totalCompletedSimulations: r.total_completed_simulations,
+    emtProgramCompletedOn: r.emt_program_completed_on ?? undefined,
+    aemtProgramCompletedOn: r.aemt_program_completed_on ?? undefined,
   };
 }
 

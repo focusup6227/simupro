@@ -160,6 +160,7 @@ export default function AdminUsersPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                         <TableRow>
@@ -250,6 +251,7 @@ export default function AdminUsersPage() {
                             ))}
                         </TableBody>
                     </Table>
+                    </div>
                 </CardContent>
             </Card>
 

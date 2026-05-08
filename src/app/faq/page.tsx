@@ -25,11 +25,11 @@ const faqItems = [
   },
   {
     q: "What is the difference between Free and Premium?",
-    a: "Free includes the standard scenario library, AI patient simulator, and performance scoring. Premium unlocks the full gold-star scenario library, deeper patient realism, and structured deep-dive coaching after simulations.",
+    a: "Free includes the standard scenario library, AI patient simulator, performance dashboard and streaks, drug calculator, abbreviations, and intervention reference. Premium adds the full gold-star scenario library, deeper in-scenario realism, deep-dive coaching after simulations, and the ECG Trainer for rhythm drills.",
   },
   {
     q: "Which certification levels are supported?",
-    a: "You can train as EMT, AEMT, or Paramedic. Scenario grading and mandatory actions adapt to the role you select.",
+    a: "You can train as EMT, AEMT, or Paramedic—grading and interventions follow the role you select. New signups default to EMT. In Dashboard → Settings, enter the program completion dates you attest as accurate for your EMT and AEMT coursework (these are training-milestone dates, not a license check): that unlocks selecting AEMT, then Paramedic, when those dates are today or earlier.",
   },
   {
     q: "Is SimuPro medical advice?",

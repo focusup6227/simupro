@@ -15,6 +15,8 @@ export interface Database {
           email: string;
           display_name: string | null;
           photo_url: string | null;
+          emt_program_completed_on: string | null;
+          aemt_program_completed_on: string | null;
           role: string;
           test_role: string | null;
           is_admin: boolean;
@@ -36,6 +38,8 @@ export interface Database {
           email: string;
           display_name?: string | null;
           photo_url?: string | null;
+          emt_program_completed_on?: string | null;
+          aemt_program_completed_on?: string | null;
           role?: string;
           test_role?: string | null;
           is_admin?: boolean;
@@ -54,6 +58,8 @@ export interface Database {
           email?: string;
           display_name?: string | null;
           photo_url?: string | null;
+          emt_program_completed_on?: string | null;
+          aemt_program_completed_on?: string | null;
           role?: string;
           test_role?: string | null;
           is_admin?: boolean;

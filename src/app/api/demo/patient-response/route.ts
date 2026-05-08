@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { provideDynamicPatientResponses } from "@/ai/flows/provide-dynamic-patient-responses";
+import { applyDynamicPatientOutputGuards } from "@/lib/patient-response-guards";
 import { seedScenarios } from "@/lib/scenarios-data";
 import { DEMO_SCENARIO_ID, DEMO_MAX_AI_TURNS } from "@/lib/demo-config";
 import type { UserAction } from "@/lib/types";
@@ -9,10 +10,20 @@ import { captureActionError } from "@/lib/observability";
 
 export const runtime = "nodejs";
 
+const VitalsBodySchema = z.object({
+  hr: z.string(),
+  bp: z.string(),
+  rr: z.string(),
+  spo2: z.string(),
+  gcs: z.string(),
+});
+
 const BodySchema = z.object({
   assessment: z.string().max(8000),
   treatment: z.string().max(8000),
   userRole: z.enum(["emt", "aemt", "paramedic"]),
+  patientCondition: z.string().max(2000).optional(),
+  currentVitals: VitalsBodySchema.optional(),
   userActions: z.array(
     z.object({
       time: z.number(),
@@ -40,7 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
     }
 
-    const { assessment, treatment, userRole, userActions } = parsed.data;
+    const { assessment, treatment, userRole, userActions, patientCondition, currentVitals } = parsed.data;
 
     if (userActions.length >= DEMO_MAX_AI_TURNS) {
       return NextResponse.json(
@@ -56,15 +67,22 @@ export async function POST(request: Request) {
 
     const mandatory = scenario.mandatoryActions[userRole] ?? [];
 
-    const result = await provideDynamicPatientResponses({
+    const raw = await provideDynamicPatientResponses({
       scenario: scenario.details,
       assessment,
       treatment,
+      patientCondition,
+      currentVitals,
       userRole,
       mandatoryActions: mandatory,
       userActions: userActions as UserAction[],
       isPremium: false,
     });
+
+    const result = applyDynamicPatientOutputGuards(
+      { currentVitals, treatment },
+      raw,
+    );
 
     return NextResponse.json(result);
   } catch (e: unknown) {

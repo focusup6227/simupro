@@ -238,14 +238,14 @@ export default function PerformancePage() {
             </Card>
         </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+        <Card className="min-w-0">
             <CardHeader>
                 <CardTitle>Score Trend</CardTitle>
                 <CardDescription>Your average score over time.</CardDescription>
             </CardHeader>
-            <CardContent className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
+            <CardContent className="h-64 w-full overflow-x-auto">
+                <ResponsiveContainer width="100%" height="100%" minWidth={280}>
                     <LineChart data={combinedData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" tickFormatter={(d) => format(d, 'MMM d')} />
@@ -256,13 +256,13 @@ export default function PerformancePage() {
                 </ResponsiveContainer>
             </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
             <CardHeader>
                 <CardTitle>Performance by Difficulty</CardTitle>
                 <CardDescription>Your average score for each difficulty level.</CardDescription>
             </CardHeader>
-            <CardContent className="h-64">
-                 <ResponsiveContainer width="100%" height="100%">
+            <CardContent className="h-64 w-full overflow-x-auto">
+                 <ResponsiveContainer width="100%" height="100%" minWidth={280}>
                     <ReBarChart data={byDifficulty} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
@@ -282,7 +282,7 @@ export default function PerformancePage() {
           <CardTitle>Detailed Simulation History</CardTitle>
           <CardDescription>A log of all your completed scenarios.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

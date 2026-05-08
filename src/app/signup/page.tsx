@@ -215,7 +215,7 @@ export default function SignUpPage() {
                   </Alert>
                 )}
                 <form onSubmit={handleSignUp} className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
                         <Input id="firstName" type="text" placeholder="John" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -249,7 +249,7 @@ export default function SignUpPage() {
                             Please select your current certification level.
                         </p>
                     </div>
-                    <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                    <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading}>
                     {isLoading ? 'Creating Account...' : 'Sign Up'}
                     </Button>
                 </form>

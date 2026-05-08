@@ -23,8 +23,13 @@ import {
 import { CreditCard, Moon, Star, Sun, Trash2 } from "lucide-react"
 import Link from "next/link"
 import type { Database } from "@/lib/supabase/database.types";
-import { useAuth, useUser, useSupabase, useMemoSupabase, useDashboardProfile } from "@/supabase";
+import { useAuth, useUser, useSupabase, useDashboardProfile } from "@/supabase";
 import type { User, UserProfile } from "@/lib/types";
+import {
+  certificationTier,
+  effectiveClinicalTierFromProfile,
+  maxSelectableClinicalCertRole,
+} from "@/lib/certification-attestation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UserProfileSchema } from "@/lib/types";
@@ -56,10 +61,14 @@ export default function SettingsPage() {
       displayName: "",
       photoURL: "",
       role: "emt",
+      emtProgramCompletedOn: "",
+      aemtProgramCompletedOn: "",
     }
   });
 
   const photoUrlValue = form.watch("photoURL");
+  const watchedEmtDate = form.watch("emtProgramCompletedOn") ?? "";
+  const watchedAemtDate = form.watch("aemtProgramCompletedOn") ?? "";
 
   useEffect(() => {
     if (userData) {
@@ -74,9 +83,33 @@ export default function SettingsPage() {
         displayName: userData.displayName || "",
         photoURL: userData.photoURL || "",
         role: defaultRole,
+        emtProgramCompletedOn: userData.emtProgramCompletedOn ?? "",
+        aemtProgramCompletedOn: userData.aemtProgramCompletedOn ?? "",
       });
     }
   }, [userData, form]);
+
+  const mergedEmtForUnlock = watchedEmtDate.trim() || userData?.emtProgramCompletedOn || "";
+  const mergedAemtForUnlock =
+    watchedAemtDate.trim() || userData?.aemtProgramCompletedOn || "";
+
+  const maxSelectableRole = maxSelectableClinicalCertRole({
+    emtCompletedOn: mergedEmtForUnlock,
+    aemtCompletedOn: mergedAemtForUnlock,
+  });
+  const serverClinicalTier = userData
+    ? effectiveClinicalTierFromProfile({
+        role: userData.role,
+        testRole: userData.testRole ?? null,
+      })
+    : 0;
+  const maxTierSelectable = Math.max(
+    certificationTier(maxSelectableRole),
+    serverClinicalTier
+  );
+
+  const isRoleSelectable = (cert: UserProfile["role"]) =>
+    certificationTier(cert) <= maxTierSelectable;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (value: string) => void) => {
     const file = e.target.files?.[0];
@@ -96,9 +129,42 @@ export default function SettingsPage() {
     }
 
     try {
+      const emtSave =
+        typeof values.emtProgramCompletedOn === "string" && values.emtProgramCompletedOn.trim() !== ""
+          ? values.emtProgramCompletedOn.trim()
+          : null;
+      const aemtSave =
+        typeof values.aemtProgramCompletedOn === "string" && values.aemtProgramCompletedOn.trim() !== ""
+          ? values.aemtProgramCompletedOn.trim()
+          : null;
+
+      const tierForm = certificationTier(values.role);
+      const tierServer = effectiveClinicalTierFromProfile({
+        role: userData.role,
+        testRole: userData.testRole ?? null,
+      });
+      const maxTierFromDates = certificationTier(
+        maxSelectableClinicalCertRole({
+          emtCompletedOn: emtSave ?? userData.emtProgramCompletedOn,
+          aemtCompletedOn: aemtSave ?? userData.aemtProgramCompletedOn,
+        })
+      );
+
+      if (tierForm > tierServer && tierForm > maxTierFromDates) {
+        toast({
+          variant: "destructive",
+          title: "Certification tier",
+          description:
+            "Add program completion dates (not in the future) before moving up to AEMT or Paramedic, or confirm your tier with support.",
+        });
+        return;
+      }
+
       const patch: Database['public']['Tables']['profiles']['Update'] = {
         display_name: values.displayName,
         photo_url: values.photoURL || null,
+        emt_program_completed_on: emtSave,
+        aemt_program_completed_on: aemtSave,
       };
 
       if (userData.role === 'tester') {
@@ -259,34 +325,87 @@ export default function SettingsPage() {
                   />
 
                   {showRoleSelector && (
-                    <FormField
-                      control={form.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{roleSelectorLabel}</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select your role" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="emt">EMT</SelectItem>
-                              <SelectItem value="aemt">AEMT</SelectItem>
-                              <SelectItem value="paramedic">Paramedic</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            {userData?.role === 'tester'
+                    <>
+                      <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+                        <div>
+                          <p className="text-sm font-medium">Program completion dates</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            You attest these dates accurately reflect when you finished each training program for
+                            the tier above EMT (not licensure verification). Dates cannot be in the future. AEMT becomes
+                            available after your EMT program date; Paramedic after your AEMT program date.
+                          </p>
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name="emtProgramCompletedOn"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>EMT program completed</FormLabel>
+                              <FormControl>
+                                <Input type="date" className="max-w-xs bg-background" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Unlock AEMT simulations after this date has passed or is today.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="aemtProgramCompletedOn"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>AEMT program completed</FormLabel>
+                              <FormControl>
+                                <Input type="date" className="max-w-xs bg-background" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Unlock Paramedic simulations after this date has passed or is today.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{roleSelectorLabel}</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select your role" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="emt">EMT</SelectItem>
+                                <SelectItem value="aemt" disabled={!isRoleSelectable("aemt")}>
+                                  AEMT
+                                </SelectItem>
+                                <SelectItem value="paramedic" disabled={!isRoleSelectable("paramedic")}>
+                                  Paramedic
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {userData?.role === "tester"
                                 ? "This role will be used when you run scenarios from the Tester Dashboard."
-                                : "This is your default role for simulations."
-                            }
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                                : "This is your default role for simulations."}{" "}
+                              {!isRoleSelectable("aemt") && (
+                                <span>Add a valid EMT completion date to choose AEMT.</span>
+                              )}
+                              {isRoleSelectable("aemt") && !isRoleSelectable("paramedic") && (
+                                <span>Add a valid AEMT completion date to choose Paramedic.</span>
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
                   )}
                 </>
               )}

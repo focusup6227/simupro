@@ -92,7 +92,7 @@ export default function ForgotPasswordPage() {
                   onChange={(e) => setEmail(e.target.value)} 
                 />
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading || !supabase}>
+              <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading || !supabase}>
                 {isLoading ? 'Sending Link...' : 'Send Reset Link'}
               </Button>
               <div className="text-center text-sm">

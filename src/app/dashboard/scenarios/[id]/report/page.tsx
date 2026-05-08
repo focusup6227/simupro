@@ -249,7 +249,7 @@ export default function ReportPage() {
   const isLoadingInsightsData = isLoadingInsights && !insight;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
+    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-8 p-4 md:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Simulation Report</h1>
@@ -313,7 +313,7 @@ export default function ReportPage() {
           </CardHeader>
           <CardContent>
             {isLoadingInsightsData ? <Skeleton className="h-[250px] w-full" /> : (
-                <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ChartContainer config={chartConfig} className="h-[250px] w-full min-w-0">
                 <BarChart accessibilityLayer data={chartData}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
@@ -490,6 +490,7 @@ export default function ReportPage() {
                     <Skeleton className="h-8 w-full" />
                 </div>
             ) : session?.actions && session.actions.length > 0 ? (
+                <div className="overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -506,13 +507,14 @@ export default function ReportPage() {
                         ))}
                     </TableBody>
                 </Table>
+                </div>
             ) : (
                 <p className="text-muted-foreground text-center p-8">No actions were logged for this session.</p>
             )}
         </CardContent>
       </Card>
 
-      <div className="flex justify-between gap-4" data-print-hide>
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4" data-print-hide>
         <Button variant="outline" onClick={() => router.push('/dashboard/scenarios')}>
             <RefreshCw className="mr-2" /> Try Another Scenario
         </Button>

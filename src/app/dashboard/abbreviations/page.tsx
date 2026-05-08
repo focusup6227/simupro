@@ -59,7 +59,7 @@ export default function AbbreviationsPage() {
             />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

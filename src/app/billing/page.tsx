@@ -12,6 +12,7 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpen,
+  Brain,
   CheckCircle2,
   HeartPulse,
   Lock,
@@ -47,6 +48,12 @@ const benefits = [
     title: 'Higher-Acuity Cases',
     description:
       'Premium is the home for our highest-acuity, multi-system, protocol-driven calls. Admins designate which scenarios are Premium-tier from the scenario library.',
+  },
+  {
+    icon: Brain,
+    title: 'ECG Trainer',
+    description:
+      'Unlimited rhythm drills with family filters and progress tracking in the dedicated ECG Trainer—independent of scenario runs.',
   },
   {
     icon: BookOpen,

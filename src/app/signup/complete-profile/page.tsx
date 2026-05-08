@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AppLogo from '@/components/app-logo';
 import { useUser, useSupabase } from '@/supabase/provider';
 import { useToast } from '@/hooks/use-toast';
-import type { UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { userToProfileInsert } from '@/lib/db-mappers';
 
@@ -28,8 +26,6 @@ export default function CompleteProfilePage() {
   const supabase = useSupabase();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
-
-  const [role, setRole] = useState<UserRole>('emt');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -68,7 +64,7 @@ export default function CompleteProfilePage() {
           email: user.email ?? '',
           displayName: dn,
           photoURL: photo,
-          role,
+          role: 'emt',
           isAdmin: false,
           hasCompletedTutorial: false,
         }),
@@ -120,27 +116,22 @@ export default function CompleteProfilePage() {
             <AppLogo />
           </div>
           <CardTitle className="text-3xl font-bold">Complete Your Profile</CardTitle>
-          <CardDescription>Welcome, {displayNameFromUser(user)}! Please select your role to continue.</CardDescription>
+          <CardDescription>
+            Welcome, {displayNameFromUser(user)}! Choose how you&apos;d like to start training.
+          </CardDescription>
         </CardHeader>
         <CardContent>
             <form onSubmit={handleProfileCompletion} className="space-y-6">
                 <div className="space-y-2">
-                    <Label htmlFor="role">Your Professional Role</Label>
-                    <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
-                        <SelectTrigger id="role">
-                        <SelectValue placeholder="Select your role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="emt">EMT</SelectItem>
-                            <SelectItem value="aemt">AEMT</SelectItem>
-                            <SelectItem value="paramedic">Paramedic</SelectItem>
-                        </SelectContent>
-                    </Select>
-                     <p className="text-sm text-muted-foreground pt-1">
-                        Please select your current certification level.
+                    <Label htmlFor="start-tier">Starting certification tier</Label>
+                    <p id="start-tier" className="text-sm text-muted-foreground">
+                      Your simulations start at <strong className="text-foreground">EMT</strong>. After signup, open{" "}
+                      <strong className="text-foreground">Dashboard → Settings</strong> to attest program completion dates
+                      and unlock <strong className="text-foreground">AEMT</strong> and{" "}
+                      <strong className="text-foreground">Paramedic</strong>.
                     </p>
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading}>
                     {isLoading ? 'Saving...' : 'Complete Sign Up'}
                 </Button>
             </form>

@@ -23,6 +23,7 @@ import {
   type GenerateRadioReportOutput,
 } from "@/ai/flows/generate-radio-report";
 import type { Scenario, UserAction, User, Insight } from '@/lib/types';
+import { applyDynamicPatientOutputGuards } from '@/lib/patient-response-guards';
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
 import { captureActionError } from "@/lib/observability";
@@ -67,7 +68,11 @@ export async function getPatientResponse(
 ): Promise<DynamicPatientResponseOutput> {
   const userId = await gateAi("getPatientResponse");
   try {
-    return await provideDynamicResponsesFlow(input);
+    const raw = await provideDynamicResponsesFlow(input);
+    return applyDynamicPatientOutputGuards(
+      { currentVitals: input.currentVitals, treatment: input.treatment },
+      raw,
+    );
   } catch (e) {
     rethrow("getPatientResponse", e, {
       userId,

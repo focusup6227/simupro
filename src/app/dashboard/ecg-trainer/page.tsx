@@ -361,7 +361,7 @@ export default function EcgTrainerPage() {
             What rhythm is this?
           </CardTitle>
           <CardDescription>
-            Three views: lead II, V1, and V5. Use Pause to freeze the strips (timed pause excluded from your score timing).
+            Three views: leads II, III, and aVF — same limb set as the scenario 4-lead monitor. Use Pause to freeze the strips (timed pause excluded from your score timing).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -377,20 +377,20 @@ export default function EcgTrainerPage() {
                 paused={stripPaused}
               />
               <LiveStrip
-                pid={`trainer-${question.rhythm}-v1`}
+                pid={`trainer-${question.rhythm}-iii`}
                 ctx={ctx}
                 tileW={tileW}
-                leadIdx={6}
-                leadLabel="V1"
+                leadIdx={2}
+                leadLabel="III"
                 height={90}
                 paused={stripPaused}
               />
               <LiveStrip
-                pid={`trainer-${question.rhythm}-v5`}
+                pid={`trainer-${question.rhythm}-avf`}
                 ctx={ctx}
                 tileW={tileW}
-                leadIdx={10}
-                leadLabel="V5"
+                leadIdx={5}
+                leadLabel="aVF"
                 height={90}
                 paused={stripPaused}
               />

@@ -106,6 +106,8 @@ export default function DemoPage() {
           treatment: treatment || "(none)",
           userRole: role,
           userActions: nextActions.slice(0, -1),
+          currentVitals,
+          patientCondition: [...messages].reverse().find((m) => m.role === "assistant")?.conditionChange,
         }),
       });
       const data: {
@@ -125,6 +127,7 @@ export default function DemoPage() {
         role: "assistant",
         content: data.patientResponse ?? "",
         vitals: data.vitals,
+        conditionChange: (data as { conditionChange?: string }).conditionChange,
       };
       setMessages((prev) => [...prev, assistantMsg]);
       if (data.vitals) setCurrentVitals(data.vitals);

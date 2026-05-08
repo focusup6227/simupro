@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isoDateOnlyNotAfterToday } from '@/lib/certification-attestation';
 import { ALL_ECG_RHYTHM_KINDS, type EcgRhythmKind } from '@/lib/ecg-rhythm';
 import { ACS_PATTERN_KINDS, type AcsPatternKind } from '@/lib/ecg-acs';
 
@@ -17,11 +18,41 @@ export type ArrestRhythmKind = (typeof ARREST_RHYTHM_KINDS)[number];
 
 export type UserRole = 'emt' | 'aemt' | 'paramedic' | 'admin' | 'tester' | 'student';
 
-export const UserProfileSchema = z.object({
-  displayName: z.string().min(2, "Display name must be at least 2 characters."),
-  photoURL: z.string().optional(),
-  role: z.enum(['emt', 'aemt', 'paramedic']),
-});
+const optionalCompactDateSchema = z.union([
+  z.literal(''),
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD.'),
+]);
+
+export const UserProfileSchema = z
+  .object({
+    displayName: z.string().min(2, "Display name must be at least 2 characters."),
+    photoURL: z.string().optional(),
+    role: z.enum(['emt', 'aemt', 'paramedic']),
+    emtProgramCompletedOn: optionalCompactDateSchema.optional(),
+    aemtProgramCompletedOn: optionalCompactDateSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    const emt = data.emtProgramCompletedOn ?? '';
+    const aemt = data.aemtProgramCompletedOn ?? '';
+    const emtProvided = emt !== '';
+    const aemtProvided = aemt !== '';
+
+    if (emtProvided && !isoDateOnlyNotAfterToday(emt)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Date cannot be in the future.',
+        path: ['emtProgramCompletedOn'],
+      });
+    }
+    if (aemtProvided && !isoDateOnlyNotAfterToday(aemt)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Date cannot be in the future.',
+        path: ['aemtProgramCompletedOn'],
+      });
+    }
+  });
+
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
 
@@ -44,8 +75,11 @@ export type User = {
   longestStreak?: number;
   lastTrainingActivityDate?: string | null;
   totalCompletedSimulations?: number;
+  /** User-attested EMT program completion (YYYY-MM-DD). */
+  emtProgramCompletedOn?: string | null;
+  /** User-attested AEMT program completion (YYYY-MM-DD). */
+  aemtProgramCompletedOn?: string | null;
 };
-
 const CertificationActionsSchema = z.object({
     emt: z.array(z.string()),
     aemt: z.array(z.string()),

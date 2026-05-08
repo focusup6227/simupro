@@ -13,11 +13,23 @@ import { ai } from '@/lib/genkit';
 import { z } from 'zod';
 import { UserActionSchema } from '@/lib/types';
 
+export const VitalSignsSchema = z.object({
+  hr: z.string().describe('Heart Rate (e.g., "88 bpm")'),
+  bp: z.string().describe('Blood Pressure (e.g., "120/80 mmHg")'),
+  rr: z.string().describe('Respiratory Rate (e.g., "16/min")'),
+  spo2: z.string().describe('Oxygen Saturation (e.g., "98%")'),
+  gcs: z.string().describe('Glasgow Coma Scale (e.g., "15")'),
+});
+
 export const DynamicPatientResponseInputSchema = z.object({
   scenario: z.string().describe('The initial setup and details of the simulation scenario.'),
   assessment: z.string().describe("The user's latest assessment action or question."),
   treatment: z.string().describe("The user's latest treatment action."),
   patientCondition: z.string().optional().describe("The patient's last known condition (e.g., 'stable', 'critical', 'improving')."),
+  /** Full vital signs BEFORE this turn — use for consistent state (pulse vs pulseless). */
+  currentVitals: VitalSignsSchema.optional().describe(
+    'The patient vital signs immediately before this action (previous step). Omit only on the first turn; use scenario initial vitals when unknown.'
+  ),
   userRole: z.string().describe("The certification level of the user (e.g., 'emt', 'aemt', 'paramedic')."),
   mandatoryActions: z.array(z.string()).describe('A list of mandatory actions for the current scenario and user role.'),
   userActions: z.array(UserActionSchema).describe('A log of all actions taken by the user so far.'),
@@ -25,14 +37,6 @@ export const DynamicPatientResponseInputSchema = z.object({
 });
 
 export type DynamicPatientResponseInput = z.infer<typeof DynamicPatientResponseInputSchema>;
-
-const VitalSignsSchema = z.object({
-    hr: z.string().describe('Heart Rate (e.g., "88 bpm")'),
-    bp: z.string().describe('Blood Pressure (e.g., "120/80 mmHg")'),
-    rr: z.string().describe('Respiratory Rate (e.g., "16/min")'),
-    spo2: z.string().describe('Oxygen Saturation (e.g., "98%")'),
-    gcs: z.string().describe('Glasgow Coma Scale (e.g., "15")'),
-});
 
 export const DynamicPatientResponseOutputSchema = z.object({
   patientResponse: z.string().describe("The patient's verbal and physical response to the user's action. This should be from the patient's perspective, e.g., 'I can't breathe!' or 'The patient groans.'"),
@@ -88,21 +92,38 @@ Your role is to act as the patient and the environment, responding realistically
 
 **Patient's Previous Condition:** {{{patientCondition}}}
 
+**Current Vital Signs (before this action):**
+{{#if currentVitals}}
+- HR: {{{currentVitals.hr}}}
+- BP: {{{currentVitals.bp}}}
+- RR: {{{currentVitals.rr}}}
+- SpO2: {{{currentVitals.spo2}}}
+- GCS: {{{currentVitals.gcs}}}
+{{else}}
+(First turn — infer initial vitals from the scenario only.)
+{{/if}}
+
 **Your Task:**
 Based on the scenario, the user's role, the history of actions, and the latest action, generate the next state of the simulation.
 
+**Clinical reasoning (must follow):**
+- **Causal discipline:** Do not switch a patient from **perfusing** to **pulseless** solely because the user clicked an intervention. State changes must follow from assessment findings, time progression, pathology, or treatments with **known physiologic effects**—not from UI choices alone.
+- **Inappropriate CPR:** If **Current Vital Signs** and the scenario support a **palpable circulation / perfusing blood pressure** (non-trivial BP, organized rate) and the patient is **not** already in cardiac arrest, initiating CPR is an **error**. Describe **pain, confusion, resistance, rib injury risk, or bystander alarm**—do **not** set \`arrestRhythm\` and do **not** declare VF/asystole. Keep vitals consistent with a **live, perfusing** patient unless a **separate** credible event occurs (e.g., actual loss of pulse after a believable delay).
+- **Arrest rhythms (\`arrestRhythm\`):** Set **only** when the patient is **actually pulseless** in-universe (scenario started in arrest, or you have established pulselessness through vitals/narrative over time). Wrong treatment on a stable patient must **not** automatically produce VF, asystole, or PEA.
+- **Patient demise (\`patientIsDeceased\`):** Use **sparingly**—only after prolonged refractory arrest, unsurvivable injury, or untreated lethal trajectory **over multiple turns**. Do not kill the patient as a shortcut penalty for one mistake.
+
 1.  **Patient Response:** Formulate a direct response from the patient or a description of their physical reaction. Be realistic. If the user asks a question, answer it from the patient's perspective. If they perform a treatment, describe how the patient reacts.
-2.  **Update Vitals:** Determine the new set of vital signs. The vitals should change logically based on the scenario's progression and the effectiveness (or ineffectiveness) of the user's actions. For example, if a patient is bleeding and no treatment is given, their blood pressure should drop and heart rate should increase. If a user administers oxygen for hypoxia, the SpO2 should improve.
+2.  **Update Vitals:** Determine the new set of vital signs. The vitals should change logically based on the scenario's progression and the effectiveness (or ineffectiveness) of the user's actions. For example, if a patient is bleeding and no treatment is given, their blood pressure should drop and heart rate should increase. If a user administers oxygen for hypoxia, the SpO2 should improve. When **Current Vital Signs** are provided, the new vitals must be **physiologically continuous** with them unless you narrate a clear new event.
 3.  **Condition Change:** Provide a concise, one-sentence summary of the patient's new overall condition.
 4.  **Special Responses:**
     - If the assessment includes a request for 'medical direction', provide a realistic response from a doctor in the 'medicalDirection' field.
-    - If the assessment includes 'Gave the following radio report:', provide a brief acknowledgment from the hospital in the 'hospitalResponse' field (e.g., 'Copy that, we'll be ready.').
+    - If the assessment includes 'Gave the following radio report:', provide a brief acknowledgment from the receiving hospital in the 'hospitalResponse' field (e.g., 'Copy that, we'll be ready.').
     - If the assessment includes an 'ECG' request (e.g., '4-lead ECG', '12-lead ECG', or 'ECG reading'), you MUST include the ECG rhythm:
       - Put the clinician-style ECG interpretation (rhythm + rate + brief significance) in 'medicalDirection'.
     - Also set 'conditionChange' to a concise one-sentence summary that begins with "ECG rhythm: ..." so it shows in the UI even if medicalDirection isn't displayed.
-5.  **Patient Demise:** If the patient's condition deteriorates to a point of being non-survivable due to the underlying pathology or user error, set 'patientIsDeceased' to true.
+5.  **Patient Demise:** If the patient's condition deteriorates to a point of being non-survivable due to the underlying pathology or user error **over a credible timeline**, set 'patientIsDeceased' to true.
 
-6.  **Cardiac Arrest Modeling — pick the right rhythm.** Whenever the patient is pulseless, you MUST set 'arrestRhythm' to one of {{vfib}}, {{pulseless_vt}}, {{pea}}, {{asystole}} chosen from the underlying cause:
+6.  **Cardiac Arrest Modeling — pick the right rhythm** (only when the patient is pulseless in the simulation). Whenever the patient is pulseless, you MUST set \`arrestRhythm\` to one of **vfib**, **pulseless_vt**, **pea**, or **asystole** chosen from the underlying cause:
     - Acute MI / ischemia / primary electrical event (long QT, WPW, R-on-T) → start with **vfib** or **pulseless_vt**; without timely defibrillation it degrades to asystole.
     - Hypoxia / respiratory failure / drowning / asthma / smoke inhalation → bradyasystolic **pea** or **asystole**.
     - PE / cardiac tamponade / tension pneumothorax / hypovolemia / hyperkalemia / acidosis → **pea** (the H's & T's).

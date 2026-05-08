@@ -649,12 +649,14 @@ export default function SimulationPage() {
       const lastAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0];
       const userRole = currentUserRole;
       const mandatoryActionsForRole = scenario.mandatoryActions[userRole as keyof typeof scenario.mandatoryActions] || [];
+      const priorVitals = currentVitals ?? scenario.initialVitals;
 
       const response = await getPatientResponse({
         scenario: scenario.details,
         assessment: assessmentText,
         treatment: treatmentsArray.join(', '),
         patientCondition: lastAssistantMessage?.conditionChange,
+        currentVitals: priorVitals,
         userRole: userRole,
         mandatoryActions: mandatoryActionsForRole,
         userActions: updatedUserActions,
@@ -671,6 +673,14 @@ export default function SimulationPage() {
         conditionChange: response.conditionChange
       };
 
+      if (response.arrestRhythm) {
+        assistantMessage.arrestRhythm = response.arrestRhythm;
+        assistantMessage.arrestRhythmRationale = response.arrestRhythmRationale;
+      }
+      if (response.patientIsDeceased) {
+        assistantMessage.patientIsDeceased = true;
+      }
+
       if (response.medicalDirection) {
         assistantMessage.content = response.medicalDirection;
       }
@@ -685,6 +695,13 @@ export default function SimulationPage() {
 
       setMessages(updatedMessages);
       setCurrentVitals(newVitals);
+
+      if (response.patientIsDeceased) {
+        toast({
+          title: 'Critical outcome',
+          description: 'The simulation marked the patient as deceased. End the run when you are ready.',
+        });
+      }
 
     } catch (error) {
       console.error(error);
@@ -704,7 +721,7 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted]);
+  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, currentVitals]);
 
   /**
    * Logs a cardiac monitor / ECG action into the user-action log so it counts
@@ -933,7 +950,7 @@ export default function SimulationPage() {
 
 
   return (
-    <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-100px)]">
+    <div className="relative grid max-lg:h-auto max-lg:min-h-0 gap-4 sm:gap-6 lg:h-[calc(100vh-100px)] lg:grid-cols-3">
       {/* Pause Overlay */}
       {isPaused && (
         <div className="absolute inset-0 bg-black/70 z-50 flex flex-col items-center justify-center">
@@ -1024,14 +1041,20 @@ export default function SimulationPage() {
                       <BookOpen className="mr-2" /> User Guide
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-3xl" onInteractOutside={() => setIsPaused(false)} onCloseAutoFocus={() => setIsPaused(false)}>
-                    <DialogHeader>
+                  <DialogContent
+                    className="flex max-h-[min(92dvh,800px)] flex-col gap-2 overflow-hidden sm:max-w-3xl"
+                    onInteractOutside={() => setIsPaused(false)}
+                    onCloseAutoFocus={() => setIsPaused(false)}
+                  >
+                    <DialogHeader className="shrink-0">
                       <DialogTitle>User Guide</DialogTitle>
                       <DialogDescription>
                         A complete guide to using the EMS Simu-Pro application.
                       </DialogDescription>
                     </DialogHeader>
-                    <UserGuide />
+                    <div className="min-h-0 min-w-0 flex-1">
+                      <UserGuide />
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -1041,7 +1064,7 @@ export default function SimulationPage() {
                         <AlertCircle className="mr-2" /> Report Issue
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[min(92dvh,800px)] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Report an Issue</DialogTitle>
                         <DialogDescription>
@@ -1116,7 +1139,7 @@ export default function SimulationPage() {
         <div
           ref={simulationLogScrollRef}
           onScroll={onSimulationLogScroll}
-          className="max-h-[min(52vh,26rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
+          className="max-h-[min(38dvh,24rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(52vh,26rem)]"
         >
           <div className="space-y-4">
             {messages.map((message, index) => (
@@ -1147,29 +1170,39 @@ export default function SimulationPage() {
               activeTab === "destination" ? "min-h-0 flex-1" : "shrink-0",
             )}
           >
-            <TabsList className={cn("grid w-full shrink-0", showCardiacArrestTab ? "grid-cols-1" : "grid-cols-4")}>
+            <TabsList
+              className={cn(
+                "h-auto min-h-10 w-full max-w-full shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:thin]",
+                showCardiacArrestTab ? "inline-flex" : "flex",
+              )}
+            >
               {showCardiacArrestTab ? (
-                 <TabsTrigger value="cardiacArrest">
-                    <Zap className="mr-0 sm:mr-2 h-4 w-4" />
+                 <TabsTrigger value="cardiacArrest" className="min-h-9 shrink-0">
+                    <Zap className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Cardiac Arrest</span>
+                    <span className="sm:hidden">Arrest</span>
                 </TabsTrigger>
               ) : (
                 <>
-                  <TabsTrigger value="assessment">
-                    <AlertCircle className="mr-0 sm:mr-2 h-4 w-4" />
+                  <TabsTrigger value="assessment" className="min-h-9 shrink-0 px-2.5 sm:px-3">
+                    <AlertCircle className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Assessment</span>
+                    <span className="sm:hidden">Assess</span>
                   </TabsTrigger>
-                  <TabsTrigger value="treatment">
-                    <Syringe className="mr-0 sm:mr-2 h-4 w-4" />
+                  <TabsTrigger value="treatment" className="min-h-9 shrink-0 px-2.5 sm:px-3">
+                    <Syringe className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Treatment</span>
+                    <span className="sm:hidden">Tx</span>
                   </TabsTrigger>
-                  <TabsTrigger value="destination">
-                    <Hospital className="mr-0 sm:mr-2 h-4 w-4" />
+                  <TabsTrigger value="destination" className="min-h-9 shrink-0 px-2.5 sm:px-3">
+                    <Hospital className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Destination</span>
+                    <span className="sm:hidden">Dest</span>
                   </TabsTrigger>
-                  <TabsTrigger value="radioReport">
-                    <MessageSquare className="mr-0 sm:mr-2 h-4 w-4" />
+                  <TabsTrigger value="radioReport" className="min-h-9 shrink-0 px-2.5 sm:px-3">
+                    <MessageSquare className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Comms</span>
+                    <span className="sm:hidden">Comm</span>
                   </TabsTrigger>
                 </>
               )}

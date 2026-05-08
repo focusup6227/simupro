@@ -13,7 +13,7 @@ export default function LegalPageShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background">
       <header className="container mx-auto flex h-20 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" aria-label="Back to home">
           <AppLogo />
@@ -27,7 +27,7 @@ export default function LegalPageShell({
       </header>
 
       <main className="flex-1">
-        <article className="container mx-auto max-w-3xl px-4 py-10 sm:py-14 lg:px-8">
+        <article className="container mx-auto max-w-3xl px-3 py-8 sm:px-4 sm:py-14 lg:px-8">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">Last updated: {lastUpdated}</p>
           <div className="legal-content mt-8 space-y-6 text-base leading-relaxed text-foreground/90">
@@ -40,9 +40,9 @@ export default function LegalPageShell({
         <div className="container mx-auto flex flex-col gap-2 px-4 py-6 text-center text-sm text-muted-foreground sm:flex-row sm:justify-between sm:gap-4 sm:text-left lg:px-8">
           <p>&copy; {new Date().getFullYear()} SimuPro. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 sm:justify-end">
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/terms" className="hover:text-foreground">Terms</Link>
-            <Link href="/refund-policy" className="hover:text-foreground">Refund Policy</Link>
+            <Link href="/privacy" className="inline-block py-1.5 hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="inline-block py-1.5 hover:text-foreground">Terms</Link>
+            <Link href="/refund-policy" className="inline-block py-1.5 hover:text-foreground">Refund Policy</Link>
           </div>
         </div>
       </footer>

@@ -287,7 +287,7 @@ export default function ScenariosPage() {
         )}
 
         <Card>
-          <CardContent className="p-4 flex flex-col md:flex-row gap-4">
+          <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:flex-wrap">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input

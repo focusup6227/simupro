@@ -178,14 +178,16 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </SidebarMenuButton>
                   </DialogTrigger>
                 </SidebarMenuItem>
-                <DialogContent className="sm:max-w-3xl">
-                    <DialogHeader>
+                <DialogContent className="flex max-h-[min(92dvh,800px)] flex-col gap-2 overflow-hidden p-4 sm:max-w-3xl sm:p-6">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>User Guide</DialogTitle>
                         <DialogDescription>
                             A complete guide to using the EMS Simu-Pro application.
                         </DialogDescription>
                     </DialogHeader>
+                    <div className="min-h-0 min-w-0 flex-1">
                     <UserGuide />
+                    </div>
                 </DialogContent>
             </Dialog>
           </SidebarMenu>
@@ -242,14 +244,16 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     </SidebarMenuButton>
                   </DialogTrigger>
                 </SidebarMenuItem>
-                <DialogContent>
-                    <DialogHeader>
+                <DialogContent className="flex max-h-[min(92dvh,800px)] flex-col gap-2 overflow-hidden p-4 sm:max-w-lg sm:p-6">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>Contact Support</DialogTitle>
                         <DialogDescription>
                             Have a question or need help? Fill out the form below and we&apos;ll get back to you.
                         </DialogDescription>
                     </DialogHeader>
-                    <SupportForm onSubmitted={() => setSupportDialogOpen(false)} />
+                    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                      <SupportForm onSubmitted={() => setSupportDialogOpen(false)} />
+                    </div>
                 </DialogContent>
             </Dialog>
             <Dialog open={featureRequestOpen} onOpenChange={setFeatureRequestOpen}>
@@ -261,35 +265,37 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                   </SidebarMenuButton>
                 </DialogTrigger>
               </SidebarMenuItem>
-              <DialogContent>
-                <DialogHeader>
+              <DialogContent className="flex max-h-[min(92dvh,800px)] flex-col gap-2 overflow-hidden p-4 sm:max-w-lg sm:p-6">
+                <DialogHeader className="shrink-0">
                   <DialogTitle>Suggest a feature</DialogTitle>
                   <DialogDescription>
                     Tell us what would make SimuPro more useful for you and your crews. We read every submission.
                   </DialogDescription>
                 </DialogHeader>
-                <FeatureRequestForm onSubmitted={() => setFeatureRequestOpen(false)} />
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                  <FeatureRequestForm onSubmitted={() => setFeatureRequestOpen(false)} />
+                </div>
               </DialogContent>
             </Dialog>
            </SidebarMenu>
            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-3 pb-1 text-[11px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden">
-             <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-             <Link href="/terms" className="hover:text-foreground">Terms</Link>
-             <Link href="/refund-policy" className="hover:text-foreground">Refund</Link>
+             <Link href="/privacy" className="inline-block py-1.5 hover:text-foreground">Privacy</Link>
+             <Link href="/terms" className="inline-block py-1.5 hover:text-foreground">Terms</Link>
+             <Link href="/refund-policy" className="inline-block py-1.5 hover:text-foreground">Refund</Link>
            </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="flex items-center justify-between p-4 border-b">
+      <SidebarInset className="min-w-0 overflow-x-hidden">
+        <header className="flex min-h-14 items-center justify-between gap-2 border-b px-3 py-2 sm:min-h-16 sm:px-4">
           <div className="md:hidden">
             <SidebarTrigger />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             {/* Can add breadcrumbs or page title here */}
           </div>
           <UserNav />
         </header>
-        <main id="main-content" className="p-4 md:p-6 lg:p-8">{children}</main>
+        <main id="main-content" className="min-h-0 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
