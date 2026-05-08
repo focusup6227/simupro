@@ -41,6 +41,10 @@ const nextConfig = {
       bodySizeLimit: "10mb",
       workerThreads: true,
     },
+    // Genkit pulls in @opentelemetry/sdk-node, which optionally requires
+    // @opentelemetry/exporter-jaeger. Webpack resolves that require at build
+    // time even though it's never used unless OTEL_TRACES_EXPORTER=jaeger.
+    serverComponentsExternalPackages: ["@opentelemetry/sdk-node"],
   },
   typescript: {
     ignoreBuildErrors: true,
