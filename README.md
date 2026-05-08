@@ -11,7 +11,9 @@
 
 | Area | What you’ll find |
 |------|-------------------|
-| **Scenarios** | Structured simulation runs with branching flow, session narratives, and post-run **reports** |
+| **Scenarios** | Structured simulation runs with branching flow, session narratives, vitals on a unified cardiac monitor, optional cardiac-arrest workflows, and post-run **reports** |
+| **Physiology simulation** | Layered model: **AI baseline vitals** plus optional deterministic engines—**pharmacokinetics / PD** (drug-induced deltas), **autonomic / volume** (fluids, hemorrhage, oxygenation reflexes, decompensation phase), and optional **metabolic / labs** (feature-flagged). Event logs in Postgres enable grading replay. |
+| **Scenario authoring** | Admins edit scenarios (including **comorbidities**, **autonomic seed**, pediatrics/weight/ICP-style fields) via **`/dashboard/admin/scenarios`**. |
 | **Demo** | Try the experience **without signing up** (`/demo`) |
 | **Dashboard** | Overview, scenarios list, performance, guide, abbreviations, account **settings** |
 | **ECG trainer** | Dedicated rhythm / waveform practice (`/dashboard/ecg-trainer`) |
@@ -21,29 +23,40 @@
 
 Landing copy summarizes the product (**AI-powered EMS training**, demo, Premium); see **`src/app/page.tsx`** (route `/`).
 
+### Developer note: simulation layers
+
+Runtime behavior is controlled by compile-time flags in **`src/lib/feature-flags.ts`** (e.g. PK/autonomic on by default; metabolic MVP off until you enable it). Vitals on the monitor merge **physiology-store baseline → PK deltas → autonomic deltas** (and metabolic when enabled). The **grade-session** Supabase Edge function can replay **PK** and **autonomic** (and **metabolic** when wired) for attribution at user-action timestamps.
+
 ## Technical stack
 
 - **Framework:** Next.js 14 (App Router), React 18, TypeScript  
 - **Data & auth:** Supabase (**Postgres**, **Auth**, **RLS**) via `@supabase/ssr` and `@supabase/supabase-js`  
 - **AI:** **Genkit** + Google Gemini (`GEMINI_API_KEY` / Genkit conventions)  
+- **State:** Zustand for in-simulation stores (physiology, PK, autonomic, metabolic)  
+- **Tests:** Vitest (`npm test`, `npm run typecheck`)  
 - **Payments:** Stripe (secret key, price, webhook)  
 - **Observability & quality:** Sentry (`@sentry/nextjs`), optional **PWA** via `@ducanh2912/next-pwa`  
 - **Infra accents:** Optional **Upstash** rate limiting (**Redis**) where configured  
 
 ## Quick start (local development)
 
-1. Copy `.env.example` to `.env.local` and fill in required keys (Supabase URLs/keys, `GEMINI_API_KEY`, and Stripe if you test billing).  
+1. Copy **`.env.example`** to **`.env.local`** and fill in required keys (Supabase URLs/keys, `GEMINI_API_KEY`, and Stripe if you test billing).  
 2. Install dependencies: `npm install`  
 3. Start the dev server: `npm run dev`  
 
 ## Database migrations
 
-Schema and RLS live under `supabase/migrations/`. Notable entry points:
+Schema and RLS live under **`supabase/migrations/`**. Apply with your Supabase workflow (`supabase db push`, linked project, or CI).
 
-- Initial schema + RLS: `supabase/migrations/20260506000000_initial_schema.sql`  
-- Profile auto-create on signup: `supabase/migrations/20260507010000_profiles_autocreate_on_signup.sql`  
+Noteworthy additions beyond the initial schema:
 
-Apply with your Supabase workflow (`supabase db push`, linked project, or your team’s process).
+| Migration area | Examples |
+|----------------|----------|
+| Profiles / premium | `20260507010000_profiles_autocreate_on_signup.sql`, premium fields |
+| Scenarios | Comorbidities, **autonomic_profile**, physiology extensions (weight, age band, ICP), age-band checks |
+| Simulation logs | **`simulation_pk_doses`**, **`simulation_autonomic_events`** — `session_id` is **`text`** to match **`simulation_sessions.id`** |
+
+Regenerate **`src/lib/supabase/database.types.ts`** when your remote schema changes (`supabase gen types` or your team’s process).
 
 ## Optional: legacy data import (Firebase → Supabase)
 
@@ -68,4 +81,6 @@ To migrate historical Firebase Auth + Firestore data into Supabase:
 | `npm run start` | Run production server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm test` | Vitest unit tests |
+| `npm run test:watch` | Vitest watch mode |
 | `npm run migrate:firebase` | One-off Firebase → Supabase migration |
