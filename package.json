@@ -61,6 +61,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.35",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@types/micro": "^10.0.0",
     "@types/node": "^20",

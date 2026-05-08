@@ -86,27 +86,13 @@
   }
 }
 
-@keyframes ecg-strip-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(-1 * var(--ecg-tile-w, 200px)));
-  }
-}
-
-.ecg-roll-track {
-  animation-name: ecg-strip-scroll;
-  animation-iteration-count: infinite;
-  will-change: transform;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ecg-roll-track {
-    animation: none !important;
-    transform: translateX(0) !important;
-  }
-}
+/*
+ * Live ECG sweep is driven by requestAnimationFrame inside `LiveStrip`, which
+ * mutates the SVG `x` / `transform` attributes directly. CSS animations on
+ * SVG elements that live *inside* a `<clipPath>` are unreliable across
+ * browsers (the clip region can be cached at definition time), so JS-driven
+ * attribute mutation is the safe path. Reduced-motion is honoured in JS too.
+ */
 
 @media print {
   @page {

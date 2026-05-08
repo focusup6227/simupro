@@ -33,7 +33,8 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  // `standalone` is for Docker/SSH hosts; Vercel expects the default Next.js output.
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
   experimental: {
     optimizePackageImports: ["lucide-react"],
     serverActions: {

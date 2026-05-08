@@ -29,7 +29,6 @@ export function commitBatchUpsertNonBlocking(
   if (!client || rows.length === 0) return;
   void client
     .from(table)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .upsert(rows as any, { onConflict: 'id' })
     .then(({ error }: { error: PostgrestError | null }) =>
       onFailure(`${String(table)}:batch`, 'write', error, { rows: rows.length })
@@ -45,7 +44,6 @@ export function upsertDocumentNonBlocking(
   if (!client) return;
   void client
     .from(table)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .upsert(row as any, { onConflict: 'id' })
     .then(({ error }: { error: PostgrestError | null }) =>
       onFailure(`${String(table)}/${String(row.id)}`, 'write', error, row)
@@ -62,7 +60,6 @@ export function updateDocumentNonBlocking(
   if (!client) return;
   void client
     .from(table)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(patch as any)
     .eq('id', id)
     .then(({ error }: { error: PostgrestError | null }) =>

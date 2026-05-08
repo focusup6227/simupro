@@ -84,6 +84,31 @@ function uid() {
   return `ecg-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Live-monitor sweep speed in millimeters per second. The 12-lead paper
+ * printout runs at the standard 25 mm/s, but the *live* 4-lead view sweeps
+ * slower so the trace is easier to read while a rhythm develops.
+ *
+ * 1 small grid square = ECG_SMALL_SQ_MS (40 ms) horizontally = 1 mm at the
+ * paper-speed reference, so px-per-mm = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL.
+ */
+const LIVE_SWEEP_MM_PER_SEC = 8;
+
+/**
+ * Fixed horizontal time window on the live 4-lead strip. Faster rhythms pack
+ * more beats into this window; sweep speed in mm/s stays constant across HR.
+ */
+const LIVE_STRIP_WINDOW_MS = 8000;
+
+const LIVE_STRIP_VIEWPORT_PX = LIVE_STRIP_WINDOW_MS / ECG_MS_PER_PIXEL;
+
+/** One full sweep: cursor traverses the viewport at `LIVE_SWEEP_MM_PER_SEC`. */
+function sweepDurationSec(viewportPx: number): number {
+  const pxPerMm = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL;
+  const seconds = viewportPx / (LIVE_SWEEP_MM_PER_SEC * pxPerMm);
+  return Math.max(0.55, seconds);
+}
+
 const FOUR_LEAD: ReadonlyArray<readonly [number, string]> = [
   [1, 'II'],
   [2, 'III'],
@@ -138,9 +163,24 @@ export function EcgMonitor({
   const [acquisitions, setAcquisitions] = useState<EcgAcquisition[]>([]);
   const [enlargedId, setEnlargedId] = useState<string | null>(null);
 
+  // Tracks when the live monitor (and thus its sweep cursor) started so
+  // `captureOffset` can produce a phase that aligns the saved tracing's
+  // starting point with where the cursor was when the user clicked snapshot.
+  const monitorStartTimeRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (mode !== 'off' && monitorStartTimeRef.current === null) {
+      monitorStartTimeRef.current = Date.now();
+    } else if (mode === 'off') {
+      monitorStartTimeRef.current = null;
+    }
+  }, [mode]);
+
   const captureOffset = () => {
-    const raw = Math.abs(Date.now() / ECG_MS_PER_PIXEL);
-    return raw - Math.floor(raw / tileW) * tileW;
+    const start = monitorStartTimeRef.current ?? Date.now();
+    const cycleMs = sweepDurationSec(LIVE_STRIP_VIEWPORT_PX) * 1000;
+    const elapsed = Date.now() - start;
+    const phaseMs = ((elapsed % cycleMs) + cycleMs) % cycleMs;
+    return (phaseMs / cycleMs) * LIVE_STRIP_VIEWPORT_PX;
   };
 
   const applyFourLead = () => {
@@ -181,8 +221,6 @@ export function EcgMonitor({
     : null;
   const latestPrintout = acquisitions.find((a) => a.kind === 'twelve-lead');
 
-  const showFlags = mode !== 'off' && ctx.flags.length > 0;
-
   return (
     <Card className="border-zinc-700/40 bg-gradient-to-b from-card to-zinc-950/40">
       <CardHeader className="pb-2">
@@ -193,22 +231,10 @@ export function EcgMonitor({
           </CardTitle>
           {mode !== 'off' && (
             <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] font-medium text-zinc-200">
-              {ctx.label}
+              {mode === 'twelve_lead' ? '12-lead' : '4-lead'}
             </span>
           )}
         </div>
-        {showFlags ? (
-          <div className="flex flex-wrap gap-1 pt-1">
-            {ctx.flags.map((flag) => (
-              <span
-                key={flag}
-                className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300"
-              >
-                {flag}
-              </span>
-            ))}
-          </div>
-        ) : null}
         <CardDescription className="pt-1 text-xs leading-relaxed">
           {mode === 'off'
             ? 'Apply a 4-lead monitor or acquire a 12-lead ECG.'
@@ -291,7 +317,7 @@ export function EcgMonitor({
         open={enlarged !== null}
         onOpenChange={(open) => !open && setEnlargedId(null)}
       >
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto sm:max-w-[min(100vw-2rem,56rem)]">
           <DialogHeader>
             <DialogTitle>
               {enlarged?.kind === 'twelve-lead'
@@ -300,10 +326,7 @@ export function EcgMonitor({
             </DialogTitle>
             <DialogDescription>
               {enlarged ? (
-                <>
-                  Acquired {enlarged.takenAt.toLocaleTimeString()} ·{' '}
-                  {enlarged.ctx.label}
-                </>
+                <>Acquired {enlarged.takenAt.toLocaleTimeString()}</>
               ) : null}
             </DialogDescription>
           </DialogHeader>
@@ -312,18 +335,6 @@ export function EcgMonitor({
           )}
           {enlarged?.kind === 'rhythm-strip' && (
             <RhythmStripPaper ac={enlarged} />
-          )}
-          {enlarged && enlarged.ctx.flags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {enlarged.ctx.flags.map((flag) => (
-                <span
-                  key={flag}
-                  className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
-                >
-                  {flag}
-                </span>
-              ))}
-            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -410,46 +421,123 @@ export function LiveStrip({
   leadIdx: number;
   leadLabel: string;
   height: number;
-  /** Freezes the scrolling trace (e.g. rhythm quiz pause). */
+  /** Freezes the sweep cursor (e.g. rhythm quiz pause). */
   paused?: boolean;
 }) {
   const midY = height * 0.5;
   const vScale = 0.55;
 
   const pathD = useMemo(
-    () => buildLiveStripPath({ tileW, ctx, leadIdx, midY, vScale }),
+    () =>
+      buildLiveStripPath({
+        pathWidthPx: LIVE_STRIP_VIEWPORT_PX,
+        tileW,
+        ctx,
+        leadIdx,
+        midY,
+        vScale,
+      }),
     [tileW, ctx, leadIdx, midY, vScale],
   );
 
-  const durationSec =
-    ctx.kind === 'vfib'
-      ? (tileW * ECG_MS_PER_PIXEL) / 1100
-      : ctx.kind === 'asystole'
-        ? (tileW * ECG_MS_PER_PIXEL) / 4200
-        : (tileW * ECG_MS_PER_PIXEL) / 1000;
+  // Double-buffered "previous-sweep" trace. While the cursor sweeps, the area
+  // to the right of the cursor keeps showing this older path so a rhythm
+  // change is revealed naturally as the cursor passes (new trace fills in on
+  // the left; old trace lingers on the right). On each cursor wrap we promote
+  // the current path to be the next sweep's previous.
+  const [prevPathD, setPrevPathD] = useState(pathD);
+  const pathDRef = useRef(pathD);
+  pathDRef.current = pathD;
 
-  const stroke =
-    ctx.kind === 'asystole'
-      ? 'stroke-neutral-500/45'
-      : ctx.kind === 'vfib'
-        ? 'stroke-amber-400'
-        : ctx.kind === 'pea'
-          ? 'stroke-yellow-300'
-          : ctx.kind === 'vt'
-            ? 'stroke-orange-400'
-            : 'stroke-[#39ff9d]';
+  const durationSec = sweepDurationSec(LIVE_STRIP_VIEWPORT_PX);
 
-  const trackStyle = {
-    '--ecg-tile-w': `${tileW}px`,
-    animationDuration: `${Math.max(0.55, durationSec).toFixed(2)}s`,
-    animationPlayState: paused ? ('paused' as const) : ('running' as const),
-  } as CSSProperties;
+  // Refs the rAF loop reads / mutates without triggering re-renders.
+  const viewWRef = useRef(LIVE_STRIP_VIEWPORT_PX);
+  viewWRef.current = LIVE_STRIP_VIEWPORT_PX;
+  const cycleMsRef = useRef(durationSec * 1000);
+  cycleMsRef.current = durationSec * 1000;
+
+  const cursorGRef = useRef<SVGGElement | null>(null);
+  const revealRectRef = useRef<SVGRectElement | null>(null);
+  const eraseRectRef = useRef<SVGRectElement | null>(null);
+
+  const phaseRef = useRef(0); // [0, 1) sweep position, preserved across pauses + cycle changes
+  const lastFrameRef = useRef<number | null>(null);
+
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (paused || reduceMotion) {
+      lastFrameRef.current = null;
+      return;
+    }
+
+    let rafId = 0;
+    const tick = () => {
+      const now = performance.now();
+      const last = lastFrameRef.current ?? now;
+      lastFrameRef.current = now;
+      const dt = now - last;
+      const cycle = Math.max(1, cycleMsRef.current);
+      let next = phaseRef.current + dt / cycle;
+      let wrapped = false;
+      while (next >= 1) {
+        next -= 1;
+        wrapped = true;
+      }
+      phaseRef.current = next;
+
+      const vw = viewWRef.current;
+      const sweepX = next * vw;
+
+      const cursorEl = cursorGRef.current;
+      if (cursorEl) {
+        cursorEl.setAttribute('transform', `translate(${sweepX.toFixed(2)} 0)`);
+      }
+      const revealEl = revealRectRef.current;
+      if (revealEl) {
+        revealEl.setAttribute('x', (sweepX - vw).toFixed(2));
+      }
+      const eraseEl = eraseRectRef.current;
+      if (eraseEl) {
+        eraseEl.setAttribute('x', sweepX.toFixed(2));
+      }
+
+      if (wrapped) {
+        setPrevPathD(pathDRef.current);
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [paused, reduceMotion]);
+
+  const stroke = 'stroke-[#39ff9d]';
 
   const minorCell = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL;
   const majorCell = ECG_LARGE_SQ_MS / ECG_MS_PER_PIXEL;
   const gridMin = `${pid}-min`;
   const gridMaj = `${pid}-maj`;
-  const viewW = tileW * 2;
+  const revealClipId = `${pid}-reveal`;
+  const eraseClipId = `${pid}-erase`;
+  const viewW = LIVE_STRIP_VIEWPORT_PX;
+  // Small blanking gap travels just ahead of the cursor so the eye can see
+  // the leading edge even on stable rhythms (where prev/curr look identical).
+  const cursorGapPx = Math.max(6, Math.min(14, viewW * 0.025));
+
+  // Initial sweep state (pre-rAF): cursor at left, reveal-clip off-screen left
+  // (current path hidden), erase-clip at home (previous path fully visible).
+  // Since prev === curr at mount, the viewer sees a fully-painted trace.
+  const initialSweepX = phaseRef.current * viewW;
 
   return (
     <div className="relative overflow-hidden rounded border border-zinc-700/80 bg-[#0d0f0d] shadow-inner">
@@ -492,8 +580,34 @@ export function LiveStrip({
               strokeWidth={0.7}
             />
           </pattern>
+          {/*
+            Reveal clip: viewport-wide rect whose `x` is mutated by rAF from
+            `-viewW` to `0`. Intersection with [0, viewW] is [0, sweepX] —
+            region behind the cursor that exposes the current trace.
+          */}
+          <clipPath id={revealClipId}>
+            <rect
+              ref={revealRectRef}
+              x={initialSweepX - viewW}
+              y={0}
+              width={viewW}
+              height={height}
+            />
+          </clipPath>
+          {/*
+            Erase clip: advances x from `0` to `viewW`. Intersection with the
+            viewport is [sweepX, viewW] — ahead of the cursor, previous trace.
+          */}
+          <clipPath id={eraseClipId}>
+            <rect
+              ref={eraseRectRef}
+              x={initialSweepX}
+              y={0}
+              width={viewW}
+              height={height}
+            />
+          </clipPath>
         </defs>
-        {/* Static backdrop: grid + isoelectric line stay put while the trace sweeps. */}
         <rect width={viewW} height={height} fill={`url(#${gridMin})`} />
         <rect width={viewW} height={height} fill={`url(#${gridMaj})`} />
         <line
@@ -504,16 +618,12 @@ export function LiveStrip({
           className="stroke-zinc-600/40"
           strokeWidth={0.5}
         />
+
         {/*
-          Path is painted over [0, 3*tileW]; viewport is 2*tileW wide; animation
-          translates by -tileW. So the visible region traverses [0..2tW] →
-          [tW..3tW] with no blank tail, and snaps back seamlessly because the
-          waveform period equals tileW.
+          When reduced-motion is on we skip the sweep entirely: render only
+          the current path, no clipping, no cursor.
         */}
-        <g
-          className="ecg-roll-track [animation-timing-function:linear]"
-          style={trackStyle}
-        >
+        {reduceMotion ? (
           <path
             d={pathD}
             fill="none"
@@ -523,24 +633,75 @@ export function LiveStrip({
             strokeLinejoin="miter"
             strokeMiterlimit={4}
           />
-        </g>
+        ) : (
+          <>
+            <g clipPath={`url(#${eraseClipId})`}>
+              <path
+                d={prevPathD}
+                fill="none"
+                strokeWidth={1.6}
+                className={stroke}
+                strokeLinecap="butt"
+                strokeLinejoin="miter"
+                strokeMiterlimit={4}
+              />
+            </g>
+            <g clipPath={`url(#${revealClipId})`}>
+              <path
+                d={pathD}
+                fill="none"
+                strokeWidth={1.6}
+                className={stroke}
+                strokeLinecap="butt"
+                strokeLinejoin="miter"
+                strokeMiterlimit={4}
+              />
+            </g>
+
+            {/*
+              Sweep cursor + small blanking gap, painted on top. The gap rect
+              uses the bezel fill so any previous-sweep trace just ahead of
+              the cursor is visibly erased — that's the visual cue that the
+              trace is being painted left-to-right.
+            */}
+            <g
+              ref={cursorGRef}
+              transform={`translate(${initialSweepX.toFixed(2)} 0)`}
+            >
+              <rect
+                x={0}
+                y={0}
+                width={cursorGapPx}
+                height={height}
+                fill="#0d0f0d"
+              />
+              <line
+                x1={0}
+                y1={0}
+                x2={0}
+                y2={height}
+                className={stroke}
+                strokeWidth={1.5}
+              />
+            </g>
+          </>
+        )}
       </svg>
     </div>
   );
 }
 
 function buildLiveStripPath(opts: {
+  pathWidthPx: number;
   tileW: number;
   ctx: EcgScenarioContext;
   leadIdx: number;
   midY: number;
   vScale: number;
 }): string {
-  const { tileW, ctx, leadIdx, midY, vScale } = opts;
-  /* Cover three tiles so the 2-tile viewport stays painted across the full
-   * `-tileW` translation range, eliminating the blank "snap" at loop end. */
-  const width = tileW * 3;
-  const samples = Math.min(2800, Math.max(540, Math.floor(width * 8)));
+  const { pathWidthPx, tileW, ctx, leadIdx, midY, vScale } = opts;
+  const width = pathWidthPx;
+  const samples = Math.min(4000, Math.max(500, Math.floor(width * 8)));
   const chunks: string[] = [];
   for (let i = 0; i < samples; i++) {
     const x = (i / (samples - 1)) * width;
@@ -565,7 +726,8 @@ function PrintoutThumbnail({
   return (
     <button
       onClick={onEnlarge}
-      className="group relative w-full overflow-hidden rounded-md border border-rose-300/70 bg-[#fffaf0] p-2 text-left shadow-sm transition hover:border-rose-400 hover:shadow-md"
+      type="button"
+      className="group relative w-full min-w-0 overflow-hidden rounded-md border border-rose-300/70 bg-[#fffaf0] p-2 text-left shadow-sm transition hover:border-rose-400 hover:shadow-md"
     >
       <div className="mb-1.5 flex items-center justify-between text-[10px] text-zinc-700">
         <span className="font-semibold tracking-tight">
@@ -576,7 +738,7 @@ function PrintoutThumbnail({
           enlarge
         </span>
       </div>
-      <TwelveLeadPaper ac={ac} compact />
+      <TwelveLeadPaper ac={ac} large />
     </button>
   );
 }
@@ -682,13 +844,32 @@ function TwelveLeadPaper({
   const calStartX = 4;
   const calEndX = 200 / ECG_MS_PER_PIXEL + 4;
 
+  /** Full-scale printout is ~2380px wide; keep it crisp and scroll horizontally. */
+  const scrollable = !compact;
+
+  const svgStyle: CSSProperties | undefined = scrollable
+    ? undefined
+    : { aspectRatio: `${paperW} / ${paperH}` };
+
   return (
-    <div className="overflow-hidden rounded-sm bg-[#fffaf0]">
+    <div
+      className={
+        scrollable
+          ? 'w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-sm bg-[#fffaf0]'
+          : 'overflow-hidden rounded-sm bg-[#fffaf0]'
+      }
+    >
       <svg
-        width="100%"
+        width={scrollable ? paperW : undefined}
+        height={scrollable ? paperH : undefined}
         viewBox={`0 0 ${paperW} ${paperH}`}
-        preserveAspectRatio="none"
-        className="block"
+        preserveAspectRatio={scrollable ? 'xMinYMin meet' : 'xMidYMid meet'}
+        className={
+          scrollable
+            ? 'block h-auto max-w-none shrink-0'
+            : 'block w-full max-w-full'
+        }
+        style={svgStyle}
         aria-label={`12-lead ECG · ${ac.takenAt.toLocaleString()}`}
       >
         <EcgPaperGridDefs pid={pid} />

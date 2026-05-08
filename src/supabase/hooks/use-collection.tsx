@@ -21,7 +21,6 @@ function applyFilters(
   client: SupabaseClient,
   spec: Exclude<CollectionSpec, null>
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = client.from(spec.table).select('*');
 
   if (spec.eq) {
