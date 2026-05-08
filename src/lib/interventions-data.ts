@@ -115,6 +115,43 @@ export const seedInterventions: Intervention[] = [
         certificationLevel: 'emt',
         subOptions: []
     },
+    {
+        id: 'apply-etco2',
+        name: 'Apply capnography (EtCO₂)',
+        description: 'Places a nasal cannula sidestream sensor or connects an in-line mainstream adapter for continuous EtCO₂ monitoring.',
+        certificationLevel: 'emt',
+        subOptions: [
+            { label: 'Route', options: ['Nasal cannula', 'In-line (ET/i-gel)'] },
+        ],
+    },
+    {
+        id: 'apply-bp-cuff',
+        name: 'Apply NIBP cuff',
+        description: 'Applies an automated blood pressure cuff for non-invasive pressure cycling.',
+        certificationLevel: 'emt',
+        subOptions: [],
+    },
+    {
+        id: 'apply-pulse-ox',
+        name: 'Apply pulse oximeter',
+        description: 'Places a pulse oximeter probe to obtain continuous SpO₂ and pulse rate.',
+        certificationLevel: 'emt',
+        subOptions: [],
+    },
+    {
+        id: 'apply-four-lead-ecg',
+        name: 'Apply 4-lead ECG',
+        description: 'Places electrodes for continuous rhythm monitoring on the monitor strip.',
+        certificationLevel: 'emt',
+        subOptions: [],
+    },
+    {
+        id: 'apply-twelve-lead-ecg',
+        name: 'Apply 12-lead ECG',
+        description: 'Places full precordial and limb electrodes so a diagnostic 12-lead acquisition can be performed.',
+        certificationLevel: 'emt',
+        subOptions: [],
+    },
     
     // AEMT Scope (per TN 2024-2025 Protocol)
     { 

@@ -21,6 +21,11 @@ import {
 } from '@/lib/ecg-scenario';
 import type { EcgRhythmKind } from '@/lib/ecg-rhythm';
 import {
+  buildLiveStripPath,
+  LIVE_STRIP_VIEWPORT_PX,
+  sweepDurationSec,
+} from '@/lib/ecg-sweep-geometry';
+import {
   DISPLAY_LEADS,
   ECG_LARGE_SQ_MS,
   ECG_MS_PER_PIXEL,
@@ -47,7 +52,7 @@ import {
 
 type EcgMode = 'off' | 'four_lead' | 'twelve_lead';
 
-interface EcgAcquisition {
+export interface EcgAcquisition {
   id: string;
   kind: 'rhythm-strip' | 'twelve-lead';
   takenAt: Date;
@@ -82,31 +87,6 @@ export type EcgActionLabel =
 
 function uid() {
   return `ecg-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
- * Live-monitor sweep speed in millimeters per second. The 12-lead paper
- * printout runs at the standard 25 mm/s, but the *live* 4-lead view sweeps
- * slower so the trace is easier to read while a rhythm develops.
- *
- * 1 small grid square = ECG_SMALL_SQ_MS (40 ms) horizontally = 1 mm at the
- * paper-speed reference, so px-per-mm = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL.
- */
-const LIVE_SWEEP_MM_PER_SEC = 8;
-
-/**
- * Fixed horizontal time window on the live 4-lead strip. Faster rhythms pack
- * more beats into this window; sweep speed in mm/s stays constant across HR.
- */
-const LIVE_STRIP_WINDOW_MS = 8000;
-
-const LIVE_STRIP_VIEWPORT_PX = LIVE_STRIP_WINDOW_MS / ECG_MS_PER_PIXEL;
-
-/** One full sweep: cursor traverses the viewport at `LIVE_SWEEP_MM_PER_SEC`. */
-function sweepDurationSec(viewportPx: number): number {
-  const pxPerMm = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL;
-  const seconds = viewportPx / (LIVE_SWEEP_MM_PER_SEC * pxPerMm);
-  return Math.max(0.55, seconds);
 }
 
 const FOUR_LEAD: ReadonlyArray<readonly [number, string]> = [
@@ -691,31 +671,6 @@ export function LiveStrip({
   );
 }
 
-function buildLiveStripPath(opts: {
-  pathWidthPx: number;
-  tileW: number;
-  ctx: EcgScenarioContext;
-  leadIdx: number;
-  midY: number;
-  vScale: number;
-}): string {
-  const { pathWidthPx, tileW, ctx, leadIdx, midY, vScale } = opts;
-  const width = pathWidthPx;
-  const samples = Math.min(4000, Math.max(500, Math.floor(width * 8)));
-  const chunks: string[] = [];
-  for (let i = 0; i < samples; i++) {
-    const x = (i / (samples - 1)) * width;
-    const v = sampleLeadVoltageContext(x, tileW, ctx, leadIdx);
-    const y = midY - v * vScale;
-    chunks.push(
-      i === 0
-        ? `M ${x.toFixed(2)} ${y.toFixed(3)}`
-        : `L ${x.toFixed(2)} ${y.toFixed(3)}`,
-    );
-  }
-  return chunks.join(' ');
-}
-
 function PrintoutThumbnail({
   ac,
   onEnlarge,
@@ -820,7 +775,7 @@ function EcgPaperGridDefs({ pid }: { pid: string }) {
   );
 }
 
-function TwelveLeadPaper({
+export function TwelveLeadPaper({
   ac,
   compact,
   large,
@@ -993,7 +948,7 @@ function TwelveLeadPaper({
   );
 }
 
-function RhythmStripPaper({ ac }: { ac: EcgAcquisition }) {
+export function RhythmStripPaper({ ac }: { ac: EcgAcquisition }) {
   const rowH = 92;
   const headerH = 18;
   const stripMs = 6000;
@@ -1080,7 +1035,7 @@ function RhythmStripPaper({ ac }: { ac: EcgAcquisition }) {
   );
 }
 
-function SavedTracingsList({
+export function SavedTracingsList({
   acquisitions,
   onEnlarge,
 }: {

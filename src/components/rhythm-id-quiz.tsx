@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -80,19 +80,6 @@ export function RhythmIdQuiz({
   const [open, setOpen] = useState(false);
   const [quiz, setQuiz] = useState<QuizState | null>(null);
   const [verdict, setVerdict] = useState<{ correct: boolean; chosen: EcgRhythmKind } | null>(null);
-  const lastSeen = useRef<EcgRhythmKind | null>(null);
-
-  useEffect(() => {
-    if (!enabled || !observedRhythm || observedRhythm === "unknown") return;
-    if (lastSeen.current === observedRhythm) return;
-    lastSeen.current = observedRhythm;
-
-    const distractors = pickDistractors(observedRhythm);
-    const options = shuffle([observedRhythm, ...distractors]);
-    setQuiz({ rhythm: observedRhythm, options, startedAt: Date.now() });
-    setVerdict(null);
-    setOpen(true);
-  }, [observedRhythm, enabled]);
 
   const startManualQuiz = () => {
     if (!observedRhythm || observedRhythm === "unknown") return;

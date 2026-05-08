@@ -88,6 +88,19 @@ const CertificationActionsSchema = z.object({
 export type CertificationActions = z.infer<typeof CertificationActionsSchema>;
 
 
+export const AutonomicProfileSchema = z.object({
+  initialVolumeMl: z.number().optional(),
+  baselineBleedRateMlPerMin: z.number().optional(),
+  baselineDistributiveToneFactor: z.number().optional(),
+  baselineMapMmHg: z.number().optional(),
+  initialPulmonaryEdemaSeverity: z.number().optional(),
+  initialTensionPneumoSeverity: z.number().optional(),
+  initialDecompensationPhase: z
+    .enum(['baseline', 'compensated', 'decompensating', 'crashing', 'arrested'])
+    .optional(),
+});
+export type AutonomicProfile = z.infer<typeof AutonomicProfileSchema>;
+
 export const ScenarioSchema = z.object({
   id: z.string(),
   title: z.string().min(1, "Title is required."),
@@ -96,6 +109,8 @@ export const ScenarioSchema = z.object({
   isPremium: z.boolean().optional(),
   category: z.enum(['cardiac-arrest']).optional(),
   patientProfile: z.string().min(1, "Patient profile is required."),
+  /** Explicit pathophysiology condition ids (see COMORBIDITY_MATRIX). Overrides text extraction when set. */
+  comorbidities: z.array(z.string()).optional(),
   initialVitals: z.object({
     hr: z.string().min(1, "Heart rate is required."),
     bp: z.string().min(1, "Blood pressure is required."),
@@ -121,9 +136,42 @@ export const ScenarioSchema = z.object({
   mandatoryActions: CertificationActionsSchema,
   criticalFailures: z.array(z.string()).min(1, "At least one critical failure is required."),
   patientPresentation: z.string().optional(),
+  autonomicProfile: AutonomicProfileSchema.optional(),
+  /** Mapped to `patient_weight_kg`; explicit mass when set overrides age-band heuristic. */
+  defaultWeightKg: z.number().positive().max(300).optional(),
+  /**
+   * `pediatric` / `adult` are legacy LMS cohort tags; granular bands derive default weight when
+   * `defaultWeightKg` is unset.
+   */
+  ageBand: z
+    .enum([
+      'adult',
+      'pediatric',
+      'neonate',
+      'infant',
+      'toddler',
+      'child',
+      'adolescent',
+    ])
+    .optional(),
+  /** Optional ICP (mmHg) for educator CPP rails (CPP ≈ MAP − ICP) when MAP is available. */
+  icpMmHg: z.number().min(0).max(80).optional(),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 export type ScenarioData = Omit<Scenario, 'id'>;
+
+/** Narrow scenario shape for list/catalog queries (avoids heavy blobs). */
+export type ScenarioCardRow = Pick<
+  Scenario,
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'status'
+  | 'isPremium'
+  | 'category'
+  | 'difficulty'
+  | 'tags'
+>;
 
 export const ScenarioReviewSchema = z.object({
     id: z.string(),

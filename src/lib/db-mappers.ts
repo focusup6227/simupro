@@ -1,5 +1,6 @@
 import type {
   Scenario,
+  ScenarioCardRow,
   User,
   UserRole,
   Intervention,
@@ -11,6 +12,7 @@ import type {
   CertificationActions,
   RhythmQuizAttempt,
 } from '@/lib/types';
+import { AutonomicProfileSchema } from '@/lib/types';
 import type { Database, Json } from '@/lib/supabase/database.types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -95,6 +97,7 @@ export function scenarioRowToScenario(r: ScenarioRow): Scenario {
     isPremium: r.is_premium,
     category: (r.category as Scenario['category']) ?? undefined,
     patientProfile: r.patient_profile,
+    comorbidities: r.comorbidities ?? undefined,
     initialVitals: r.initial_vitals as Scenario['initialVitals'],
     details: r.details,
     difficulty: r.difficulty as Scenario['difficulty'],
@@ -108,6 +111,34 @@ export function scenarioRowToScenario(r: ScenarioRow): Scenario {
     patientPresentation: r.patient_presentation ?? undefined,
     initialRhythm: (r.initial_rhythm as Scenario['initialRhythm']) ?? undefined,
     acsPattern: (r.acs_pattern as Scenario['acsPattern']) ?? undefined,
+    autonomicProfile: r.autonomic_profile
+      ? AutonomicProfileSchema.parse(r.autonomic_profile)
+      : undefined,
+    defaultWeightKg: r.patient_weight_kg ?? undefined,
+    ageBand: (r.age_band as Scenario['ageBand']) ?? undefined,
+    icpMmHg: r.icp_mm_hg ?? undefined,
+  };
+}
+
+export function scenarioRowToScenarioCard(r: {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  is_premium: boolean;
+  category: string | null;
+  difficulty: string;
+  tags: string[] | null;
+}): ScenarioCardRow {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    status: r.status as Scenario['status'],
+    isPremium: r.is_premium,
+    category: (r.category as Scenario['category']) ?? undefined,
+    difficulty: r.difficulty as Scenario['difficulty'],
+    tags: r.tags ?? [],
   };
 }
 
@@ -121,6 +152,7 @@ export function scenarioToDbUpsert(values: Omit<Scenario, 'id'> & { id: string }
     is_premium: values.isPremium ?? false,
     category: values.category ?? null,
     patient_profile: values.patientProfile,
+    comorbidities: values.comorbidities ?? null,
     initial_vitals: values.initialVitals as Json,
     details: values.details,
     difficulty: values.difficulty,
@@ -134,6 +166,12 @@ export function scenarioToDbUpsert(values: Omit<Scenario, 'id'> & { id: string }
     patient_presentation: values.patientPresentation ?? null,
     initial_rhythm: values.initialRhythm ?? null,
     acs_pattern: values.acsPattern ?? null,
+    autonomic_profile: values.autonomicProfile
+      ? (values.autonomicProfile as Json)
+      : null,
+    patient_weight_kg: values.defaultWeightKg ?? null,
+    age_band: values.ageBand ?? null,
+    icp_mm_hg: values.icpMmHg ?? null,
   };
   return row;
 }

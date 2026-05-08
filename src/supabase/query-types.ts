@@ -8,6 +8,8 @@ export type NeqFilter = Partial<Record<string, string | number | boolean>>;
 export type CollectionSpec = {
   __memo?: boolean;
   table: DbTableName;
+  /** Supabase `.select()` clause; omit for `*`. */
+  columns?: string;
   eq?: EqFilter;
   neq?: NeqFilter;
   order?: { column: string; ascending?: boolean };

@@ -3,6 +3,7 @@ import type { Database } from '@/lib/supabase/database.types';
 import {
   profileRowToUser,
   scenarioRowToScenario,
+  scenarioRowToScenarioCard,
   interventionRowToIntervention,
   sessionRowToSimulationSession,
   insightRowToInsight,
@@ -48,7 +49,13 @@ export function mapCollectionRows(spec: Exclude<CollectionSpec, null>, rows: Rec
     case 'profiles':
       return rows.map(r => profileRowToUser(r as unknown as ProfileRow));
     case 'scenarios':
-      return rows.map(r => scenarioRowToScenario(r as unknown as ScenarioRow));
+      return rows.map((r) =>
+        spec.columns
+          ? scenarioRowToScenarioCard(
+              r as unknown as Parameters<typeof scenarioRowToScenarioCard>[0],
+            )
+          : scenarioRowToScenario(r as unknown as ScenarioRow),
+      );
     case 'interventions':
       return rows.map(r => interventionRowToIntervention(r as unknown as InterventionRow));
     case 'simulation_sessions':
@@ -75,6 +82,9 @@ export function docPathLabel(spec: Exclude<DocSpec, null>): string {
 
 export function collectionPathLabel(spec: Exclude<CollectionSpec, null>): string {
   let label = `${spec.table}`;
+  if (spec.columns) {
+    label += `:cols=${spec.columns}`;
+  }
   if (spec.eq) {
     label += `:${JSON.stringify(spec.eq)}`;
   }
