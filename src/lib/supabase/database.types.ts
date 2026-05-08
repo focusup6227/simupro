@@ -79,6 +79,7 @@ export interface Database {
           is_premium: boolean;
           category: string | null;
           patient_profile: string;
+          comorbidities: string[] | null;
           initial_vitals: Json;
           details: string;
           difficulty: string;
@@ -92,6 +93,10 @@ export interface Database {
           patient_presentation: string | null;
           initial_rhythm: string | null;
           acs_pattern: string | null;
+          autonomic_profile: Json | null;
+          patient_weight_kg: number | null;
+          age_band: string | null;
+          icp_mm_hg: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -103,6 +108,7 @@ export interface Database {
           is_premium?: boolean;
           category?: string | null;
           patient_profile: string;
+          comorbidities?: string[] | null;
           initial_vitals: Json;
           details: string;
           difficulty: string;
@@ -116,6 +122,10 @@ export interface Database {
           patient_presentation?: string | null;
           initial_rhythm?: string | null;
           acs_pattern?: string | null;
+          autonomic_profile?: Json | null;
+          patient_weight_kg?: number | null;
+          age_band?: string | null;
+          icp_mm_hg?: number | null;
         };
         Update: Partial<{
           title: string;
@@ -124,6 +134,7 @@ export interface Database {
           is_premium?: boolean;
           category?: string | null;
           patient_profile: string;
+          comorbidities?: string[] | null;
           initial_vitals: Json;
           details: string;
           difficulty: string;
@@ -137,6 +148,10 @@ export interface Database {
           patient_presentation?: string | null;
           initial_rhythm?: string | null;
           acs_pattern?: string | null;
+          autonomic_profile?: Json | null;
+          patient_weight_kg?: number | null;
+          age_band?: string | null;
+          icp_mm_hg?: number | null;
         }>;
         Relationships: [];
       };
@@ -210,6 +225,78 @@ export interface Database {
           actions?: Json | null;
           messages?: Json | null;
           user_role?: string | null;
+        }>;
+        Relationships: [];
+      };
+      simulation_pk_doses: {
+        Row: {
+          id: string;
+          session_id: string;
+          user_id: string;
+          drug_id: string;
+          intervention_id: string | null;
+          dose_mg: number | null;
+          route: string;
+          kind: string;
+          infusion_rate: number | null;
+          infusion_rate_kind: string | null;
+          patient_weight_kg: number;
+          sim_seconds: number;
+          administered_at: string;
+        };
+        Insert: {
+          id: string;
+          session_id: string;
+          user_id: string;
+          drug_id: string;
+          intervention_id?: string | null;
+          dose_mg?: number | null;
+          route: string;
+          kind: string;
+          infusion_rate?: number | null;
+          infusion_rate_kind?: string | null;
+          patient_weight_kg: number;
+          sim_seconds: number;
+          administered_at?: string;
+        };
+        Update: Partial<{
+          drug_id: string;
+          intervention_id: string | null;
+          dose_mg: number | null;
+          route: string;
+          kind: string;
+          infusion_rate: number | null;
+          infusion_rate_kind: string | null;
+          patient_weight_kg: number;
+          sim_seconds: number;
+          administered_at?: string;
+        }>;
+        Relationships: [];
+      };
+      simulation_autonomic_events: {
+        Row: {
+          id: string;
+          session_id: string;
+          user_id: string;
+          kind: string;
+          payload: Json;
+          sim_seconds: number;
+          recorded_at: string;
+        };
+        Insert: {
+          id: string;
+          session_id: string;
+          user_id: string;
+          kind: string;
+          payload?: Json;
+          sim_seconds: number;
+          recorded_at?: string;
+        };
+        Update: Partial<{
+          kind: string;
+          payload: Json;
+          sim_seconds: number;
+          recorded_at: string;
         }>;
         Relationships: [];
       };

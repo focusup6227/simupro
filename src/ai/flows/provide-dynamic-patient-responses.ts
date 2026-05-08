@@ -12,6 +12,8 @@
 import { ai } from '@/lib/genkit';
 import { z } from 'zod';
 import { UserActionSchema } from '@/lib/types';
+import { normalizeAiFlowStressors } from '@/lib/physiology/ai-output-stressors';
+import { formatMetabolicSnapshotLines } from '@/lib/physiology/metabolic-engine';
 
 export const DynamicPatientResponseInputSchema = z.object({
   scenario: z.string().describe('The initial setup and details of the simulation scenario.'),
@@ -22,6 +24,34 @@ export const DynamicPatientResponseInputSchema = z.object({
   mandatoryActions: z.array(z.string()).describe('A list of mandatory actions for the current scenario and user role.'),
   userActions: z.array(UserActionSchema).describe('A log of all actions taken by the user so far.'),
   isPremium: z.boolean().optional().describe('Whether to render the patient with the deeper Premium realism model.'),
+  recentMedications: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Short labels for medications simulated by the PK engine in roughly the prior 120s of simulated time.',
+    ),
+  decompensationPhase: z
+    .string()
+    .optional()
+    .describe(
+      'Current deterministic autonomic decompensation phase from the simulation engine (baseline, compensated, decompensating, crashing, arrested).',
+    ),
+  engineSummary: z
+    .string()
+    .optional()
+    .describe(
+      'Short human-readable summary of autonomic state (bleed rate, volume, tone) for narrative grounding.',
+    ),
+  metabolicSnapshot: z
+    .object({
+      lactateMmol: z.number(),
+      bicarbMeqL: z.number(),
+      ph: z.number(),
+    })
+    .optional()
+    .describe(
+      'When present, deterministic metabolic integrator owns lactate / bicarb / pH teaching values — the model must not contradict them in free text.',
+    ),
 });
 
 export type DynamicPatientResponseInput = z.infer<typeof DynamicPatientResponseInputSchema>;
@@ -49,6 +79,32 @@ export const DynamicPatientResponseOutputSchema = z.object({
     .string()
     .optional()
     .describe('One concise clinical sentence explaining why this arrest rhythm fits the cause. Used for teaching feedback.'),
+  stressors: z
+    .array(
+      z.object({
+        kind: z
+          .string()
+          .describe(
+            'Pathophysiology stressor: engine kind (e.g. fluid_bolus, tension_pneumo_start) or semantic key (hemorrhage_worsening, sepsis_worsening, rebleed, bronchospasm, tension_pneumo, metabolic_worsening).',
+          ),
+        payload: z
+          .record(z.unknown())
+          .optional()
+          .describe('Optional parameters; normalized server-side to engine-safe rows.'),
+      }),
+    )
+    .optional()
+    .describe(
+      'Optional structured stressors for the deterministic autonomic log. Omit if nothing new beyond user treatments.',
+    ),
+  metabolicLabs: z
+    .object({
+      lactate: z.string(),
+      bicarb: z.string(),
+      ph: z.string(),
+    })
+    .optional()
+    .describe('Formatted metabolic labs when the deterministic engine provides them.'),
 });
 
 export type DynamicPatientResponseOutput = z.infer<typeof DynamicPatientResponseOutputSchema>;
@@ -62,7 +118,9 @@ export async function provideDynamicPatientResponses(
 
 const prompt = ai.definePrompt({
     name: 'provideDynamicPatientResponsesPrompt',
-    input: { schema: DynamicPatientResponseInputSchema },
+    input: { schema: DynamicPatientResponseInputSchema.extend({
+      metabolicLine: z.string().optional(),
+    }) },
     output: { schema: DynamicPatientResponseOutputSchema },
     prompt: `You are an advanced AI patient simulator for training EMS professionals.
 Your role is to act as the patient and the environment, responding realistically to the user's actions.
@@ -85,6 +143,33 @@ Your role is to act as the patient and the environment, responding realistically
 **User's Latest Action:**
 - Assessment: {{{assessment}}}
 - Treatment: {{{treatment}}}
+
+{{#if recentMedications.length}}
+**Recent medications (already modeled by deterministic PK simulation, last ~120s sim time):**
+{{#each recentMedications}}
+- {{{this}}}
+{{/each}}
+
+Drug-driven changes to HR/BP/RR/SpO₂ are represented elsewhere. Unless you are documenting hypoxia from airway interventions, fluid shifts / shock progression / ROSC / arrest physiology, do NOT change numerical HR, BP, RR, or SpO₂ fields in vitals solely because items above were given. You may still adjust those vitals when they reflect illness trajectory, airway/oxygenation, bleeding, pacing/shock/cardioversion endpoints, CPR quality, acidosis reversal, or glucose correction in other clinically appropriate ways—but not repeating drug hemodynamic dosing effects.
+
+You should still freely update the patient narrative in patientResponse (comfort, cognition, airway exam, cyanosis/improvement narration) referencing these medications conceptually, without rewriting vitals numeric fields for pharmacology already listed above.
+{{/if}}
+
+{{#if decompensationPhase}}
+**Deterministic autonomic phase (already modeled):** {{{decompensationPhase}}}
+{{/if}}
+{{#if engineSummary}}
+**Autonomic / volume engine snapshot:** {{{engineSummary}}}
+{{/if}}
+
+{{#if metabolicLine}}
+**Deterministic metabolic labs (already modeled):** {{{metabolicLine}}}
+Do **not** mention different numeric lactate, bicarbonate, or arterial pH values in patientResponse or conditionChange than these approximations imply. You may reference qualitative dyspnea, nausea, or malaise consistent with acidemia.
+{{/if}}
+
+When an autonomic phase / engine snapshot is present, fluids, hemorrhage control, supplemental oxygen, CPAP, definitive airway, and needle decompression (for tension pneumothorax) are also represented in deterministic simulation. Do **not** re-apply large HR/BP/RR/SpO₂ numeric shifts in vitals purely to reflect those interventions or the autonomic snapshot—focus vitals on illness trajectory, perfusion extremes, ROSC/arrest rules, and exam-consistent changes. You may still narrate comfort, work of breathing, skin, lung sounds, and mental status.
+
+For evolving **extra** pathophysiology the engine does not know (rebleed, sepsis worsening, unexpected bronchospasm, metabolic worsening), populate optional structured **stressors** in the output using implemented keys only (e.g. hemorrhage_worsening, sepsis_worsening, rebleed, bronchospasm, tension_pneumo, metabolic_worsening, or direct engine kinds like tension_pneumo_start). Each stressor becomes a deterministic event; keep the list minimal and do not duplicate treatments already in the user's action text.
 
 **Patient's Previous Condition:** {{{patientCondition}}}
 
@@ -121,7 +206,7 @@ Based on the scenario, the user's role, the history of actions, and the latest a
 {{#if isPremium}}
 **PREMIUM REALISM MODE — APPLY THE FOLLOWING ADDITIONAL RULES:**
 This learner is on the Premium tier. Render the patient with maximum clinical fidelity:
-- **Deeper pathophysiology:** Reflect the underlying mechanism in vital sign trajectories. Compensated shock should show narrowing pulse pressure before frank hypotension. Hypoxia should track SpO2 → mental status → respiratory effort in a physiologically correct order. Cardiac ischemia should evolve realistically (rate, rhythm, ectopy, pain character).
+- **Deeper pathophysiology:** Reflect the underlying mechanism in vital sign trajectories. Compensated shock should show narrowing pulse pressure before actual hypotension. Hypoxia should track SpO2 → mental status → respiratory effort in a physiologically correct order. Cardiac ischemia should evolve realistically (rate, rhythm, ectopy, pain character).
 - **Dynamic complications:** Where realistic, introduce evolving complications when the user delays or skips a mandatory action — e.g., aspiration, dysrhythmias, secondary injury, decompensation, anxiety/agitation, family bystander interference, scene safety changes.
 - **Realistic verbal responses:** The patient's language should match their LOC, pain, dyspnea, age, and emotional state. A patient in respiratory distress speaks in 2-3 word sentences. An altered patient gives confused or fragmentary answers. A pediatric patient speaks differently than an adult.
 - **Treatment realism:** Effects of interventions should be partial, delayed, or imperfect when clinically appropriate (e.g., nitro doesn't fully relieve a true cardiac chest pain in 30 seconds; a fluid bolus only modestly raises BP in distributive shock; oxygen alone doesn't fix a tension pneumo).
@@ -140,7 +225,45 @@ const provideDynamicPatientResponsesFlow = ai.defineFlow(
     outputSchema: DynamicPatientResponseOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+    const metabolicLine =
+      input.metabolicSnapshot != null
+        ? `Lactate ≈ ${input.metabolicSnapshot.lactateMmol.toFixed(1)} mmol/L; bicarb ≈ ${input.metabolicSnapshot.bicarbMeqL.toFixed(0)} mEq/L; pH ≈ ${input.metabolicSnapshot.ph.toFixed(2)}.`
+        : '';
+
+    const { output } = await prompt({
+      ...input,
+      recentMedications: input.recentMedications ?? [],
+      decompensationPhase: input.decompensationPhase ?? '',
+      engineSummary: input.engineSummary ?? '',
+      metabolicLine,
+    });
+
+    if (!output?.patientResponse || !output.vitals) {
+      throw new Error('provideDynamicPatientResponses: model returned incomplete output');
+    }
+
+    const normalizedStressors = normalizeAiFlowStressors(output.stressors);
+    const stressorsForClient = normalizedStressors.map((s) => ({
+      kind: s.kind,
+      payload: s.payload,
+    }));
+
+    let metabolicLabs = output.metabolicLabs;
+    if (input.metabolicSnapshot != null) {
+      const fmt = formatMetabolicSnapshotLines(input.metabolicSnapshot);
+      metabolicLabs = {
+        lactate: fmt.lactateText,
+        bicarb: fmt.bicarbText,
+        ph: fmt.phText,
+      };
+    }
+
+    return {
+      ...output,
+      patientResponse: output.patientResponse,
+      vitals: output.vitals,
+      stressors: stressorsForClient,
+      metabolicLabs,
+    } as DynamicPatientResponseOutput;
   }
 );

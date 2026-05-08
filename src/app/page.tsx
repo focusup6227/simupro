@@ -45,7 +45,7 @@ export default function LandingPage() {
         <AppLogo />
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" asChild size="sm" className="sm:size-default">
-            <Link href="/demo">Try Demo</Link>
+            <Link href="/demo">Full cockpit demo</Link>
           </Button>
           <Button variant="ghost" asChild>
             <Link href="/login">Log In</Link>
@@ -73,7 +73,7 @@ export default function LandingPage() {
                   <Link href="/signup">Get Started for Free</Link>
                 </Button>
                 <Button size="lg" variant="secondary" asChild className="w-full sm:w-auto">
-                  <Link href="/demo">Try Demo — No Account</Link>
+                  <Link href="/demo">Try full cockpit — no account</Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild className="w-full sm:w-auto bg-transparent text-white hover:bg-white/10 border-white/40">
                   <Link href="/billing">See Premium</Link>
@@ -314,7 +314,7 @@ export default function LandingPage() {
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide">Product</h3>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/demo" className="hover:text-foreground">Try demo</Link></li>
+                <li><Link href="/demo" className="hover:text-foreground">Full cockpit demo</Link></li>
                 <li><Link href="/tools/drug-calculator" className="hover:text-foreground">Drug calculator</Link></li>
                 <li><Link href="/login" className="hover:text-foreground">Log in</Link></li>
                 <li><Link href="/signup" className="hover:text-foreground">Sign up</Link></li>

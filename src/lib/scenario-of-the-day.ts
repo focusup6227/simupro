@@ -1,6 +1,6 @@
 /** Deterministic scenario of the day (UTC calendar date). Excludes tutorial. */
 
-import type { Scenario } from "@/lib/types";
+import type { ScenarioCardRow } from "@/lib/types";
 
 function utcTodayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -16,7 +16,9 @@ function stableHash(seed: string): number {
   return Math.abs(h);
 }
 
-export function pickScenarioOfTheDay(scenarios: Scenario[]): Scenario | null {
+export function pickScenarioOfTheDay(
+  scenarios: ScenarioCardRow[],
+): ScenarioCardRow | null {
   const list = scenarios
     .filter((s) => s.status === "published" && s.id !== "welcome-tutorial")
     .slice()

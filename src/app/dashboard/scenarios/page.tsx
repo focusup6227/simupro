@@ -22,7 +22,7 @@ import {
   useUser,
   useDashboardProfile,
 } from "@/supabase";
-import type { Scenario, SimulationSession, User } from "@/lib/types";
+import type { ScenarioCardRow, SimulationSession, User } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,11 +101,13 @@ export default function ScenariosPage() {
             table: 'scenarios' as const,
             eq: { status: 'published' },
             live: false,
+            columns:
+              'id, title, description, status, is_premium, category, difficulty, tags',
           } as const)
         : null,
     [client]
   );
-  const { data: scenarios, isLoading } = useCollection<Scenario>(scenariosQuery);
+  const { data: scenarios, isLoading } = useCollection<ScenarioCardRow>(scenariosQuery);
 
   const inProgressSpec = useMemoSupabase(
     () =>
@@ -128,7 +130,7 @@ export default function ScenariosPage() {
         }
         return;
     };
-    const locked = (scenario: Scenario) => {
+    const locked = (scenario: ScenarioCardRow) => {
       if (!scenario.isPremium) return false;
       if (!userData) return true;
       if (isTesterOrAdminUser(userData)) return false;
@@ -195,7 +197,7 @@ export default function ScenariosPage() {
     );
   };
 
-  const handleStartScenario = (scenario: Scenario) => {
+  const handleStartScenario = (scenario: ScenarioCardRow) => {
     const isLocked =
       scenario.isPremium &&
       !!userData &&

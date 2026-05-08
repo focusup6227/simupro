@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AppLogo from "@/components/app-logo";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,11 @@ import { seedScenarios } from "@/lib/scenarios-data";
 import { DEMO_SCENARIO_ID, DEMO_MAX_AI_TURNS } from "@/lib/demo-config";
 import type { Message, UserAction, UserRole } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Loader2, ArrowRight, Sparkles, User } from "lucide-react";
+import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
+import { EquipmentDrawer } from "@/components/equipment-drawer";
+import { usePhysiologyStore } from "@/stores/physiology-store";
+import { usePkStore } from "@/stores/pk-store";
 
 export default function DemoPage() {
   const { toast } = useToast();
@@ -45,7 +49,6 @@ export default function DemoPage() {
     },
   ]);
   const [userActions, setUserActions] = useState<UserAction[]>([]);
-  const [currentVitals, setCurrentVitals] = useState(scenario.initialVitals);
   const [assessmentInput, setAssessmentInput] = useState("");
   const [treatmentInput, setTreatmentInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +59,23 @@ export default function DemoPage() {
   const atTurnLimit = userActions.length >= DEMO_MAX_AI_TURNS;
 
   const openCta = useCallback(() => setCtaOpen(true), []);
+
+  useEffect(() => {
+    usePkStore.getState().reset();
+    usePhysiologyStore.getState().loadScenario(scenario.initialVitals);
+    const s = usePhysiologyStore.getState();
+    if (!s.isMonitorPowered) s.togglePowerMonitor();
+    s.applyFourLead();
+    if (!s.isEkgChannelOn) s.toggleEkgChannel();
+    s.applyPulseOx();
+    s.applyBpCuff();
+    s.requestNibpCycle();
+
+    return () => {
+      usePhysiologyStore.getState().reset();
+      usePkStore.getState().reset();
+    };
+  }, [scenario.id, scenario.initialVitals]);
 
   const submitAction = async () => {
     const assessment = assessmentInput.trim();
@@ -127,7 +147,9 @@ export default function DemoPage() {
         vitals: data.vitals,
       };
       setMessages((prev) => [...prev, assistantMsg]);
-      if (data.vitals) setCurrentVitals(data.vitals);
+      if (data.vitals) {
+        usePhysiologyStore.getState().updateVitals(data.vitals);
+      }
       if (data.patientIsDeceased) {
         setPatientDeceased(true);
         toast({ title: "Simulation ended", description: "Review the outcome, then continue with a free account." });
@@ -153,7 +175,7 @@ export default function DemoPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b bg-card px-4 py-4 sm:px-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="inline-flex items-center gap-2">
             <AppLogo />
           </Link>
@@ -169,7 +191,7 @@ export default function DemoPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-4 p-4 sm:p-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 p-4 sm:p-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{scenario.title}</h1>
           <p className="text-muted-foreground">{scenario.description}</p>
@@ -178,111 +200,118 @@ export default function DemoPage() {
           </p>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Vitals</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2 text-sm">
-            <Badge variant="outline">HR {currentVitals.hr}</Badge>
-            <Badge variant="outline">BP {currentVitals.bp}</Badge>
-            <Badge variant="outline">RR {currentVitals.rr}</Badge>
-            <Badge variant="outline">SpO₂ {currentVitals.spo2}</Badge>
-            <Badge variant="outline">GCS {currentVitals.gcs}</Badge>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+          <div className="space-y-4 xl:col-span-2">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <User className="h-4 w-4" />
+                  Patient profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <p>{scenario.patientProfile}</p>
+              </CardContent>
+            </Card>
+            <UnifiedCardiacMonitor scenario={scenario} />
+            <EquipmentDrawer />
+          </div>
 
-        <Card className="flex min-h-[280px] flex-1 flex-col">
-          <CardHeader>
-            <CardTitle className="text-base">Simulation log</CardTitle>
-            <CardDescription>Submit assessments and treatments like the full trainer.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-4">
-            <ScrollArea className="h-[min(50vh,420px)] rounded-md border p-3">
-              <div className="space-y-3 pr-3">
-                {messages.map((m, i) => (
-                  <div
-                    key={i}
-                    className={
-                      m.role === "user"
-                        ? "ml-8 rounded-lg bg-primary/10 p-3 text-sm"
-                        : m.role === "system"
-                          ? "text-center text-xs text-muted-foreground"
-                          : "mr-8 rounded-lg border bg-muted/40 p-3 text-sm"
-                    }
-                  >
-                    {m.role !== "system" && (
-                      <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                        {m.role === "user" ? "You" : "Patient / scene"}
-                      </p>
-                    )}
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+          <div className="min-h-0 xl:col-span-3">
+            <Card className="flex min-h-[280px] flex-1 flex-col">
+              <CardHeader>
+                <CardTitle className="text-base">Simulation log</CardTitle>
+                <CardDescription>Submit assessments and treatments like the full trainer.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <ScrollArea className="h-[min(50vh,420px)] rounded-md border p-3">
+                  <div className="space-y-3 pr-3">
+                    {messages.map((m, i) => (
+                      <div
+                        key={i}
+                        className={
+                          m.role === "user"
+                            ? "ml-8 rounded-lg bg-primary/10 p-3 text-sm"
+                            : m.role === "system"
+                              ? "text-center text-xs text-muted-foreground"
+                              : "mr-8 rounded-lg border bg-muted/40 p-3 text-sm"
+                        }
+                      >
+                        {m.role !== "system" && (
+                          <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                            {m.role === "user" ? "You" : "Patient / scene"}
+                          </p>
+                        )}
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                </ScrollArea>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="demo-role">Your certification level</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-                  <SelectTrigger id="demo-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="emt">EMT</SelectItem>
-                    <SelectItem value="aemt">AEMT</SelectItem>
-                    <SelectItem value="paramedic">Paramedic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="demo-role">Your certification level</Label>
+                    <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+                      <SelectTrigger id="demo-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="emt">EMT</SelectItem>
+                        <SelectItem value="aemt">AEMT</SelectItem>
+                        <SelectItem value="paramedic">Paramedic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="demo-assessment">Assessment</Label>
-              <Textarea
-                id="demo-assessment"
-                placeholder="Primary assessment, SOAP notes, questions to patient..."
-                value={assessmentInput}
-                onChange={(e) => setAssessmentInput(e.target.value)}
-                rows={3}
-                disabled={isLoading || atTurnLimit || patientDeceased}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="demo-treatment">Treatment (one per line)</Label>
-              <Textarea
-                id="demo-treatment"
-                placeholder="Oral glucose&#10;High-flow O₂ via NRB"
-                value={treatmentInput}
-                onChange={(e) => setTreatmentInput(e.target.value)}
-                rows={3}
-                disabled={isLoading || atTurnLimit || patientDeceased}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="demo-assessment">Assessment</Label>
+                  <Textarea
+                    id="demo-assessment"
+                    placeholder="Primary assessment, SOAP notes, questions to patient..."
+                    value={assessmentInput}
+                    onChange={(e) => setAssessmentInput(e.target.value)}
+                    rows={3}
+                    disabled={isLoading || atTurnLimit || patientDeceased}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="demo-treatment">Treatment (one per line)</Label>
+                  <Textarea
+                    id="demo-treatment"
+                    placeholder="Oral glucose&#10;High-flow O₂ via NRB"
+                    value={treatmentInput}
+                    onChange={(e) => setTreatmentInput(e.target.value)}
+                    rows={3}
+                    disabled={isLoading || atTurnLimit || patientDeceased}
+                  />
+                </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => void submitAction()}
-                disabled={isLoading || atTurnLimit || patientDeceased}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Thinking…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Submit action
-                  </>
-                )}
-              </Button>
-              <Button type="button" variant="outline" onClick={openCta}>
-                End demo &amp; sign up
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => void submitAction()}
+                    disabled={isLoading || atTurnLimit || patientDeceased}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Thinking…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Submit action
+                      </>
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={openCta}>
+                    End demo &amp; sign up
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </main>
 
       <Dialog open={ctaOpen} onOpenChange={setCtaOpen}>
