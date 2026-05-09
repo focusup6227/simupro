@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SupabaseClientProvider } from '@/supabase/client-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 import GoogleAnalytics from '@/components/google-analytics';
+import VercelAnalytics from '@/components/vercel-analytics';
 import CookieConsent from '@/components/cookie-consent';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://simupro.io';
@@ -116,6 +117,7 @@ export default function RootLayout({
           <SupabaseClientProvider>{children}</SupabaseClientProvider>
           <CookieConsent />
           <GoogleAnalytics />
+          <VercelAnalytics />
           <Toaster />
         </ThemeProvider>
       </body>
