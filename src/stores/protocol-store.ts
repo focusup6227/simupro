@@ -163,39 +163,36 @@ export const useProtocolStore = create<ProtocolState>((set, get) => ({
     get().availableInterventions().filter((i): i is Procedure => i.type === 'PROCEDURE'),
 }));
 
-function useProtocolListDeps() {
-  return useProtocolStore(
+/**
+ * Subscribe to the merge inputs for the protocol catalog (level + overlays)
+ * and re-derive `selector(state)` only when those inputs change. Wraps the
+ * `useShallow + getState() + useMemo` pattern in one place so the public
+ * hooks below stay one-liners.
+ */
+function useDerivedProtocolList<T>(selector: (s: ProtocolState) => T): T {
+  const deps = useProtocolStore(
     useShallow((s) => ({
       userLevel: s.userLevel,
       scenarioOverlay: s.scenarioOverlay,
       customOverrides: s.customOverrides,
     })),
   );
+  return useMemo(
+    () => selector(useProtocolStore.getState()),
+    // The derived list depends on `deps`; selector identity is captured.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deps],
+  );
 }
 
 export function useAvailableInterventions(): Intervention[] {
-  const deps = useProtocolListDeps();
-  return useMemo(
-    () => useProtocolStore.getState().availableInterventions(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [deps],
-  );
+  return useDerivedProtocolList((s) => s.availableInterventions());
 }
 
 export function useAvailableMedications(): Medication[] {
-  const deps = useProtocolListDeps();
-  return useMemo(
-    () => useProtocolStore.getState().availableMedications(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [deps],
-  );
+  return useDerivedProtocolList((s) => s.availableMedications());
 }
 
 export function useAvailableProcedures(): Procedure[] {
-  const deps = useProtocolListDeps();
-  return useMemo(
-    () => useProtocolStore.getState().availableProcedures(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [deps],
-  );
+  return useDerivedProtocolList((s) => s.availableProcedures());
 }

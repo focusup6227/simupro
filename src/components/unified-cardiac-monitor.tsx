@@ -60,8 +60,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { usePhysiologyStore } from '@/stores/physiology-store';
-import { MedicationMenu } from '@/components/medication-menu';
-import { InterventionMenu } from '@/components/intervention-menu';
+import { InterventionMenu, MedicationMenu } from '@/components/monitor-menu';
 import type { Scenario } from '@/lib/types';
 import type { Medication, Procedure } from '@/types/protocol';
 

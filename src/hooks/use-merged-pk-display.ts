@@ -8,6 +8,10 @@ import type { VitalDeltas } from '@/lib/physiology/pk-types';
 import type { DecompensationPhase } from '@/lib/physiology/autonomic-types';
 import type { Scenario } from '@/lib/types';
 import { parseEtco2MmHg } from '@/lib/vitals-parse';
+import {
+  resolveDisplayEtco2MmHg,
+  resolveDisplayObstruction,
+} from '@/lib/physiology/etco2-display';
 import { usePkStore } from '@/stores/pk-store';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import type { VentilationMode } from '@/stores/physiology-store';
@@ -16,78 +20,6 @@ import { useShallow } from 'zustand/shallow';
 
 const PK_DISABLED_DELTAS: VitalDeltas = emptyDeltas();
 const AUTO_DISABLED_DELTAS: VitalDeltas = emptyDeltas();
-
-/**
- * Deterministic perfusion-driven EtCO₂ ceiling. The autonomic engine doesn't emit
- * an EtCO₂ delta directly; instead it defines a phase-conditional **upper bound**
- * we apply on top of whatever baseline value the AI (or scenario seed) has set.
- * Returning `min(baseline, target)` means a patient already showing low EtCO₂
- * (e.g. AI sets 18 mmHg during CPR) keeps that value, while a patient with a
- * stale 35 mmHg baseline gets clamped down to a clinically realistic number.
- *
- * On ROSC (pulseless = false AND phase reverts to baseline / compensated) the
- * override drops away and the AI baseline takes over, producing the textbook
- * sudden EtCO₂ jump that signals successful resuscitation.
- */
-function forcedEtco2MmHg(
-  baselineMmHg: number,
-  phase: DecompensationPhase,
-  pulseless: boolean,
-): number {
-  /**
-   * ROSC release: the autonomic engine latches `phase === 'arrested'` permanently
-   * once accumulated, but successful ROSC flips `isPulseless` to false. Trust the
-   * AI baseline in that case so the textbook EtCO₂ spike (≥35 mmHg) shows on the
-   * monitor instead of staying clamped at the CPR floor.
-   */
-  if (!pulseless && phase === 'arrested') {
-    return baselineMmHg;
-  }
-  if (pulseless || phase === 'arrested') {
-    return Math.min(baselineMmHg, 14);
-  }
-  if (phase === 'crashing') return Math.min(baselineMmHg, 22);
-  if (phase === 'decompensating') return Math.min(baselineMmHg, 28);
-  return baselineMmHg;
-}
-
-/** Target EtCO₂ for assisted ventilation. ~38 = mid-range "appropriate" alveolar PCO₂. */
-const VENTILATION_NORMAL_TARGET_MMHG = 38;
-
-/**
- * Pull the AI baseline EtCO₂ partway toward a normal alveolar value when the
- * rescuer is assisting ventilation. BVM (bag-valve-mask) drives breathing
- * directly, so it gets a strong pull. CPAP only supports the patient's own
- * effort, so it gets a gentler pull. Effects only apply when the patient is
- * perfusing — during CPR the perfusion-driven clamp in `forcedEtco2MmHg` wins.
- */
-function ventilationNormalizedEtco2(
-  baselineMmHg: number,
-  mode: VentilationMode,
-): number {
-  if (mode === 'bvm') {
-    return baselineMmHg + (VENTILATION_NORMAL_TARGET_MMHG - baselineMmHg) * 0.5;
-  }
-  if (mode === 'cpap') {
-    return baselineMmHg + (VENTILATION_NORMAL_TARGET_MMHG - baselineMmHg) * 0.25;
-  }
-  return baselineMmHg;
-}
-
-/**
- * CPAP overcomes a meaningful chunk of bronchospasm; BVM (especially with an
- * advanced airway) pushes around upper-airway resistance enough to soften the
- * shark-fin morphology too. Both effects are partial — true status asthmaticus
- * still shows obstructive shape until bronchodilators take effect.
- */
-function ventilationAdjustedObstruction(
-  baselineObstruction: number,
-  mode: VentilationMode,
-): number {
-  if (mode === 'cpap') return baselineObstruction * 0.5;
-  if (mode === 'bvm') return baselineObstruction * 0.7;
-  return baselineObstruction;
-}
 
 /**
  * PK + autonomic deltas + merged strings for rails on top of the AI baseline snapshot.
@@ -183,20 +115,14 @@ export function useMergedPkDisplay(): {
      * not the assisted-ventilation target. On ROSC the clamp releases and
      * the BVM-assisted value shines through.
      */
-    const ventilatedEtco2MmHg = ventilationNormalizedEtco2(
-      aiEtco2MmHg,
+    const finalEtco2MmHg = resolveDisplayEtco2MmHg({
+      baselineMmHg: aiEtco2MmHg,
       ventilationMode,
-    );
-    const finalEtco2MmHg = forcedEtco2MmHg(
-      ventilatedEtco2MmHg,
       decompensationPhase,
-      isPulseless,
-    );
+      pulseless: isPulseless,
+    });
 
-    const finalObstruction = Math.max(
-      0,
-      Math.min(1, ventilationAdjustedObstruction(obstruction, ventilationMode)),
-    );
+    const finalObstruction = resolveDisplayObstruction(obstruction, ventilationMode);
 
     const finalEtco2Str =
       finalEtco2MmHg !== aiEtco2MmHg
