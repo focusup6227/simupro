@@ -19,6 +19,7 @@ import {
   BookOpen,
   Crown,
   FileEdit,
+  Flag,
   HeartPulse,
   MessageSquare,
   RefreshCw,
@@ -39,6 +40,7 @@ type AdminMetrics = {
   scenariosDraft: number;
   ticketsNew: number;
   ticketsInProgress: number;
+  aiFeedbackPending: number;
   simsCompleted7d: number;
   simsInProgress: number;
   interventions: number;
@@ -84,6 +86,7 @@ export default function AdminDashboardPage() {
         scenariosDraft,
         ticketsNew,
         ticketsInProgress,
+        aiFeedbackPending,
         simsCompleted7d,
         simsInProgress,
         interventions,
@@ -95,6 +98,9 @@ export default function AdminDashboardPage() {
         exactCount(client, "scenarios", (q) => q.eq("status", "draft")),
         exactCount(client, "support_tickets", (q) => q.eq("status", "new")),
         exactCount(client, "support_tickets", (q) => q.eq("status", "in-progress")),
+        exactCount(client, "ai_response_feedback", (q) =>
+          q.eq("review_status", "pending"),
+        ),
         exactCount(client, "simulation_sessions", (q) =>
           q.eq("status", "completed").gte("start_time", since7d)
         ),
@@ -110,6 +116,7 @@ export default function AdminDashboardPage() {
         scenariosDraft,
         ticketsNew,
         ticketsInProgress,
+        aiFeedbackPending,
         simsCompleted7d,
         simsInProgress,
         interventions,
@@ -155,6 +162,13 @@ export default function AdminDashboardPage() {
               : "None in progress",
           icon: MessageSquare,
           href: "/dashboard/admin/support",
+        },
+        {
+          title: "QA — AI feedback pending",
+          value: metrics.aiFeedbackPending,
+          hint: "Learner-flagged patient replies to review",
+          icon: Flag,
+          href: "/dashboard/admin/qa",
         },
         {
           title: "Simulations completed",
@@ -217,7 +231,7 @@ export default function AdminDashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {loading &&
-          Array.from({ length: 8 }).map((_, i) => (
+          Array.from({ length: 9 }).map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
                 <Skeleton className="h-4 w-28" />

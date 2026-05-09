@@ -26,7 +26,20 @@ export async function POST(request: Request) {
       // empty body is fine; default to monthly
     }
 
-    const priceId = cycle === 'annual' && annualPriceId ? annualPriceId : monthlyPriceId;
+    let priceId = monthlyPriceId;
+    if (cycle === 'annual') {
+      const annual = annualPriceId?.trim();
+      if (!annual) {
+        return NextResponse.json(
+          {
+            error:
+              'Annual billing is not configured. Add STRIPE_PRICE_ID_ANNUAL (yearly recurring Price in Stripe) or choose Monthly.',
+          },
+          { status: 400 },
+        );
+      }
+      priceId = annual;
+    }
 
     const supabase = createServerSupabaseClient();
     const {

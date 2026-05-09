@@ -16,7 +16,6 @@
 # next.js
 /.next/
 /out/
-cpanel-deploy/.next/
 
 # production
 /build

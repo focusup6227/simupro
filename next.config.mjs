@@ -3,7 +3,8 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  disable: true,
+  /** Keep off by default; set NEXT_PUBLIC_ENABLE_PWA=true to enable precaching / offline shell. */
+  disable: process.env.NEXT_PUBLIC_ENABLE_PWA !== "true",
   register: true,
   scope: "/",
   cacheStartUrl: true,
@@ -27,6 +28,18 @@ const withPWA = withPWAInit({
         urlPattern: ({ url }) => url.pathname.startsWith("/monitoring"),
         handler: "NetworkOnly",
       },
+      {
+        urlPattern: ({ url }) =>
+          /ecg-strip\.worker|capno\.worker/.test(url.pathname),
+        handler: "StaleWhileRevalidate",
+        options: {
+          cacheName: "simupro-wave-workers",
+          expiration: {
+            maxEntries: 6,
+            maxAgeSeconds: 60 * 60 * 24 * 365,
+          },
+        },
+      },
     ],
   },
 });
@@ -41,6 +54,10 @@ const nextConfig = {
       bodySizeLimit: "10mb",
       workerThreads: true,
     },
+    // Genkit pulls in @opentelemetry/sdk-node, which optionally requires
+    // @opentelemetry/exporter-jaeger. Webpack resolves that require at build
+    // time even though it's never used unless OTEL_TRACES_EXPORTER=jaeger.
+    serverComponentsExternalPackages: ["@opentelemetry/sdk-node"],
   },
   typescript: {
     ignoreBuildErrors: true,

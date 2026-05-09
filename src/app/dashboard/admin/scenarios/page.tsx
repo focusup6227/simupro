@@ -41,7 +41,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast";
-import { seedScenarios } from "@/lib/scenarios-data";
+import { isLegacyScenarioId, seedScenarios } from "@/lib/scenarios-data";
 import { ScenarioForm } from "@/components/scenario-form";
 import { Badge } from "@/components/ui/badge";
 import { commitBatchUpsertNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/supabase/non-blocking-updates";
@@ -217,7 +217,16 @@ export default function AdminScenariosPage() {
                             {isLoading && <TableRow><TableCell colSpan={6}>Loading...</TableCell></TableRow>}
                             {scenarios?.map(s => (
                                 <TableRow key={s.id}>
-                                    <TableCell className="font-medium">{s.title}</TableCell>
+                                    <TableCell className="font-medium">
+                                      <span className="inline-flex flex-wrap items-center gap-2">
+                                        {s.title}
+                                        {isLegacyScenarioId(s.id) && (
+                                          <Badge variant="outline" className="font-normal text-muted-foreground">
+                                            Legacy
+                                          </Badge>
+                                        )}
+                                      </span>
+                                    </TableCell>
                                     <TableCell><Badge variant={s.status === 'published' ? 'default' : 'secondary'} className="capitalize">{s.status}</Badge></TableCell>
                                     <TableCell><Badge variant="outline">{s.difficulty}</Badge></TableCell>
                                     <TableCell>

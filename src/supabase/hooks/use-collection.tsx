@@ -21,7 +21,7 @@ function applyFilters(
   client: SupabaseClient,
   spec: Exclude<CollectionSpec, null>
 ) {
-  let q: any = client.from(spec.table).select('*');
+  let q: any = client.from(spec.table).select(spec.columns ?? '*');
 
   if (spec.eq) {
     for (const [k, v] of Object.entries(spec.eq)) {

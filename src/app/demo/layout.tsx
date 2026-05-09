@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ScenarioSoundsBootstrap } from "@/components/scenario-sounds-bootstrap";
 
 export const metadata: Metadata = {
   title: "Try SimuPro Free — Demo Scenario",
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function DemoLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <ScenarioSoundsBootstrap />
+      {children}
+    </>
+  );
 }

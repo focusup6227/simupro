@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { Message, Scenario, Intervention, User as UserType, UserRole, UserAction, ArrestRhythmKind } from "@/lib/types";
+import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-adjust";
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
 import { effectiveSimulationRole, isTesterOrAdminUser } from "@/lib/user-permissions";
@@ -18,7 +19,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { interventionCertifications } from "@/lib/types";
 import { getPatientResponse, generateRadioReport } from "@/app/actions";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
-import { AlertCircle, ArrowRight, Clock, HeartPulse, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, Waves, FileHeart, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useDoc,
@@ -29,7 +30,6 @@ import {
   useDashboardProfile,
 } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { hospitals } from "@/lib/hospitals-data";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,27 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { UserGuide } from "@/components/user-guide";
-import { EcgMonitor } from "@/components/ecg-monitor";
+import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
+import { EquipmentDrawer } from "@/components/equipment-drawer";
+import { listPkDoses, recordPkDoses } from "@/app/pk-actions";
+import { listAutonomicEvents, recordAutonomicEvents } from "@/app/autonomic-actions";
+import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from "@/lib/feature-flags";
+import { learnerMayOpenScenario } from "@/lib/scenario-catalog-visibility";
+import { learnerQualitativeDecompCue } from "@/lib/learner-decomp-cues";
+import { summarizeRecentMedications } from "@/lib/pk-recent-medications";
+import { parseTreatmentSelectionsToDoses } from "@/lib/physiology/dose-parser";
+import { parseTreatmentSelectionsToStressors, aiStressorRowToAutonomicEvent } from "@/lib/physiology/intervention-stressor-parser";
+import type { DoseRecord } from "@/lib/physiology/pk-types";
+import { usePharmacokineticsTick } from "@/hooks/use-pharmacokinetics-tick";
+import { useAutonomicTick } from "@/hooks/use-autonomic-tick";
+import { useMetabolicTick } from "@/hooks/use-metabolic-tick";
+import { applyEquipmentFromTreatmentSelections } from "@/lib/equipment-sync";
+import { resolveScenarioWeightKg } from "@/lib/physiology/scenario-physiology-defaults";
+import { usePkStore } from "@/stores/pk-store";
+import { useAutonomicStore } from "@/stores/autonomic-store";
+import { useMetabolicStore } from "@/stores/metabolic-store";
+import { usePhysiologyStore, scenarioVitalsFromStore } from "@/stores/physiology-store";
+import { useScenarioMonitorPipStore } from "@/stores/scenario-monitor-pip-store";
 import { AedPanel } from "@/components/aed-panel";
 import { RhythmIdQuiz } from "@/components/rhythm-id-quiz";
 import { recordRhythmQuizAttempt } from "@/lib/rhythm-quiz-attempts";
@@ -74,6 +94,14 @@ const reportIssueSchema = z.object({
 });
 
 type ReportIssueFormValues = z.infer<typeof reportIssueSchema>;
+
+const badAiResponseSchema = z.object({
+  comment: z.string().min(10, {
+    message: "Please explain what was wrong with this reply (minimum 10 characters).",
+  }),
+});
+
+type BadAiResponseFormValues = z.infer<typeof badAiResponseSchema>;
 
 type DictationTarget = "assessment" | "radioReport" | "medicalDirection";
 
@@ -166,6 +194,14 @@ export default function SimulationPage() {
 
   const { data: userData, isLoading: isUserDataLoading } = useDashboardProfile();
 
+  const autonomicDecompPhase = useAutonomicStore((s) => s.state.decompensationPhase);
+  const learnerPerfTrendLabel = useMemo(() => {
+    if (!ENABLE_AUTONOMIC_ENGINE) return null;
+    if (isTesterOrAdminUser(userData)) return null;
+    if (currentUserRole !== 'emt' && currentUserRole !== 'aemt') return null;
+    return learnerQualitativeDecompCue(autonomicDecompPhase);
+  }, [userData, autonomicDecompPhase, currentUserRole]);
+
   const interventionsSpec = useMemoSupabase(
     () =>
       supabase
@@ -190,9 +226,17 @@ export default function SimulationPage() {
       }
     }
   }, [userData]);
+
+  useEffect(() => {
+    if (isLoadingScenario || isUserDataLoading || !scenario) return;
+    const staff = isTesterOrAdminUser(userData);
+    if (learnerMayOpenScenario(id, staff)) return;
+    router.replace("/dashboard/scenarios");
+  }, [isLoadingScenario, isUserDataLoading, scenario, id, userData, router]);
   
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentVitals, setCurrentVitals] = useState<Scenario['initialVitals'] | null>(null);
+  const vitalsHr = usePhysiologyStore((s) => s.hr);
+  const vitalsReady = Boolean(vitalsHr);
   const [isLoading, setIsLoading] = useState(false);
   const [assessmentInput, setAssessmentInput] = useState('');
   const [radioReportInput, setRadioReportInput] = useState('');
@@ -202,6 +246,8 @@ export default function SimulationPage() {
   const [selectedDestination, setSelectedDestination] = useState<string | undefined>(undefined);
   const [transportMode, setTransportMode] = useState<'Routine' | 'Emergency' | undefined>(undefined);
   const [time, setTime] = useState(0);
+  const simulationTimeRef = useRef(0);
+  simulationTimeRef.current = time;
   const [userActions, setUserActions] = useState<UserAction[]>([]);
   const [simulationEnded, setSimulationEnded] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -213,15 +259,36 @@ export default function SimulationPage() {
   /** Latest rhythm kind currently being rendered on the monitor (for the rhythm-ID quiz). */
   const [observedRhythm, setObservedRhythm] = useState<EcgRhythmKind | null>(null);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
+  const [badAiReportOpen, setBadAiReportOpen] = useState(false);
+  const [badAiReportMessageIndex, setBadAiReportMessageIndex] = useState<number | null>(null);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
   const [activeDictationTarget, setActiveDictationTarget] = useState<DictationTarget | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const simulationLogScrollRef = useRef<HTMLDivElement>(null);
   const simulationLogNearBottomRef = useRef(true);
+  /** Avoid wiping physiology on re-fetch/tab-focus remount; only reset when switching scenario routes. */
+  const prevScenarioRouteIdRef = useRef<string | null>(null);
 
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
   });
+
+  const badAiForm = useForm<BadAiResponseFormValues>({
+    resolver: zodResolver(badAiResponseSchema),
+    defaultValues: { comment: "" },
+  });
+
+  /** Assistant-only rows for “bad reply” reporting (index is position in full `messages` array). */
+  const assistantReplyPicklist = useMemo(() => {
+    const out: { index: number; preview: string }[] = [];
+    messages.forEach((m, i) => {
+      if (m.role !== "assistant") return;
+      const raw = stripGradingMarkers(m.content);
+      const preview = raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+      out.push({ index: i, preview });
+    });
+    return out;
+  }, [messages]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -355,17 +422,17 @@ export default function SimulationPage() {
   const isCardiacArrestScenario = useMemo(() => {
     if (scenario?.category === 'cardiac-arrest') return true;
     if (currentArrestRhythm) return true;
-    const hr = (currentVitals?.hr ?? '').toLowerCase();
+    const hr = (vitalsHr ?? '').toLowerCase();
     return /asystole|v-?fib|pulseless|pea\b|cardiac arrest|no pulse/.test(hr);
-  }, [scenario, currentVitals, currentArrestRhythm]);
+  }, [scenario, vitalsHr, currentArrestRhythm]);
 
   const hasROSC = useMemo(() => {
-    if (!isCardiacArrestScenario || !currentVitals) return false;
+    if (!isCardiacArrestScenario || !vitalsReady) return false;
     if (currentArrestRhythm) return false;
-    const hr = currentVitals.hr.toLowerCase();
+    const hr = vitalsHr.toLowerCase();
     if (/asystole|v-?fib|pulseless|pea\b|no pulse|0\s*bpm/.test(hr)) return false;
-    return parseInt(hr) > 0;
-  }, [isCardiacArrestScenario, currentVitals, currentArrestRhythm]);
+    return parseInt(hr, 10) > 0;
+  }, [isCardiacArrestScenario, vitalsReady, vitalsHr, currentArrestRhythm]);
 
   /** Translate the AI's arrest-rhythm enum into the broader EcgRhythmKind union. */
   const monitorForcedRhythm: EcgRhythmKind | null = useMemo(() => {
@@ -373,6 +440,31 @@ export default function SimulationPage() {
     if (scenario?.initialRhythm) return scenario.initialRhythm as EcgRhythmKind;
     return null;
   }, [currentArrestRhythm, scenario]);
+
+  useEffect(() => {
+    if (!scenario) return;
+    if (simulationEnded) {
+      useScenarioMonitorPipStore.getState().clearPip();
+      return;
+    }
+    if (vitalsReady) {
+      useScenarioMonitorPipStore.getState().setPipSurface({
+        scenario,
+        cprActive: cprStarted && !hasROSC,
+        forcedRhythm: monitorForcedRhythm,
+        pulseless: Boolean(currentArrestRhythm),
+        simulationEnded: false,
+      });
+    }
+  }, [
+    scenario,
+    vitalsReady,
+    simulationEnded,
+    cprStarted,
+    hasROSC,
+    monitorForcedRhythm,
+    currentArrestRhythm,
+  ]);
 
   const [hasGivenReport, setHasGivenReport] = useState(false);
   const canEndSimulation = !!selectedDestination && hasGivenReport;
@@ -413,6 +505,7 @@ export default function SimulationPage() {
     }
 
     const startSimulation = async () => {
+      const scenarioWeightKg = resolveScenarioWeightKg(scenario);
       try {
         const { data: existing, error: existingError } = await supabase
           .from('simulation_sessions')
@@ -437,9 +530,13 @@ export default function SimulationPage() {
               ...restoredMessages,
             ]);
             const lastVitals = [...restoredMessages].reverse().find((m) => m.vitals)?.vitals;
-            setCurrentVitals(lastVitals ?? scenario.initialVitals);
+            usePhysiologyStore.getState().loadScenario(lastVitals ?? scenario.initialVitals, {
+              weightKg: scenarioWeightKg,
+            });
           } else {
-            setCurrentVitals(scenario.initialVitals);
+            usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
+              weightKg: scenarioWeightKg,
+            });
             const initialMessage: Message = { role: 'assistant', content: scenario.details, vitals: scenario.initialVitals };
             setMessages([
               { role: 'system', content: 'Resumed previous simulation. Continuing where you left off.' },
@@ -450,6 +547,19 @@ export default function SimulationPage() {
           setUserActions(restoredActions);
           if (typeof existing.time_elapsed === 'number') {
             setTime(existing.time_elapsed);
+          }
+
+          if (ENABLE_PHARMACOKINETICS_ENGINE) {
+            void listPkDoses(existing.id)
+              .then((doses) => usePkStore.getState().ingestHydratedDoses(doses))
+              .catch((e: unknown) => console.error('listPkDoses', e));
+          }
+          if (ENABLE_AUTONOMIC_ENGINE) {
+            void listAutonomicEvents(existing.id)
+              .then((events) =>
+                useAutonomicStore.getState().ingestHydratedEvents(events),
+              )
+              .catch((e: unknown) => console.error('listAutonomicEvents', e));
           }
           return;
         }
@@ -470,7 +580,9 @@ export default function SimulationPage() {
         if (error) throw error;
 
         setSessionId(newSessionId);
-        setCurrentVitals(scenario.initialVitals);
+        usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
+          weightKg: scenarioWeightKg,
+        });
 
         const initialMessage: Message = { role: 'assistant', content: scenario.details, vitals: scenario.initialVitals };
 
@@ -491,7 +603,30 @@ export default function SimulationPage() {
     };
 
     void startSimulation();
-   }, [scenario, authUser, supabase, sessionId, toast, userData]);
+   }, [scenario, authUser, supabase, sessionId, toast, userData, router]);
+
+  useEffect(() => {
+    if (
+      prevScenarioRouteIdRef.current !== null &&
+      prevScenarioRouteIdRef.current !== id
+    ) {
+      usePhysiologyStore.getState().reset();
+      if (ENABLE_PHARMACOKINETICS_ENGINE) {
+        usePkStore.getState().reset();
+      }
+      if (ENABLE_AUTONOMIC_ENGINE) {
+        useAutonomicStore.getState().reset();
+      }
+      if (ENABLE_METABOLIC_ENGINE) {
+        useMetabolicStore.getState().reset();
+      }
+    }
+    prevScenarioRouteIdRef.current = id;
+  }, [id]);
+
+  useEffect(() => {
+    usePhysiologyStore.getState().setPulseless(Boolean(currentArrestRhythm));
+  }, [currentArrestRhythm]);
 
   useEffect(() => {
     if (!supabase || !sessionId || !authUser || simulationEnded) return;
@@ -534,6 +669,21 @@ export default function SimulationPage() {
     ]);
   }, [time, isCardiacArrestScenario, hasROSC]);
 
+  usePharmacokineticsTick({
+    scenario,
+    simSeconds: time,
+  });
+
+  useAutonomicTick({
+    scenario,
+    simSeconds: time,
+  });
+
+  useMetabolicTick({
+    scenario,
+    simSeconds: time,
+  });
+
 
  const handleEndSimulation = useCallback(async (failed = false) => {
     if (simulationEnded || !scenario || !authUser || !supabase || !sessionId) {
@@ -563,6 +713,7 @@ export default function SimulationPage() {
         await bumpTrainingStreakAfterSuccessfulSimulation();
       }
 
+      useScenarioMonitorPipStore.getState().clearPip();
       const url = `/dashboard/scenarios/${id}/report?sessionId=${sessionId}`;
       router.push(url);
 
@@ -651,6 +802,27 @@ export default function SimulationPage() {
       const mandatoryActionsForRole = scenario.mandatoryActions[userRole as keyof typeof scenario.mandatoryActions] || [];
       const priorVitals = currentVitals ?? scenario.initialVitals;
 
+      const recentMedications = ENABLE_PHARMACOKINETICS_ENGINE
+        ? summarizeRecentMedications(
+            usePkStore.getState().doses,
+            allInterventions,
+            time,
+            120,
+          )
+        : [];
+
+      const autonomicSnapshot = ENABLE_AUTONOMIC_ENGINE
+        ? useAutonomicStore.getState().state
+        : null;
+      const engineSummary =
+        autonomicSnapshot != null
+          ? `phase=${autonomicSnapshot.decompensationPhase}; bleed=${autonomicSnapshot.currentBleedRateMlPerMin.toFixed(0)}mL/min; vol=${autonomicSnapshot.intravascularVolumeMl.toFixed(0)}mL`
+          : undefined;
+
+      const metabolicSnapshot = ENABLE_METABOLIC_ENGINE
+        ? (useMetabolicStore.getState().snapshotForAi() ?? undefined)
+        : undefined;
+
       const response = await getPatientResponse({
         scenario: scenario.details,
         assessment: assessmentText,
@@ -661,6 +833,10 @@ export default function SimulationPage() {
         mandatoryActions: mandatoryActionsForRole,
         userActions: updatedUserActions,
         isPremium: Boolean(scenario.isPremium && userData?.isPremium),
+        recentMedications,
+        decompensationPhase: autonomicSnapshot?.decompensationPhase,
+        engineSummary,
+        metabolicSnapshot,
       });
       
       const newVitals = response.vitals;
@@ -693,8 +869,39 @@ export default function SimulationPage() {
         updatedMessages.push(assistantMessage);
       }
 
+      if (
+        ENABLE_AUTONOMIC_ENGINE &&
+        response.stressors &&
+        response.stressors.length > 0 &&
+        sessionId &&
+        userData?.id
+      ) {
+        const stressEvents = response.stressors
+          .map((s) =>
+            aiStressorRowToAutonomicEvent({
+              kind: s.kind,
+              payload: s.payload ?? {},
+              simSeconds: time,
+              sessionId,
+              userId: userData.id,
+            }),
+          )
+          .filter((e): e is NonNullable<typeof e> => Boolean(e));
+        if (stressEvents.length > 0) {
+          useAutonomicStore.getState().recordLocalEvents(stressEvents);
+          void recordAutonomicEvents(sessionId, stressEvents).catch((e: unknown) => {
+            console.error(e);
+            toast({
+              variant: 'destructive',
+              title: 'Could not save AI stressor log',
+              description: e instanceof Error ? e.message : 'Autonomic persistence failed.',
+            });
+          });
+        }
+      }
+
       setMessages(updatedMessages);
-      setCurrentVitals(newVitals);
+      usePhysiologyStore.getState().updateVitals(newVitals);
 
       if (response.patientIsDeceased) {
         toast({
@@ -721,7 +928,7 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, currentVitals]);
+  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, currentVitals, sessionId]);
 
   /**
    * Logs a cardiac monitor / ECG action into the user-action log so it counts
@@ -732,7 +939,7 @@ export default function SimulationPage() {
   const handleEcgAction = useCallback((label: string) => {
     if (!scenario || !authUser) return;
     const newAction: UserAction = {
-      time,
+      time: simulationTimeRef.current,
       assessment: '',
       treatments: [label],
       destination: null,
@@ -742,7 +949,18 @@ export default function SimulationPage() {
       ...prev,
       { role: 'system', content: `Action logged · ${label}` },
     ]);
-  }, [scenario, authUser, time]);
+  }, [scenario, authUser]);
+
+  const nibpPhaseTrackedRef = useRef(usePhysiologyStore.getState().nibpPhase);
+  useEffect(() => {
+    return usePhysiologyStore.subscribe((state) => {
+      const prev = nibpPhaseTrackedRef.current;
+      nibpPhaseTrackedRef.current = state.nibpPhase;
+      if (prev !== 'complete' && state.nibpPhase === 'complete') {
+        handleEcgAction('NIBP cycle complete (automated). [BP_GRADING_NIBP]');
+      }
+    });
+  }, [handleEcgAction]);
 
   const handleSubmitAssessment = () => {
     const assessmentText = assessmentInput.trim();
@@ -753,7 +971,7 @@ export default function SimulationPage() {
     }
   };
 
-  const handleSubmitTreatments = (actionType: 'treatment' | 'cardiacArrest' = 'treatment') => {
+  const handleSubmitTreatments = async (actionType: 'treatment' | 'cardiacArrest' = 'treatment') => {
     const treatmentsArray = Object.entries(selectedTreatments)
       .filter(([, details]) => details.selected)
       .map(([id, details]) => {
@@ -764,7 +982,89 @@ export default function SimulationPage() {
       }).filter(Boolean);
     
     if (treatmentsArray.length > 0) {
-      submitAction(actionType, { treatments: treatmentsArray });
+      const weightKg = usePhysiologyStore.getState().weightKg;
+      const uidForPk = authUser?.id;
+      const pkDoses: DoseRecord[] =
+        ENABLE_PHARMACOKINETICS_ENGINE &&
+        sessionId &&
+        uidForPk &&
+        allInterventions
+          ? parseTreatmentSelectionsToDoses(
+              selectedTreatments,
+              allInterventions,
+              {
+                sessionId,
+                userId: uidForPk,
+                patientWeightKg: weightKg,
+                simSeconds: simulationTimeRef.current,
+              },
+            ).map((d) => ({
+              ...d,
+              id:
+                typeof crypto !== "undefined" && "randomUUID" in crypto
+                  ? crypto.randomUUID()
+                  : `pk-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              administeredAt: new Date().toISOString(),
+            }))
+          : [];
+      for (const d of pkDoses) {
+        usePkStore.getState().recordLocalDose(d);
+      }
+      if (
+        ENABLE_PHARMACOKINETICS_ENGINE &&
+        pkDoses.length > 0 &&
+        sessionId
+      ) {
+        try {
+          await recordPkDoses(sessionId, pkDoses);
+        } catch (e: unknown) {
+          console.error(e);
+          toast({
+            variant: 'destructive',
+            title: 'Could not save medication log',
+            description:
+              e instanceof Error ? e.message : 'PK dose persistence failed.',
+          });
+        }
+      }
+      const autonomicEvents =
+        ENABLE_AUTONOMIC_ENGINE &&
+        sessionId &&
+        uidForPk &&
+        allInterventions
+          ? parseTreatmentSelectionsToStressors(
+              selectedTreatments,
+              allInterventions,
+              {
+                sessionId,
+                userId: uidForPk,
+                patientWeightKg: weightKg,
+                simSeconds: simulationTimeRef.current,
+              },
+            )
+          : [];
+      if (autonomicEvents.length > 0) {
+        useAutonomicStore.getState().recordLocalEvents(autonomicEvents);
+      }
+      if (
+        ENABLE_AUTONOMIC_ENGINE &&
+        autonomicEvents.length > 0 &&
+        sessionId
+      ) {
+        try {
+          await recordAutonomicEvents(sessionId, autonomicEvents);
+        } catch (e: unknown) {
+          console.error(e);
+          toast({
+            variant: 'destructive',
+            title: 'Could not save autonomic event log',
+            description:
+              e instanceof Error ? e.message : 'Autonomic persistence failed.',
+          });
+        }
+      }
+      applyEquipmentFromTreatmentSelections(selectedTreatments, allInterventions);
+      await submitAction(actionType, { treatments: treatmentsArray });
     } else {
       toast({ title: 'No Treatments Selected', description: 'Please select at least one treatment.', variant: 'destructive' });
     }
@@ -799,7 +1099,7 @@ export default function SimulationPage() {
   };
   
   const handleGenerateReport = async () => {
-    if (!scenario || !currentVitals || !userData) return;
+    if (!scenario || !scenarioVitalsFromStore() || !userData) return;
     setIsGeneratingReport(true);
     setRadioReportInput("Generating report...");
     try {
@@ -807,7 +1107,7 @@ export default function SimulationPage() {
         patientProfile: scenario.patientProfile,
         scenarioDetails: scenario.details,
         userActions,
-        currentVitals,
+        currentVitals: scenarioVitalsFromStore()!,
         userRole: currentUserRole,
       });
       setRadioReportInput(response.radioReport);
@@ -860,11 +1160,17 @@ export default function SimulationPage() {
   };
   
   const renderActionDetails = (action: UserAction) => {
-    if (action.assessment !== 'None') {
-      return `Assessment: ${action.assessment}`;
+    if (action.assessment && action.assessment !== 'None') {
+      const cleaned = stripGradingMarkers(action.assessment);
+      if (cleaned) return `Assessment: ${cleaned}`;
     }
     if (action.treatments.length > 0) {
-      return `Treatments: ${action.treatments.join(', ')}`;
+      const cleanedTreatments = action.treatments
+        .map((t) => stripGradingMarkers(t))
+        .filter(Boolean);
+      if (cleanedTreatments.length > 0) {
+        return `Treatments: ${cleanedTreatments.join(', ')}`;
+      }
     }
     if (action.destination) {
       return `Destination: ${action.destination} (Mode: ${action.transportMode})`;
@@ -913,12 +1219,87 @@ export default function SimulationPage() {
     }
   };
 
+  const handleBadAiReport = async (values: BadAiResponseFormValues) => {
+    if (!supabase || !authUser || !scenario || badAiReportMessageIndex === null) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not submit report. Missing context.",
+      });
+      return;
+    }
+    if (!sessionId) {
+      toast({
+        variant: "destructive",
+        title: "Session not ready",
+        description: "Wait until the simulation session has started, then try again.",
+      });
+      return;
+    }
+    const flagged = messages[badAiReportMessageIndex];
+    if (!flagged || flagged.role !== "assistant") {
+      toast({
+        variant: "destructive",
+        title: "Invalid message",
+        description: "Only patient AI replies can be flagged.",
+      });
+      return;
+    }
 
-  if (isLoadingScenario || isUserDataLoading) {
+    try {
+      const feedbackId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const flaggedContent = stripGradingMarkers(flagged.content).slice(0, 8000);
+
+      const { error } = await supabase.from("ai_response_feedback").insert({
+        id: feedbackId,
+        session_id: sessionId,
+        user_id: authUser.id,
+        scenario_id: scenario.id,
+        scenario_title: scenario.title,
+        assistant_message_index: badAiReportMessageIndex,
+        flagged_assistant_content: flaggedContent,
+        messages_snapshot: messages as unknown as Json,
+        user_actions_snapshot: userActions as unknown as Json,
+        simulation_role: currentUserRole,
+        simulation_time_seconds: time,
+        user_comment: values.comment,
+        review_status: "pending",
+      });
+      if (error) throw error;
+
+      toast({
+        title: "Report sent",
+        description:
+          "Thanks — admins can review the full simulation log and note a better reply when appropriate.",
+      });
+      setBadAiReportOpen(false);
+      setBadAiReportMessageIndex(null);
+      badAiForm.reset();
+    } catch (e: unknown) {
+      console.error("ai_response_feedback insert:", e);
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: e instanceof Error ? e.message : "Could not save report.",
+      });
+    }
+  };
+
+
+  if (!userData) {
     return <div className="p-8">Loading scenario...</div>;
   }
 
-  if (!scenario) return <div className="p-8 text-red-500">Error: Scenario not found.</div>;
+  if (!scenario) {
+    if (isLoadingScenario) {
+      return <div className="p-8">Loading scenario...</div>;
+    }
+    return <div className="p-8 text-red-500">Error: Scenario not found.</div>;
+  }
   
   const cardiacArrestInterventionIds = [
     'cpr',
@@ -972,30 +1353,20 @@ export default function SimulationPage() {
             <p className="text-sm text-muted-foreground">{scenario.description}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><HeartPulse /> Current Vitals</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 text-sm">
-            {currentVitals ? Object.entries(currentVitals).map(([key, value]) => (
-              <div key={key}>
-                <span className="font-semibold uppercase text-muted-foreground">{key}: </span>
-                <span>{value}</span>
-              </div>
-            )) : <Skeleton className="h-20 w-full" />}
-          </CardContent>
-        </Card>
-        {currentVitals?.hr ? (
+        {vitalsReady ? (
           <div className="space-y-2">
-            <EcgMonitor
+            <UnifiedCardiacMonitor
               scenario={scenario}
-              currentVitals={currentVitals}
               cprActive={cprStarted && !hasROSC}
               forcedRhythm={monitorForcedRhythm}
               pulseless={Boolean(currentArrestRhythm)}
               onRhythmChange={(kind) => setObservedRhythm(kind)}
               onAction={handleEcgAction}
+              showAutonomicDebug={isTesterOrAdminUser(userData)}
+              learnerPerfTrendLabel={learnerPerfTrendLabel}
+              viewerRole={currentUserRole}
             />
+            <EquipmentDrawer />
             {(currentUserRole === 'paramedic' || currentUserRole === 'admin') && (
               <div className="flex justify-end">
                 <RhythmIdQuiz
@@ -1099,6 +1470,131 @@ export default function SimulationPage() {
                     </Form>
                 </DialogContent>
                </Dialog>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                type="button"
+                onClick={() => {
+                  setIsPaused(true);
+                  setBadAiReportMessageIndex(null);
+                  badAiForm.reset({ comment: "" });
+                  setBadAiReportOpen(true);
+                }}
+              >
+                <Flag className="mr-2 h-4 w-4" />
+                Bad AI reply?
+              </Button>
+
+              <Dialog
+                open={badAiReportOpen}
+                onOpenChange={(isOpen) => {
+                  setBadAiReportOpen(isOpen);
+                  if (!isOpen) {
+                    setBadAiReportMessageIndex(null);
+                    setIsPaused(false);
+                  }
+                }}
+              >
+                <DialogContent className="max-h-[min(90vh,40rem)] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Report a bad AI reply</DialogTitle>
+                    <DialogDescription>
+                      Choose which patient reply was wrong, then describe the problem. We send that reply plus your full
+                      simulation log to admins.
+                      {!sessionId ? (
+                        <span className="mt-2 block text-destructive">
+                          Session not active yet — wait until the simulation has started.
+                        </span>
+                      ) : null}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {assistantReplyPicklist.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      There are no patient replies in the log yet. Run an assessment or treatment step first.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Which reply was wrong?</p>
+                      <ScrollArea className="max-h-48 rounded-md border p-3">
+                        <RadioGroup
+                          value={
+                            badAiReportMessageIndex !== null ? String(badAiReportMessageIndex) : ""
+                          }
+                          onValueChange={(v) => setBadAiReportMessageIndex(parseInt(v, 10))}
+                          className="space-y-3"
+                        >
+                          {assistantReplyPicklist.map((opt, seq) => (
+                            <div key={opt.index} className="flex items-start gap-3">
+                              <RadioGroupItem
+                                value={String(opt.index)}
+                                id={`bad-ai-${opt.index}`}
+                                className="mt-1"
+                              />
+                              <Label
+                                htmlFor={`bad-ai-${opt.index}`}
+                                className="cursor-pointer font-normal leading-snug"
+                              >
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Patient reply #{seq + 1}
+                                </span>
+                                <p className="mt-0.5 text-sm">{opt.preview}</p>
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  <Form {...badAiForm}>
+                    <form onSubmit={badAiForm.handleSubmit(handleBadAiReport)} className="space-y-4 pt-2">
+                      <FormField
+                        control={badAiForm.control}
+                        name="comment"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>What was wrong?</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="e.g. contradicts prior vitals, unsafe suggestion, wrong clinical tone…"
+                                rows={4}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setBadAiReportOpen(false);
+                            setBadAiReportMessageIndex(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={
+                            badAiForm.formState.isSubmitting ||
+                            !sessionId ||
+                            badAiReportMessageIndex === null ||
+                            assistantReplyPicklist.length === 0
+                          }
+                        >
+                          {badAiForm.formState.isSubmitting ? "Sending…" : "Submit report"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+
                 <Button 
                     onClick={handleEndSimClick}
                     disabled={simulationEnded}
@@ -1107,27 +1603,6 @@ export default function SimulationPage() {
                     {simulationEnded ? 'Ending...' : 'End Simulation'}
                 </Button>
           </CardContent>
-        </Card>
-        <Card className="flex-grow flex flex-col">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ListChecks /> Live Action Log</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow overflow-hidden">
-                <ScrollArea className="h-full">
-                    <div className="space-y-3 pr-4">
-                        {userActions.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">No actions taken yet.</p>
-                        ) : (
-                            userActions.map((action, index) => (
-                                <div key={index} className="text-sm flex gap-2">
-                                    <span className="font-mono text-muted-foreground w-12">{formatTime(action.time)}</span>
-                                    <p className="flex-1 whitespace-pre-wrap">{renderActionDetails(action)}</p>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
         </Card>
       </div>
 
@@ -1142,21 +1617,18 @@ export default function SimulationPage() {
           className="max-h-[min(38dvh,24rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(52vh,26rem)]"
         >
           <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div key={index} className={`flex items-start gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
-                {message.role !== 'user' && <Avatar className="w-8 h-8"><AvatarFallback>{message.role === 'assistant' ? 'P' : message.role === 'system' ? 'H' : 'S'}</AvatarFallback></Avatar>}
-                <div className={`rounded-lg p-3 max-w-lg ${message.role === 'user' ? 'bg-primary text-primary-foreground' : message.role === 'system' ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'bg-muted'}`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  {message.conditionChange && <p className="text-sm mt-2 pt-2 border-t border-muted-foreground/20">Condition: {message.conditionChange}</p>}
-                   {message.role === 'assistant' && message.vitals && (
-                     <div className="mt-2 text-xs text-muted-foreground border-t pt-2 grid grid-cols-2 gap-x-4">
-                       {Object.entries(message.vitals).map(([key, value]) => <span key={key}>{key.toUpperCase()}: {value}</span>)}
-                     </div>
-                   )}
+            {messages.map((message, messageIndex) => {
+              if (message.role === "user") return null;
+              return (
+                <div key={messageIndex} className="flex items-start gap-3">
+                  <Avatar className="w-8 h-8"><AvatarFallback>{message.role === 'assistant' ? 'P' : message.role === 'system' ? 'H' : 'S'}</AvatarFallback></Avatar>
+                  <div className={`rounded-lg p-3 max-w-lg ${message.role === 'system' ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'bg-muted'}`}>
+                    <p className="text-sm whitespace-pre-wrap">{stripGradingMarkers(message.content)}</p>
+                    {message.conditionChange && <p className="text-sm mt-2 pt-2 border-t border-muted-foreground/20">Condition: {message.conditionChange}</p>}
+                  </div>
                 </div>
-                 {message.role === 'user' && <Avatar className="w-8 h-8"><AvatarFallback>U</AvatarFallback></Avatar>}
-              </div>
-            ))}
+              );
+            })}
             {isLoading && <p>AI is thinking...</p>}
             {isAnalyzingAED && <p>AED is analyzing...</p>}
           </div>
@@ -1303,11 +1775,9 @@ export default function SimulationPage() {
                   />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Request a 4-lead ECG reading.'})} disabled={showCardiacArrestTab}><FileHeart className="mr-2 h-4 w-4" /> 4-Lead ECG</Button>
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Request a 12-lead ECG reading.'})} disabled={showCardiacArrestTab}><FileHeart className="mr-2 h-4 w-4" /> 12-Lead ECG</Button>
+                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: `${BP_GRADING_MANUAL_MARKER} Obtain a manual blood pressure (auscultation).` })} disabled={showCardiacArrestTab}><Activity className="mr-2 h-4 w-4" /> Manual Blood Pressure</Button>
                     <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check blood glucose level.'})} disabled={showCardiacArrestTab}><Droplets className="mr-2 h-4 w-4" /> Blood Glucose</Button>
                     <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check patient\'s temperature.'})} disabled={showCardiacArrestTab}><Thermometer className="mr-2 h-4 w-4" /> Temperature</Button>
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check end-tidal CO2 reading.'})} disabled={showCardiacArrestTab}><Waves className="mr-2 h-4 w-4" /> End-Tidal CO2</Button>
                 </div>
                 <Button onClick={handleSubmitAssessment} disabled={isLoading || simulationEnded || showCardiacArrestTab} className="w-full">
                     {isLoading ? 'Processing...' : 'Submit Findings'} <ArrowRight className="ml-2" />
@@ -1477,6 +1947,25 @@ export default function SimulationPage() {
                 </div>
             </TabsContent>
           </Tabs>
+        </div>
+        <div className="shrink-0 border-t px-4 py-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <ListChecks className="h-4 w-4" /> Live Action Log
+          </div>
+          <ScrollArea className="h-[8rem]">
+            <div className="space-y-2 pr-4">
+              {userActions.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2">No actions taken yet.</p>
+              ) : (
+                userActions.map((action, index) => (
+                  <div key={index} className="text-xs flex gap-2">
+                    <span className="font-mono text-muted-foreground w-12 shrink-0">{formatTime(action.time)}</span>
+                    <p className="flex-1 whitespace-pre-wrap">{renderActionDetails(action)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
 

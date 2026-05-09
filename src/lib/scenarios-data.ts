@@ -1,44 +1,73 @@
 
 import type { Scenario } from './types';
 
-export const seedScenarios: Scenario[] = [
+/**
+ * Legacy catalog (tutorial + pre–physiology-QA clinical scenarios).
+ * Re-exported as `legacySeedScenarios` with `isPremium: false` so the free tier always includes this set.
+ */
+const legacySeedScenariosBase: Scenario[] = [
     {
         id: "welcome-tutorial",
-        title: "Welcome! Your First Scenario",
-        description: "A simple scenario to introduce you to the simulation controls and objectives.",
-        patientProfile: "60 y/o Male, with a known history of Diabetes.",
-        details: "Welcome to EMS Simu-Pro! This is a tutorial to get you started. Your patient is a 60-year-old male who seems confused. Your primary goal is to assess him and figure out why. Start by using the 'Assessment' tab to check his blood glucose.",
+        title: "Welcome to Simu-Pro — Orientation patient",
+        description:
+            "A short, low-stakes run: learn the layout (assessment, vitals, treatment, transport) while ruling out hypoglycemia in a stable adult with mild confusion.",
+        patientProfile: "60 y/o Male, type 2 diabetes, found seated at home with confusion reported by family.",
+        patientPresentation:
+            "Awake, cooperative but slow to answer; no focal deficits voiced; skin warm and dry; no acute respiratory distress; family reports skipped lunch after morning insulin.",
+        comorbidities: ["DIABETES_MILD"],
+        autonomicProfile: {
+            baselineMapMmHg: 96,
+            initialDecompensationPhase: "baseline",
+        },
+        ageBand: "adult",
+        defaultWeightKg: 88,
+        details:
+            "This is your orientation scenario — not a trap case. You will use the same authoring-driven physiology layers as the rest of the catalog (comorbidities, optional autonomic baseline, and weight-aware PK when treatments apply), but the patient stays hemodynamically stable so you can focus on the UI.\n\n" +
+            "What to try first: open the Assessment flow and obtain a blood glucose. Glance at the monitor / vitals strip if your layout shows it; repeat vitals after interventions when you are ready.\n\n" +
+            "When you are comfortable, explore Treatment (even if you only document a plan), choose a receiving facility under Destination, and use Radio / report tabs as your course expects. End the simulation from the controls when you are done; your debrief report will mark the tutorial complete for your profile.\n\n" +
+            "Learning objective: demonstrate a structured first pass (assessment + point-of-care glucose) before transport for an altered patient with diabetes risk.",
         difficulty: "Beginner",
-        tags: ["Tutorial", "Medical"],
+        tags: ["Tutorial", "Medical", "AMS"],
         initialVitals: {
-            hr: "100 bpm",
-            bp: "140/90 mmHg",
-            rr: "18/min",
-            spo2: "98% on Room Air",
-            gcs: "13"
+            hr: "100 bpm, regular",
+            bp: "142/88 mmHg",
+            rr: "18/min, unlabored",
+            spo2: "97% on Room Air",
+            gcs: "14 (E4, V4, M6) — mild confusion",
         },
         destination: "Mercy General Hospital",
-        destinationRationale: "Closest appropriate facility for a stable patient after a simple intervention.",
+        destinationRationale:
+            "Stable altered mental status with suspected metabolic contribution; nearest appropriate ED after assessment and bedside glucose check.",
         hospitalDistances: {
-            'mercy_general': 10,
-            'county_trauma_center': 22,
-            'st_marys_community': 15,
-            'university_medical': 30,
-            'hope_psychiatric': 18
+            mercy_general: 10,
+            county_trauma_center: 22,
+            st_marys_community: 15,
+            university_medical: 30,
+            hope_psychiatric: 18,
         },
         mandatoryActions: {
             emt: ["Check a blood glucose level."],
             aemt: ["Check a blood glucose level."],
-            paramedic: ["Check a blood glucose level."]
+            paramedic: ["Check a blood glucose level."],
         },
         suggestedActions: {
-            emt: [],
-            aemt: [],
-            paramedic: []
+            emt: [
+                "Perform a brief primary survey (mental status, airway, breathing, circulation) before or after your glucose check.",
+                "Review the on-screen vitals / monitor layout.",
+                "Obtain a focused SAMPLE history from family if offered in your flow.",
+            ],
+            aemt: [
+                "Perform a brief primary survey (mental status, airway, breathing, circulation).",
+                "Establish IV access only if your protocol and comfort level call for it in this stable presentation.",
+                "Repeat vitals after any intervention.",
+            ],
+            paramedic: [
+                "Perform a brief primary survey (mental status, airway, breathing, circulation).",
+                "Consider a 12-lead ECG if your training path includes it for AMS workups.",
+                "Document transport priority and handoff expectations in the radio report when ready.",
+            ],
         },
-        criticalFailures: [
-            "Failure to check a blood glucose level."
-        ],
+        criticalFailures: ["Failure to check a blood glucose level."],
         status: "published",
     },
     {
@@ -46,6 +75,7 @@ export const seedScenarios: Scenario[] = [
         title: "Diabetic Emergency",
         description: "A 60-year-old male is found with an altered mental status. His wife states he is a diabetic.",
         patientProfile: "60 y/o Male, Hx of Type 2 Diabetes, Hypertension.",
+        comorbidities: ["DIABETES_MILD", "HYPERTENSION_CHRONIC"],
         details: "You are dispatched to a residence for a 60-year-old male with an altered mental status. On arrival, the patient is sitting in a chair, appearing lethargic. His wife reports he was acting normally about an hour ago but has become progressively more confused. He took his insulin today but has not eaten.",
         difficulty: "Beginner",
         tags: ["Medical", "Diabetic", "AMS"],
@@ -748,6 +778,9 @@ export const seedScenarios: Scenario[] = [
         title: "Pediatric DKA",
         description: "A 10-year-old known diabetic is lethargic with rapid breathing and a fruity odor on his breath.",
         patientProfile: "10 y/o Male, known Type 1 Diabetic.",
+        ageBand: "child",
+        defaultWeightKg: 32,
+        comorbidities: ["DIABETES_SEVERE"],
         details: "You are called to a school for a 10-year-old boy who is 'not acting right'. The school nurse reports the child has been increasingly lethargic, complaining of abdominal pain, and has been drinking large amounts of water. You note the child is breathing rapidly and deeply (Kussmaul respirations) and there is a distinct fruity odor on his breath.",
         difficulty: "Advanced",
         tags: ["Medical", "Pediatric", "Diabetic", "DKA"],
@@ -1481,7 +1514,365 @@ export const seedScenarios: Scenario[] = [
             "Inadequate ventilation or airway management."
         ],
         status: "published",
-    }
+    },
 ];
 
-    
+/** Ids of the pre–engine QA catalog (for UI badges; same set as `legacySeedScenarios`). */
+export const LEGACY_SCENARIO_IDS: readonly string[] = legacySeedScenariosBase.map((s) => s.id);
+
+const LEGACY_SCENARIO_ID_SET = new Set<string>(LEGACY_SCENARIO_IDS);
+
+export function isLegacyScenarioId(id: string): boolean {
+    return LEGACY_SCENARIO_ID_SET.has(id);
+}
+
+/** Legacy rows are never paywalled — explicit free tier for billing / catalog filters. */
+export const legacySeedScenarios: Scenario[] = legacySeedScenariosBase.map((s) => ({
+    ...s,
+    isPremium: false,
+}));
+
+/**
+ * Curated scenarios that exercise deterministic physiology layers (PK/autonomic/metabolic):
+ * hemorrhage + fluids, CHF + CPAP, sepsis, seizure/postictal, obstructive shock / tension.
+ * Re-exported as `curatedPhysiologyScenarios` with `isPremium: true`. Seed via `seedScenarios` or upsert this pack alone in admin.
+ */
+const curatedPhysiologyScenariosBase: Scenario[] = [
+    {
+        id: 'qa-engine-hemorrhagic-shock',
+        title: '[QA] Hemorrhagic shock — bleed + fluids',
+        description:
+            'Penetrating trauma with ongoing external hemorrhage; engine seeds hypovolemia and active bleed rate for PK/fluid/tourniquet QA.',
+        patientProfile: '34 y/o Male, GSW to right thigh, pale and diaphoretic.',
+        patientPresentation:
+            'Alert but anxious; brisk bleeding from thigh wound; peripheral pulses weak bilaterally.',
+        comorbidities: ['HYPOVOLEMIA_ACUTE'],
+        autonomicProfile: {
+            baselineBleedRateMlPerMin: 85,
+            baselineMapMmHg: 92,
+            initialDecompensationPhase: 'compensated',
+        },
+        details:
+            'Dispatch: penetrating trauma. On arrival the patient is conscious but pale with a briskly bleeding wound to the right proximal thigh. Direct pressure helps only modestly; bystanders report ~10 minutes of bleeding. Your priorities are hemorrhage control, vascular access, targeted fluid resuscitation, and rapid transport.',
+        difficulty: 'Advanced',
+        tags: ['Trauma', 'Shock', 'Bleeding'],
+        initialVitals: {
+            hr: '132 bpm',
+            bp: '88/58 mmHg',
+            rr: '24/min',
+            spo2: '94% on Room Air',
+            gcs: '15',
+        },
+        destination: 'County Trauma Center',
+        destinationRationale:
+            'Definitive hemorrhage control requires trauma surgical capability; closest trauma center with blood bank.',
+        hospitalDistances: {
+            mercy_general: 15,
+            county_trauma_center: 8,
+            st_marys_community: 22,
+            university_medical: 14,
+            hope_psychiatric: 35,
+        },
+        mandatoryActions: {
+            emt: [
+                'Perform rapid trauma assessment.',
+                'Apply Bleeding Control (Direct Pressure or Tourniquet Application as indicated).',
+                'Administer Oxygen Administration.',
+                'Initiate shock packaging and rapid transport.',
+            ],
+            aemt: [
+                'Establish IV Access.',
+                'Administer Isotonic Fluid Bolus per protocol for hemorrhagic shock.',
+                'Apply Bleeding Control including Tourniquet Application if extremity hemorrhage.',
+                'Administer Oxygen Administration.',
+            ],
+            paramedic: [
+                'Establish IV Access.',
+                'Administer Isotonic Fluid Bolus per protocol.',
+                'Perform advanced hemorrhage control per protocol.',
+                'Consider Tranexamic Acid if protocol allows.',
+            ],
+        },
+        suggestedActions: {
+            emt: ['Obtain repeat vitals after each intervention.'],
+            aemt: ['Titrate fluid bolus to perfusion endpoints.'],
+            paramedic: ['Pre-notify trauma center with mechanism and estimated blood loss.'],
+        },
+        criticalFailures: [
+            'Failure to control life-threatening external hemorrhage.',
+            'Prolonged scene time without transport.',
+        ],
+        status: 'published',
+    },
+    {
+        id: 'qa-engine-chf-pulmonary-edema',
+        title: '[QA] CHF flash pulmonary edema — CPAP + oxygen',
+        description:
+            'Acute cardiogenic pulmonary edema; engine seeds elevated pulmonary congestion for CPAP/NRB and cautious fluid teaching.',
+        patientProfile: '76 y/o Female, Hx CHF (reduced EF), hypertension, AFib.',
+        patientPresentation:
+            'Tripod positioning, accessory muscle use, diffuse crackles, peripheral edema 2+.',
+        comorbidities: ['CHF_CHRONIC', 'HYPERTENSION_CHRONIC'],
+        autonomicProfile: {
+            initialPulmonaryEdemaSeverity: 0.42,
+            baselineMapMmHg: 98,
+            initialDecompensationPhase: 'decompensating',
+        },
+        details:
+            'Called for severe respiratory distress. The patient is awake but unable to speak in full sentences, sitting upright, with frothy sputum and diffuse crackles. History includes missed diuretics for two days. High suspicion for acute cardiogenic pulmonary edema.',
+        difficulty: 'Intermediate',
+        tags: ['Cardiac', 'Respiratory', 'CPAP'],
+        initialVitals: {
+            hr: '118 bpm, irregular',
+            bp: '188/104 mmHg',
+            rr: '34/min, labored',
+            spo2: '84% on Room Air',
+            gcs: '14 — anxious, fatigue with speech',
+        },
+        destination: 'Mercy General Hospital',
+        destinationRationale:
+            'Closest capable ED for acute respiratory failure; escalate to ICU/CCU as needed.',
+        hospitalDistances: {
+            mercy_general: 9,
+            county_trauma_center: 21,
+            st_marys_community: 24,
+            university_medical: 17,
+            hope_psychiatric: 28,
+        },
+        mandatoryActions: {
+            emt: [
+                'Administer Oxygen Administration (titrate delivery per distress).',
+                'Position patient upright.',
+                'Prepare for rapid transport.',
+            ],
+            aemt: [
+                'Administer Oxygen Administration.',
+                'Apply CPAP Application when authorized.',
+                'Establish IV Access.',
+                'Administer Nitroglycerin per protocol if BP allows.',
+            ],
+            paramedic: [
+                'Apply CPAP Application.',
+                'Administer Nitroglycerin per protocol.',
+                'Establish IV Access.',
+                'Perform 12-lead ECG.',
+            ],
+        },
+        suggestedActions: {
+            emt: [],
+            aemt: ['Avoid large crystalloid boluses unless hypotensive with clear hypoperfusion per protocol.'],
+            paramedic: ['Consider diuretic per protocol after consultation.'],
+        },
+        criticalFailures: [
+            'Large-volume fluid bolus without hypotension / clear indication.',
+            'Delaying positive-pressure therapy when indicated.',
+        ],
+        status: 'published',
+    },
+    {
+        id: 'qa-engine-septic-shock',
+        title: '[QA] Septic shock — distributive physiology',
+        description:
+            'Suspected sepsis from pneumonia; engine seeds vasodilation/distributive tone for fluid/vasopressor teaching loops.',
+        patientProfile: '63 y/o Male, COPD, recent nursing-home pneumonia exposure.',
+        patientPresentation:
+            'Febrile, confused, tachypneic; warm shock picture early with bounding pulses.',
+        comorbidities: ['SEPSIS_ACUTE', 'COPD_CHRONIC'],
+        autonomicProfile: {
+            baselineDistributiveToneFactor: 0.48,
+            baselineMapMmHg: 78,
+            initialDecompensationPhase: 'compensated',
+        },
+        details:
+            'Dispatch: fever and altered mental status. The patient is somnolent but arousable, tachycardic, and hypotensive with a suspected infectious source (productive cough, focal lung findings). Prioritize oxygenation, early IV access, fluid challenge per protocol, rapid transport, and sepsis alerts.',
+        difficulty: 'Advanced',
+        tags: ['Sepsis', 'Shock', 'Infection'],
+        initialVitals: {
+            hr: '128 bpm',
+            bp: '82/48 mmHg',
+            rr: '30/min',
+            spo2: '91% on Room Air',
+            gcs: '13 (E3, V4, M6)',
+        },
+        destination: 'University Medical Center',
+        destinationRationale:
+            'Septic shock often requires ICU-level care, broad antibiotics, and source control coordination.',
+        hospitalDistances: {
+            mercy_general: 14,
+            county_trauma_center: 18,
+            st_marys_community: 20,
+            university_medical: 11,
+            hope_psychiatric: 32,
+        },
+        mandatoryActions: {
+            emt: [
+                'Administer Oxygen Administration.',
+                'Obtain blood glucose when altered.',
+                'Perform Shock Management / packaging.',
+                'Rapid transport.',
+            ],
+            aemt: [
+                'Establish IV Access.',
+                'Administer Isotonic Fluid Bolus per sepsis/shock protocol.',
+                'Administer Oxygen Administration.',
+                'Obtain blood glucose.',
+            ],
+            paramedic: [
+                'Establish IV Access.',
+                'Administer fluid bolus per protocol with reassessment.',
+                'Consider vasopressor after adequate fluid per protocol.',
+                'Support airway as needed.',
+            ],
+        },
+        suggestedActions: {
+            emt: ['Early notification for sepsis alert at receiving facility.'],
+            aemt: ['Monitor mental status and respiratory effort closely.'],
+            paramedic: ['Pre-notify ED with vitals trend and suspected source.'],
+        },
+        criticalFailures: [
+            'Ignoring hypotension and altered mental status without intervention.',
+            'Transport delays without stabilization attempts.',
+        ],
+        status: 'published',
+    },
+    {
+        id: 'qa-engine-seizure-postictal',
+        title: '[QA] Prolonged seizure — postictal recovery',
+        description:
+            'Witnessed convulsive activity now stopped; focuses assessment, airway protection, glucose, and transport (engine baseline autonomic stress without specialty epilepsy comorbidity ID).',
+        patientProfile: '41 y/o Female, no prescribed AEDs reported by family.',
+        patientPresentation:
+            'Postictal: gradually awakening, confused, bilateral tongue trauma; witnesses describe tonic-clonic activity ~6 minutes.',
+        comorbidities: [],
+        autonomicProfile: {
+            baselineMapMmHg: 88,
+            initialDecompensationPhase: 'baseline',
+        },
+        details:
+            'You arrive post-event. Family reports generalized seizure lasting several minutes and confusion afterward. Assess airway/breathing/circulation, obtain glucose, protect airway as needed, rule out hypoglycemia and injury, and prepare for transport with ongoing reassessment for recurrent seizure activity.',
+        difficulty: 'Intermediate',
+        tags: ['Neurologic', 'Seizure', 'AMS'],
+        initialVitals: {
+            hr: '104 bpm',
+            bp: '136/84 mmHg',
+            rr: '18/min',
+            spo2: '96% on Room Air',
+            gcs: '12 (E3, V3, M6) — improving confusion',
+        },
+        destination: 'Mercy General Hospital',
+        destinationRationale:
+            'Nearest ED for neurologic evaluation and imaging when indicated.',
+        hospitalDistances: {
+            mercy_general: 11,
+            county_trauma_center: 19,
+            st_marys_community: 16,
+            university_medical: 18,
+            hope_psychiatric: 22,
+        },
+        mandatoryActions: {
+            emt: [
+                'Check blood glucose.',
+                'Administer Oxygen Administration if indicated.',
+                'Protect airway/basics while awake seizure precautions.',
+                'Perform spinal precautions only if mechanism warrants.',
+            ],
+            aemt: [
+                'Check blood glucose.',
+                'Establish IV Access.',
+                'Monitor for recurrent seizure activity.',
+            ],
+            paramedic: [
+                'Check blood glucose.',
+                'Establish IV Access.',
+                'Consider benzodiazepine per recurrent seizure protocol.',
+                'Prepare suction and airway adjuncts.',
+            ],
+        },
+        suggestedActions: {
+            emt: ['Obtain collateral history (medications, alcohol, trauma).'],
+            aemt: [],
+            paramedic: ['Continuous cardiac monitor per protocol.'],
+        },
+        criticalFailures: [
+            'Failure to assess and treat hypoglycemia if present.',
+            'Leaving an unconscious patient without airway monitoring.',
+        ],
+        status: 'published',
+    },
+    {
+        id: 'qa-engine-tension-pneumothorax',
+        title: '[QA] Obstructive shock — tension physiology + needle decompression',
+        description:
+            'Penetrating chest trauma with obstructive shock; seeds tension pneumothorax severity for oxygen/needle QA while complementing the existing tension scenario.',
+        patientProfile: '29 y/o Male, stab wound right anterior chest.',
+        patientPresentation:
+            'Increasing respiratory distress, JVD, hypotension, absent breath sounds right — suspected tension pneumothorax.',
+        comorbidities: ['HYPOVOLEMIA_ACUTE'],
+        autonomicProfile: {
+            initialTensionPneumoSeverity: 0.48,
+            baselineMapMmHg: 86,
+            initialDecompensationPhase: 'decompensating',
+        },
+        details:
+            'You are dispatched for a trauma patient: a 29-year-old male with a penetrating wound to the right anterior chest. Law enforcement has secured the scene. On arrival he is diaphoretic, leaning forward, and speaking in short phrases. A pressure dressing covers the chest wound; first responders already have high-flow oxygen on. Bystanders report he was walking and talking earlier but has become progressively more short of breath over the last several minutes.',
+        difficulty: 'Advanced',
+        tags: ['Trauma', 'Respiratory', 'Chest'],
+        initialVitals: {
+            hr: '142 bpm',
+            bp: '72/46 mmHg',
+            rr: '38/min',
+            spo2: '81% on high-flow oxygen',
+            gcs: '13 (E3, V4, M6)',
+        },
+        destination: 'County Trauma Center',
+        destinationRationale:
+            'Traumatic pneumothorax and shock require trauma surgical capability.',
+        hospitalDistances: {
+            mercy_general: 16,
+            county_trauma_center: 6,
+            st_marys_community: 24,
+            university_medical: 19,
+            hope_psychiatric: 34,
+        },
+        mandatoryActions: {
+            emt: [
+                'Ventilate with BVM as needed.',
+                'Seal open chest wounds per protocol.',
+                'Rapid transport.',
+            ],
+            aemt: [
+                'Establish IV Access.',
+                'Ventilatory support.',
+                'Fluid bolus per obstructive shock caution.',
+            ],
+            paramedic: [
+                'Perform Needle Decompression when tension pneumothorax is suspected.',
+                'Ventilatory support; prepare for advanced airway if indicated.',
+                'Establish large-bore IV access.',
+            ],
+        },
+        suggestedActions: {
+            emt: [],
+            aemt: [],
+            paramedic: ['Pre-notify trauma team with vitals and interventions.'],
+        },
+        criticalFailures: [
+            'Delaying decompression in unstable obstructive shock when indicated.',
+            'Transport without monitoring ventilation after intervention.',
+        ],
+        status: 'published',
+    },
+];
+
+/** Physiology-engine QA pack — premium tier (subscriber, or tester/admin bypass in UI). */
+export const curatedPhysiologyScenarios: Scenario[] = curatedPhysiologyScenariosBase.map((s) => ({
+    ...s,
+    isPremium: true,
+}));
+
+/** Full catalog used by admin “Seed scenarios” (legacy free + curated premium QA). */
+export const seedScenarios: Scenario[] = [
+    ...legacySeedScenarios,
+    ...curatedPhysiologyScenarios,
+];
+
