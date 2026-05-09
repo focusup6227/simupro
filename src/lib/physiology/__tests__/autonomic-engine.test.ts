@@ -15,7 +15,6 @@ import { mergeVitalsForDisplay } from '@/lib/physiology/pk-engine';
 import { zeroDeltas } from '@/lib/physiology/pk-types';
 import type { AutonomicEvent } from '@/lib/physiology/autonomic-types';
 import type { AutonomicProfile } from '@/lib/types';
-import { seedInterventions } from '@/lib/interventions-data';
 
 const baseVitals = {
   hr: '80 bpm',
@@ -219,11 +218,7 @@ describe('autonomic engine', () => {
         subOptions: { Method: 'Tourniquet Application' },
       },
     };
-    const evs = parseTreatmentSelectionsToStressors(
-      selected,
-      seedInterventions,
-      ctx,
-    );
+    const evs = parseTreatmentSelectionsToStressors(selected, ctx);
     expect(evs.some((e) => e.kind === 'fluid_bolus')).toBe(true);
     expect(evs.some((e) => e.kind === 'bleed_rate_set')).toBe(true);
   });

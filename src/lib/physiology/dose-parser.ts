@@ -353,10 +353,8 @@ export type TreatmentSelections = Record<
  */
 export function parseTreatmentSelectionsToDoses(
   selected: TreatmentSelections,
-  interventions: readonly LegacySupabaseIntervention[] | null | undefined,
   ctx: ParseDoseContext,
 ): DoseInput[] {
-  if (!interventions?.length) return [];
   const out: DoseInput[] = [];
   for (const [interventionId, details] of Object.entries(selected)) {
     if (!details?.selected) continue;

@@ -1344,20 +1344,13 @@ export default function SimulationPage() {
       const weightKg = usePhysiologyStore.getState().weightKg;
       const uidForPk = authUser?.id;
       const pkDoses: DoseRecord[] =
-        ENABLE_PHARMACOKINETICS_ENGINE &&
-        sessionId &&
-        uidForPk &&
-        seedInterventions.length
-          ? parseTreatmentSelectionsToDoses(
-              selectedTreatments,
-              seedInterventions,
-              {
-                sessionId,
-                userId: uidForPk,
-                patientWeightKg: weightKg,
-                simSeconds: simulationTimeRef.current,
-              },
-            ).map((d) => ({
+        ENABLE_PHARMACOKINETICS_ENGINE && sessionId && uidForPk
+          ? parseTreatmentSelectionsToDoses(selectedTreatments, {
+              sessionId,
+              userId: uidForPk,
+              patientWeightKg: weightKg,
+              simSeconds: simulationTimeRef.current,
+            }).map((d) => ({
               ...d,
               id:
                 typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1387,20 +1380,13 @@ export default function SimulationPage() {
         }
       }
       const autonomicEvents =
-        ENABLE_AUTONOMIC_ENGINE &&
-        sessionId &&
-        uidForPk &&
-        seedInterventions.length
-          ? parseTreatmentSelectionsToStressors(
-              selectedTreatments,
-              seedInterventions,
-              {
-                sessionId,
-                userId: uidForPk,
-                patientWeightKg: weightKg,
-                simSeconds: simulationTimeRef.current,
-              },
-            )
+        ENABLE_AUTONOMIC_ENGINE && sessionId && uidForPk
+          ? parseTreatmentSelectionsToStressors(selectedTreatments, {
+              sessionId,
+              userId: uidForPk,
+              patientWeightKg: weightKg,
+              simSeconds: simulationTimeRef.current,
+            })
           : [];
       if (autonomicEvents.length > 0) {
         useAutonomicStore.getState().recordLocalEvents(autonomicEvents);

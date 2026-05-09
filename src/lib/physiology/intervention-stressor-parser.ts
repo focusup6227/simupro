@@ -1,4 +1,3 @@
-import type { LegacySupabaseIntervention } from '@/lib/types';
 import type { AutonomicEvent, AutonomicEventKind } from '@/lib/physiology/autonomic-types';
 import { AUTONOMIC_EVENT_KINDS } from '@/lib/physiology/autonomic-types';
 
@@ -49,10 +48,8 @@ function isKind(x: string): x is AutonomicEventKind {
  */
 export function parseTreatmentSelectionsToStressors(
   selected: TreatmentSelectionMap,
-  interventions: readonly LegacySupabaseIntervention[] | undefined,
   ctx: ParseStressorContext,
 ): AutonomicEvent[] {
-  if (!interventions?.length) return [];
   const out: AutonomicEvent[] = [];
 
   for (const [id, details] of Object.entries(selected)) {

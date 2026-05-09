@@ -66,6 +66,21 @@ export function partnerCanPerform(
   return p >= 0 && i >= 0 && i <= p;
 }
 
+/**
+ * Whether `partner` is at least as senior as `min` on the EMS certification
+ * ladder. Used to gate partner-delegated actions whose minimum role is
+ * declared on the catalog entry rather than per-intervention.
+ */
+export function partnerMeetsMinRole(
+  partner: PartnerSimulationRole,
+  min: PartnerSimulationRole,
+): boolean {
+  return (
+    interventionCertifications.indexOf(partner) >=
+    interventionCertifications.indexOf(min)
+  );
+}
+
 export type NextAdviceGate = {
   /** Minimum simulation seconds between proactive checks */
   minSecondsBetweenProactiveChecks: number;

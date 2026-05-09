@@ -480,7 +480,6 @@ describe('parseTreatmentSelectionsToDoses', () => {
         atropine: { selected: true, subOptions: { Dosage: '1mg IV push' } },
         adenosine: { selected: false, subOptions: { Dosage: '6mg rapid IV push' } },
       },
-      seedInterventions,
       ctx,
     );
     expect(out).toHaveLength(1);
@@ -490,7 +489,6 @@ describe('parseTreatmentSelectionsToDoses', () => {
   it('returns an empty list when no interventions match', () => {
     const out = parseTreatmentSelectionsToDoses(
       { cpr: { selected: true, subOptions: {} } },
-      seedInterventions,
       ctx,
     );
     expect(out).toEqual([]);
