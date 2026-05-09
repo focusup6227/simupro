@@ -94,19 +94,13 @@ export default function ReportPage() {
   const handleProcessResults = useCallback(async () => {
     if (!session || !scenario || !user || !reportForUserId || !sessionId || !client) return;
 
-    const userActions = session.actions || [];
-
     setIsProcessing(true);
     toast({ title: 'Analyzing Performance...', description: 'Please wait while the AI grades your simulation.' });
 
     try {
       const insightData = await processSimulationResults({
-        userId: reportForUserId,
-        sessionId: sessionId,
-        userActions: userActions,
-        timeElapsed: session.timeElapsed || 0,
-        scenario,
-        user,
+        sessionId,
+        scenarioId,
       });
 
       const { error: upsertError } = await client.from('session_insights').upsert(
@@ -142,7 +136,16 @@ export default function ReportPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [session, scenario, user, reportForUserId, sessionId, toast, client]);
+  }, [
+    session,
+    scenario,
+    user,
+    reportForUserId,
+    sessionId,
+    scenarioId,
+    toast,
+    client,
+  ]);
 
   useEffect(() => {
     const isDataLoaded = !isLoadingSession && !isLoadingScenario && !isLoadingUser && !isLoadingInsights;

@@ -4,11 +4,6 @@ import {
   buildCapnoStripMmHg,
   type CapnoWaveStyle,
 } from '@/lib/capno-engine';
-import {
-  acquireCapnoWorker,
-  releaseCapnoWorker,
-  resetCapnoWorkerAfterFatal,
-} from '@/lib/worker-pool';
 import { parseEtco2MmHg } from '@/lib/vitals-parse';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import type { CapnoSensor } from '@/stores/physiology-store';
@@ -93,16 +88,14 @@ export function CapnoWaveCanvasImpl({
   enabled = true,
 }: {
   height?: number;
-  /** Waveform + worker active only when sensor applied and EtCO₂ bezel channel on. */
+  /** Waveform active only when sensor applied and EtCO₂ bezel channel on. */
   enabled?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const ysRef = useRef<Float32Array | null>(null);
   const maxMmHgRef = useRef(48);
-  const workerFailedRef = useRef(false);
-  const phaseFallbackRef = useRef(0);
-  const breathTickFallbackRef = useRef(0);
+  const phaseRef = useRef(0);
+  const breathTickRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -170,87 +163,21 @@ export function CapnoWaveCanvasImpl({
       };
     }
 
-    const ro = new ResizeObserver(() => {
+    const dt = 1000 / 60;
+
+    const resizeCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const w = wrap.clientWidth;
       canvas.style.width = `${w}px`;
       canvas.style.height = `${height}px`;
       canvas.width = Math.max(1, Math.floor(w * dpr));
       canvas.height = Math.max(1, Math.floor(height * dpr));
-    });
-    ro.observe(wrap);
-
-    workerFailedRef.current = false;
-    let worker: Worker | null = null;
-    let acquiredPool = false;
-    try {
-      worker = acquireCapnoWorker(
-        () =>
-          new Worker(new URL('../workers/capno.worker.ts', import.meta.url)),
-      );
-      acquiredPool = true;
-    } catch {
-      workerFailedRef.current = true;
-    }
-
-    const pushParams = () => {
-      const s = usePhysiologyStore.getState();
-      const rr = parseRrBpm(s.rr);
-      const et = parseEtco2MmHg(s.etco2);
-      const obs = s.capnoObstructionFactor;
-      const waveStyle = sensorToWaveStyle(s.capnoSensor);
-      maxMmHgRef.current = Math.max(50, et * 1.35);
-      worker?.postMessage({
-        type: 'params',
-        rrBpm: rr,
-        etco2MmHg: et,
-        obstructionFactor: obs,
-        sampleCount: SAMPLE_COUNT,
-        cyclesVisible: CYCLES_VISIBLE,
-        dtMs: 1000 / 60,
-        waveStyle,
-      });
     };
 
-    if (worker) {
-      worker.onmessage = (
-        ev: MessageEvent<{
-          type?: string;
-          ys?: Float32Array;
-          etco2MmHg?: number;
-        }>,
-      ) => {
-        const d = ev.data;
-        if (d.type === 'samples' && d.ys) {
-          ysRef.current = d.ys;
-          if (typeof d.etco2MmHg === 'number') {
-            maxMmHgRef.current = Math.max(50, d.etco2MmHg * 1.35);
-          }
-        }
-      };
-      worker.onerror = () => {
-        workerFailedRef.current = true;
-        resetCapnoWorkerAfterFatal();
-        worker = null;
-      };
-      pushParams();
-      worker.postMessage({ type: 'start' });
-    } else {
-      workerFailedRef.current = true;
-    }
+    resizeCanvas();
+    const ro = new ResizeObserver(resizeCanvas);
+    ro.observe(wrap);
 
-    const unsub = usePhysiologyStore.subscribe((state, prev) => {
-      if (
-        state.rr !== prev.rr ||
-        state.etco2 !== prev.etco2 ||
-        state.capnoObstructionFactor !== prev.capnoObstructionFactor ||
-        state.capnoSensor !== prev.capnoSensor
-      ) {
-        pushParams();
-      }
-    });
-
-    const dt = 1000 / 60;
     let rafHandle = 0;
 
     const tick = () => {
@@ -268,30 +195,29 @@ export function CapnoWaveCanvasImpl({
         return;
       }
 
-      if (workerFailedRef.current || !worker) {
-        const s = usePhysiologyStore.getState();
-        const rr = parseRrBpm(s.rr);
-        const et = parseEtco2MmHg(s.etco2);
-        const obs = s.capnoObstructionFactor;
-        const ws = sensorToWaveStyle(s.capnoSensor);
-        maxMmHgRef.current = Math.max(50, et * 1.35);
-        const periodMs = (60 / rr) * 1000;
-        phaseFallbackRef.current += dt / periodMs;
-        while (phaseFallbackRef.current >= 1) phaseFallbackRef.current -= 1;
-        breathTickFallbackRef.current += 1;
-        const buf = new Float32Array(SAMPLE_COUNT);
-        buildCapnoStripMmHg({
-          sampleCount: SAMPLE_COUNT,
-          phaseOffset: phaseFallbackRef.current,
-          cyclesVisible: CYCLES_VISIBLE,
-          obstructionFactor: obs,
-          etco2MmHg: et,
-          out: buf,
-          waveStyle: ws,
-          breathTick: breathTickFallbackRef.current,
-        });
-        ysRef.current = buf;
-      }
+      const s = usePhysiologyStore.getState();
+      const rr = parseRrBpm(s.rr);
+      const et = parseEtco2MmHg(s.etco2);
+      const obs = s.capnoObstructionFactor;
+      const ws = sensorToWaveStyle(s.capnoSensor);
+      maxMmHgRef.current = Math.max(50, et * 1.35);
+
+      const periodMs = (60 / rr) * 1000;
+      phaseRef.current += dt / periodMs;
+      while (phaseRef.current >= 1) phaseRef.current -= 1;
+      breathTickRef.current += 1;
+
+      const buf = new Float32Array(SAMPLE_COUNT);
+      buildCapnoStripMmHg({
+        sampleCount: SAMPLE_COUNT,
+        phaseOffset: phaseRef.current,
+        cyclesVisible: CYCLES_VISIBLE,
+        obstructionFactor: obs,
+        etco2MmHg: et,
+        out: buf,
+        waveStyle: ws,
+        breathTick: breathTickRef.current,
+      });
 
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.fillStyle = '#0a0a0a';
@@ -307,18 +233,15 @@ export function CapnoWaveCanvasImpl({
         c.stroke();
       }
 
-      const ys = ysRef.current;
       const allowGlow = !reduceMotion && !document.hidden;
-      if (ys && ys.length >= 2) {
-        drawBezierCapnoGlow(
-          c,
-          ys,
-          wCss,
-          h,
-          maxMmHgRef.current,
-          allowGlow,
-        );
-      }
+      drawBezierCapnoGlow(
+        c,
+        buf,
+        wCss,
+        h,
+        maxMmHgRef.current,
+        allowGlow,
+      );
 
       scheduleNext();
     };
@@ -334,21 +257,7 @@ export function CapnoWaveCanvasImpl({
           cancelAnimationFrame(rafHandle);
           rafHandle = 0;
         }
-        if (worker) {
-          try {
-            worker.postMessage({ type: 'pause' });
-          } catch {
-            /* noop */
-          }
-        }
         return;
-      }
-      if (worker) {
-        try {
-          worker.postMessage({ type: 'resume' });
-        } catch {
-          /* noop */
-        }
       }
       scheduleNext();
     };
@@ -357,12 +266,10 @@ export function CapnoWaveCanvasImpl({
     scheduleNext();
 
     return () => {
-      unsub();
       mq?.removeEventListener('change', onMq);
       document.removeEventListener('visibilitychange', onVisibility);
       ro.disconnect();
       if (rafHandle) cancelAnimationFrame(rafHandle);
-      if (acquiredPool) releaseCapnoWorker();
     };
   }, [height, enabled]);
 

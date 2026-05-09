@@ -15,6 +15,11 @@ import {
   type DynamicPatientResponseOutput,
 } from "@/ai/flows/provide-dynamic-patient-responses";
 import {
+  providePartnerAdvice,
+  PartnerAdviceInputSchema,
+  type PartnerAdviceOutput,
+} from '@/ai/flows/provide-partner-advice';
+import {
   gradeSimulationPerformance as gradeSimulationFlow,
 } from "@/ai/flows/grade-simulation-performance";
 import {
@@ -22,12 +27,14 @@ import {
   type GenerateRadioReportInput,
   type GenerateRadioReportOutput,
 } from "@/ai/flows/generate-radio-report";
-import type { Scenario, UserAction, User, Insight } from '@/lib/types';
+import { UserActionSchema, type Insight, type UserAction } from '@/lib/types';
 import { applyDynamicPatientOutputGuards } from '@/lib/patient-response-guards';
 import { adjustScoresForBloodPressure } from '@/lib/bp-grading-adjust';
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
 import { captureActionError } from "@/lib/observability";
+import { profileRowToUser, scenarioRowToScenario } from '@/lib/db-mappers';
+import { z } from 'zod';
 
 async function getActionUserId(): Promise<string | null> {
   try {
@@ -94,20 +101,61 @@ export async function generateRadioReport(
 }
 
 export async function processSimulationResults({
-  userId,
   sessionId,
-  userActions,
-  scenario,
-  user,
+  scenarioId,
 }: {
-  userId: string;
   sessionId: string;
-  userActions: UserAction[];
-  timeElapsed: number;
-  scenario: Scenario;
-  user: User;
+  scenarioId: string;
 }): Promise<Omit<Insight, 'id'>> {
-  await gateAi("processSimulationResults");
+  const userId = await gateAi("processSimulationResults");
+  if (!userId) {
+    throw new Error('Sign in required to analyze your run.');
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data: sessionRow, error: sessionErr } = await supabase
+    .from('simulation_sessions')
+    .select('id, user_id, scenario_id, actions')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (sessionErr || !sessionRow) {
+    throw new Error('Could not load simulation session.');
+  }
+  if (sessionRow.scenario_id !== scenarioId) {
+    throw new Error('Session does not match this scenario.');
+  }
+
+  const { data: scenarioRow, error: scenarioErr } = await supabase
+    .from('scenarios')
+    .select('*')
+    .eq('id', scenarioId)
+    .maybeSingle();
+
+  if (scenarioErr || !scenarioRow) {
+    throw new Error('Could not load scenario.');
+  }
+
+  const { data: profileRow, error: profileErr } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', sessionRow.user_id)
+    .maybeSingle();
+
+  if (profileErr || !profileRow) {
+    throw new Error('Could not load user profile.');
+  }
+
+  const parsedActions = z.array(UserActionSchema).safeParse(
+    sessionRow.actions ?? [],
+  );
+  const userActions: UserAction[] = parsedActions.success
+    ? parsedActions.data
+    : [];
+
+  const scenario = scenarioRowToScenario(scenarioRow);
+  const user = profileRowToUser(profileRow);
+
   try {
     const bpMandatory = 'Obtain a blood pressure (manual or NIBP).';
     const gradeResult = await gradeSimulationFlow({
@@ -154,5 +202,17 @@ export async function processSimulationResults({
       sessionId,
       scenarioId: scenario.id,
     });
+  }
+}
+
+export async function getPartnerAdvice(
+  input: z.infer<typeof PartnerAdviceInputSchema>,
+): Promise<PartnerAdviceOutput> {
+  const userId = await gateAi("getPartnerAdvice");
+  try {
+    const parsed = PartnerAdviceInputSchema.parse(input);
+    return await providePartnerAdvice(parsed);
+  } catch (e) {
+    rethrow("getPartnerAdvice", e, { userId });
   }
 }

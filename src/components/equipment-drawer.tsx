@@ -40,6 +40,9 @@ export function EquipmentDrawer() {
     removeBpCuff,
     applyFourLead,
     removeFourLead,
+    isMonitorPadsApplied,
+    applyMonitorPads,
+    removeMonitorPads,
     applyTwelveLeadElectrodes,
     removeTwelveLeadElectrodes,
     applyPulseOx,
@@ -57,6 +60,9 @@ export function EquipmentDrawer() {
       removeBpCuff: s.removeBpCuff,
       applyFourLead: s.applyFourLead,
       removeFourLead: s.removeFourLead,
+      isMonitorPadsApplied: s.isMonitorPadsApplied,
+      applyMonitorPads: s.applyMonitorPads,
+      removeMonitorPads: s.removeMonitorPads,
       applyTwelveLeadElectrodes: s.applyTwelveLeadElectrodes,
       removeTwelveLeadElectrodes: s.removeTwelveLeadElectrodes,
       applyPulseOx: s.applyPulseOx,
@@ -188,6 +194,29 @@ export function EquipmentDrawer() {
               </Button>
               <span className={chip(isFourLeadApplied)}>
                 {isFourLeadApplied ? 'Applied' : 'Off'}
+              </span>
+            </div>
+          </Row>
+
+          <Row label="Monitor / defibrillator pads">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={isMonitorPadsApplied ? 'secondary' : 'default'}
+                onClick={() => applyMonitorPads()}
+              >
+                Apply
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!isMonitorPadsApplied}
+                onClick={() => removeMonitorPads()}
+              >
+                Remove
+              </Button>
+              <span className={chip(isMonitorPadsApplied)}>
+                {isMonitorPadsApplied ? 'Applied' : 'Off'}
               </span>
             </div>
           </Row>

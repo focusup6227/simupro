@@ -44,6 +44,8 @@ type PhysiologySlice = {
   capnoSensor: CapnoSensor;
   isBpCuffApplied: boolean;
   isFourLeadApplied: boolean;
+  /** Monitor/defibrillator pads — single-lead ECG source when 4-lead not applied. */
+  isMonitorPadsApplied: boolean;
   isTwelveLeadElectrodesApplied: boolean;
   isEtco2ChannelOn: boolean;
   isEkgChannelOn: boolean;
@@ -72,6 +74,7 @@ const hardwareDefaults = (): Pick<
   | 'capnoSensor'
   | 'isBpCuffApplied'
   | 'isFourLeadApplied'
+  | 'isMonitorPadsApplied'
   | 'isTwelveLeadElectrodesApplied'
   | 'isEtco2ChannelOn'
   | 'isEkgChannelOn'
@@ -85,6 +88,7 @@ const hardwareDefaults = (): Pick<
   capnoSensor: null,
   isBpCuffApplied: false,
   isFourLeadApplied: false,
+  isMonitorPadsApplied: false,
   isTwelveLeadElectrodesApplied: false,
   isEtco2ChannelOn: false,
   isEkgChannelOn: false,
@@ -128,6 +132,8 @@ export type PhysiologyStore = PhysiologySlice & {
   requestNibpCycle: () => void;
   applyFourLead: () => void;
   removeFourLead: () => void;
+  applyMonitorPads: () => void;
+  removeMonitorPads: () => void;
   applyTwelveLeadElectrodes: () => void;
   removeTwelveLeadElectrodes: () => void;
   toggleEkgChannel: () => void;
@@ -217,13 +223,15 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     set((s) => ({ isEtco2ChannelOn: !s.isEtco2ChannelOn })),
 
   applyBpCuff: () => set({ isBpCuffApplied: true }),
-  removeBpCuff: () =>
+  removeBpCuff: () => {
+    clearNibpTimers();
     set({
       isBpCuffApplied: false,
       bpDisplaySys: null,
       bpDisplayDia: null,
       nibpPhase: 'idle',
-    }),
+    });
+  },
 
   requestNibpCycle: () => {
     const s = get();
@@ -254,7 +262,16 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
 
   applyFourLead: () => set({ isFourLeadApplied: true }),
   removeFourLead: () =>
-    set({ isFourLeadApplied: false, isEkgChannelOn: false }),
+    set((st) => ({
+      isFourLeadApplied: false,
+      isEkgChannelOn: st.isMonitorPadsApplied ? st.isEkgChannelOn : false,
+    })),
+  applyMonitorPads: () => set({ isMonitorPadsApplied: true }),
+  removeMonitorPads: () =>
+    set((st) => ({
+      isMonitorPadsApplied: false,
+      isEkgChannelOn: st.isFourLeadApplied ? st.isEkgChannelOn : false,
+    })),
   applyTwelveLeadElectrodes: () =>
     set({ isTwelveLeadElectrodesApplied: true }),
   removeTwelveLeadElectrodes: () =>

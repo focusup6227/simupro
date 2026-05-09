@@ -46,6 +46,8 @@ interface CardiacCanvasProps {
   ctx: EcgScenarioContext;
   tileW: number;
   leadIdx?: number;
+  /** Shown top-left on the strip (e.g. "II" or "PADS"). */
+  leadLabel?: string;
   height?: number;
   paused?: boolean;
   /** Flat baseline strip — leads not applied or waveform channel off. */
@@ -106,6 +108,7 @@ function CardiacCanvasImpl({
   ctx,
   tileW,
   leadIdx = 1,
+  leadLabel = 'II',
   height = 168,
   paused = false,
   leadsOff = false,
@@ -170,12 +173,13 @@ function CardiacCanvasImpl({
       viaWorker: boolean,
     ) => {
       if (requestId !== lastIssuedStripRequestIdRef.current) return;
+      const isFirstStrip = currXsRef.current.length === 0;
       currXsRef.current = xs;
       currYsRef.current = ys;
-      prevXsRef.current = xs.slice();
-      prevYsRef.current = ys.slice();
-      phaseRef.current = 0;
-      lastFrameRef.current = null;
+      if (isFirstStrip) {
+        prevXsRef.current = xs.slice();
+        prevYsRef.current = ys.slice();
+      }
       perfMeasureStripDelivery(requestId, viaWorker);
     },
     [],
@@ -509,7 +513,7 @@ function CardiacCanvasImpl({
       className="relative min-h-0 w-full overflow-hidden rounded border border-zinc-700/80 bg-black"
     >
       <div className="pointer-events-none absolute left-1.5 top-1 z-10 rounded bg-black/80 px-1 py-0.5 font-mono text-[9px] tabular-nums text-zinc-300 ring-1 ring-zinc-600/80">
-        II
+        {leadLabel}
       </div>
       <canvas ref={canvasRef} className="block w-full" aria-hidden />
     </div>

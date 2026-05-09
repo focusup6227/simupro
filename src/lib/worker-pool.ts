@@ -34,37 +34,3 @@ export function resetEcgStripWorkerAfterFatal(): void {
   ecgStripRefCount = 0;
 }
 
-let capnoWorker: Worker | undefined;
-let capnoRefCount = 0;
-
-export function acquireCapnoWorker(create: () => Worker): Worker {
-  if (!capnoWorker) {
-    capnoWorker = create();
-  }
-  capnoRefCount += 1;
-  return capnoWorker;
-}
-
-export function releaseCapnoWorker(): void {
-  capnoRefCount = Math.max(0, capnoRefCount - 1);
-  if (capnoRefCount === 0 && capnoWorker) {
-    try {
-      capnoWorker.postMessage({ type: 'stop' });
-    } catch {
-      /* noop */
-    }
-    capnoWorker.onmessage = null;
-    capnoWorker.onerror = null;
-  }
-}
-
-/** After unrecoverable worker error — terminate and allow fresh Worker on next acquire. */
-export function resetCapnoWorkerAfterFatal(): void {
-  try {
-    capnoWorker?.terminate();
-  } catch {
-    /* noop */
-  }
-  capnoWorker = undefined;
-  capnoRefCount = 0;
-}

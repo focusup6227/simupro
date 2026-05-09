@@ -10,14 +10,21 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { Message, Scenario, Intervention, User as UserType, UserRole, UserAction, ArrestRhythmKind } from "@/lib/types";
+import type { Message, Scenario, Intervention, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole } from "@/lib/types";
 import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-adjust";
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
 import { effectiveSimulationRole, isTesterOrAdminUser } from "@/lib/user-permissions";
+import {
+  rollPartnerForUser,
+  partnerAvatarLetter,
+  PARTNER_DELEGATION_MARKER,
+  canIssueProactiveAdvice,
+  mandatoryLikelyUnmet,
+} from "@/lib/partner";
 import type { Json } from "@/lib/supabase/database.types";
 import { interventionCertifications } from "@/lib/types";
-import { getPatientResponse, generateRadioReport } from "@/app/actions";
+import { getPatientResponse, generateRadioReport, getPartnerAdvice } from "@/app/actions";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { hospitals } from "@/lib/hospitals-data";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { InterventionTile } from "@/components/intervention-tile";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -49,11 +56,11 @@ import { cn } from "@/lib/utils";
 import { UserGuide } from "@/components/user-guide";
 import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
 import { EquipmentDrawer } from "@/components/equipment-drawer";
+import { PartnerPanel, type PartnerAdviceItem } from "@/components/partner-panel";
 import { listPkDoses, recordPkDoses } from "@/app/pk-actions";
 import { listAutonomicEvents, recordAutonomicEvents } from "@/app/autonomic-actions";
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from "@/lib/feature-flags";
 import { learnerMayOpenScenario } from "@/lib/scenario-catalog-visibility";
-import { learnerQualitativeDecompCue } from "@/lib/learner-decomp-cues";
 import { summarizeRecentMedications } from "@/lib/pk-recent-medications";
 import { parseTreatmentSelectionsToDoses } from "@/lib/physiology/dose-parser";
 import { parseTreatmentSelectionsToStressors, aiStressorRowToAutonomicEvent } from "@/lib/physiology/intervention-stressor-parser";
@@ -166,6 +173,26 @@ function speechRecognitionErrorMessage(code: string): string {
   }
 }
 
+function roleKeyForMandatory(
+  role: UserRole,
+  user: UserType | null,
+): "emt" | "aemt" | "paramedic" {
+  if (role === "emt" || role === "aemt" || role === "paramedic") return role;
+  const e = effectiveSimulationRole(user ?? undefined);
+  if (e === "emt" || e === "aemt" || e === "paramedic") return e;
+  return "emt";
+}
+
+function parsePartnerRow(row: {
+  partner_role?: string | null;
+  partner_name?: string | null;
+}): { name: string; role: PartnerSimulationRole } | null {
+  const pr = row.partner_role;
+  const pn = row.partner_name;
+  if (!pr || !pn) return null;
+  if (pr !== "emt" && pr !== "aemt" && pr !== "paramedic") return null;
+  return { role: pr, name: pn };
+}
 
 const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -193,14 +220,6 @@ export default function SimulationPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>('emt');
 
   const { data: userData, isLoading: isUserDataLoading } = useDashboardProfile();
-
-  const autonomicDecompPhase = useAutonomicStore((s) => s.state.decompensationPhase);
-  const learnerPerfTrendLabel = useMemo(() => {
-    if (!ENABLE_AUTONOMIC_ENGINE) return null;
-    if (isTesterOrAdminUser(userData)) return null;
-    if (currentUserRole !== 'emt' && currentUserRole !== 'aemt') return null;
-    return learnerQualitativeDecompCue(autonomicDecompPhase);
-  }, [userData, autonomicDecompPhase, currentUserRole]);
 
   const interventionsSpec = useMemoSupabase(
     () =>
@@ -266,8 +285,19 @@ export default function SimulationPage() {
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const simulationLogScrollRef = useRef<HTMLDivElement>(null);
   const simulationLogNearBottomRef = useRef(true);
+  const lastLearnerActionSimTimeRef = useRef<number | null>(null);
+  const lastProactiveCheckSimTimeRef = useRef<number | null>(null);
+  const lastPartnerSpeechSimTimeRef = useRef<number | null>(null);
+  const recentProactiveAdviceRef = useRef<{ text: string; simTime: number }[]>([]);
+  const proactiveInFlightRef = useRef(false);
   /** Avoid wiping physiology on re-fetch/tab-focus remount; only reset when switching scenario routes. */
   const prevScenarioRouteIdRef = useRef<string | null>(null);
+
+  const [partner, setPartner] = useState<{
+    name: string;
+    role: PartnerSimulationRole;
+  } | null>(null);
+  const [partnerAdviceHistory, setPartnerAdviceHistory] = useState<PartnerAdviceItem[]>([]);
 
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
@@ -549,6 +579,22 @@ export default function SimulationPage() {
             setTime(existing.time_elapsed);
           }
 
+          {
+            let p = parsePartnerRow(existing);
+            if (!p) {
+              p = rollPartnerForUser(effectiveSimulationRole(userData));
+              await supabase
+                .from('simulation_sessions')
+                .update({
+                  partner_role: p.role,
+                  partner_name: p.name,
+                })
+                .eq('id', existing.id)
+                .eq('user_id', authUser.id);
+            }
+            setPartner(p);
+          }
+
           if (ENABLE_PHARMACOKINETICS_ENGINE) {
             void listPkDoses(existing.id)
               .then((doses) => usePkStore.getState().ingestHydratedDoses(doses))
@@ -569,6 +615,7 @@ export default function SimulationPage() {
             ? crypto.randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+        const rolled = rollPartnerForUser(effectiveSimulationRole(userData));
         const { error } = await supabase.from('simulation_sessions').insert({
           id: newSessionId,
           user_id: authUser.id,
@@ -576,10 +623,13 @@ export default function SimulationPage() {
           scenario_title: scenario.title,
           status: 'in-progress',
           user_role: effectiveSimulationRole(userData),
+          partner_role: rolled.role,
+          partner_name: rolled.name,
         });
         if (error) throw error;
 
         setSessionId(newSessionId);
+        setPartner(rolled);
         usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
           weightKg: scenarioWeightKg,
         });
@@ -669,6 +719,125 @@ export default function SimulationPage() {
     ]);
   }, [time, isCardiacArrestScenario, hasROSC]);
 
+  useEffect(() => {
+    if (!scenario || !partner || simulationEnded || isPaused || isLoading || !sessionId) return;
+
+    const mandatory =
+      scenario.mandatoryActions[roleKeyForMandatory(currentUserRole, userData)] ?? [];
+    const unmet = mandatoryLikelyUnmet(mandatory, userActions);
+    const t = time;
+
+    const simIdleLearner =
+      lastLearnerActionSimTimeRef.current == null
+        ? t > 90
+        : t - lastLearnerActionSimTimeRef.current > 90;
+    const partnerQuiet =
+      lastPartnerSpeechSimTimeRef.current == null
+        ? t > 90
+        : t - lastPartnerSpeechSimTimeRef.current > 90;
+
+    const tickUnmet = t > 0 && t % 60 === 0 && unmet;
+    const idleBoth = simIdleLearner && partnerQuiet && t > 90;
+
+    if (!tickUnmet && !idleBoth) return;
+    if (proactiveInFlightRef.current) return;
+
+    if (
+      !canIssueProactiveAdvice({
+        currentSimTime: t,
+        lastUserActionSimTime: lastLearnerActionSimTimeRef.current,
+        lastProactiveCheckSimTime: lastProactiveCheckSimTimeRef.current,
+        lastAdviceTexts: recentProactiveAdviceRef.current,
+      })
+    ) {
+      return;
+    }
+
+    lastProactiveCheckSimTimeRef.current = t;
+    proactiveInFlightRef.current = true;
+
+    void (async () => {
+      try {
+        const lastAssistant = [...messages]
+          .reverse()
+          .find((m) => m.role === "assistant");
+        const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
+        const out = await getPartnerAdvice({
+          mode: "proactive",
+          partnerRole: partner.role,
+          partnerName: partner.name,
+          userRole: currentUserRole,
+          scenarioSummary: scenario.details.slice(0, 12000),
+          mandatoryActions: mandatory,
+          recentUserActions: userActions.slice(-6),
+          lastPatientCondition: lastAssistant?.conditionChange,
+          currentVitals: priorVitals,
+          userQuestion: "",
+        });
+        if (!out.shouldSpeak || !out.advice.trim()) return;
+        if (
+          !canIssueProactiveAdvice({
+            currentSimTime: t,
+            lastUserActionSimTime: lastLearnerActionSimTimeRef.current,
+            lastProactiveCheckSimTime: lastProactiveCheckSimTimeRef.current,
+            lastAdviceTexts: recentProactiveAdviceRef.current,
+            proposedAdviceText: out.advice,
+          })
+        ) {
+          return;
+        }
+
+        recentProactiveAdviceRef.current = [
+          ...recentProactiveAdviceRef.current.filter((x) => t - x.simTime <= 300),
+          { text: out.advice, simTime: t },
+        ];
+        lastPartnerSpeechSimTimeRef.current = t;
+
+        setPartnerAdviceHistory((h) =>
+          [
+            ...h,
+            {
+              id:
+                typeof crypto !== "undefined" && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : `${t}-${Math.random()}`,
+              text: out.advice,
+              urgency: out.urgency,
+              atSim: t,
+            },
+          ].slice(-5),
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "partner",
+            content: out.advice,
+            partnerName: partner.name,
+            partnerRole: partner.role,
+            urgency: out.urgency,
+          },
+        ]);
+      } catch (e: unknown) {
+        console.error(e);
+      } finally {
+        proactiveInFlightRef.current = false;
+      }
+    })();
+  }, [
+    time,
+    userActions,
+    messages,
+    scenario,
+    partner,
+    simulationEnded,
+    isPaused,
+    isLoading,
+    sessionId,
+    currentUserRole,
+    userData,
+  ]);
+
   usePharmacokineticsTick({
     scenario,
     simSeconds: time,
@@ -745,32 +914,75 @@ export default function SimulationPage() {
   }, [currentUserRole, allInterventions]);
 
   const submitAction = useCallback(async (
-    actionType: ActiveTab | "medicalDirection" | "cardiacArrest", 
-    payload: { assessment?: string; treatments?: string[]; destination?: string; transport?: 'Routine' | 'Emergency' }
+    actionType: ActiveTab | "medicalDirection" | "cardiacArrest",
+    payload: {
+      assessment?: string;
+      treatments?: string[];
+      destination?: string;
+      transport?: "Routine" | "Emergency";
+    },
+    partnerBroadcast?: {
+      partnerLine: string;
+      partnerName: string;
+      partnerRole: PartnerSimulationRole;
+    },
   ) => {
     if (!scenario || !allInterventions || !userData || isLoading) return;
-    
+
     setIsLoading(true);
 
-    const assessmentText = payload.assessment || 'None';
+    if (!partnerBroadcast) {
+      lastLearnerActionSimTimeRef.current = time;
+    } else {
+      lastPartnerSpeechSimTimeRef.current = time;
+    }
+
+    let rawAssessment = payload.assessment ?? "None";
+    if (
+      partnerBroadcast &&
+      rawAssessment === "None" &&
+      (payload.treatments?.length ?? 0) > 0
+    ) {
+      rawAssessment = `Partner performed: ${(payload.treatments ?? []).join(", ")}.`;
+    }
+    if (partnerBroadcast && rawAssessment === "None") {
+      rawAssessment = "Partner performed delegated action.";
+    }
+
+    const assessmentText = partnerBroadcast
+      ? `${PARTNER_DELEGATION_MARKER} ${rawAssessment}`
+      : rawAssessment;
+
     const treatmentsArray = payload.treatments || [];
     const destination = payload.destination || null;
 
     if (treatmentsArray.includes("Cardiopulmonary Resuscitation (CPR)") && !cprStarted) {
-        setCprStarted(true);
+      setCprStarted(true);
     }
 
-    let actionDescription = '';
-    if (assessmentText !== 'None') actionDescription = `Assessment: ${assessmentText}`;
-    if (treatmentsArray.length > 0) actionDescription = `Treatments: ${treatmentsArray.join(', ')}`;
+    let actionDescription = "";
+    if (assessmentText !== "None") actionDescription = `Assessment: ${assessmentText}`;
+    if (treatmentsArray.length > 0)
+      actionDescription = `Treatments: ${treatmentsArray.join(", ")}`;
     if (destination) {
-        actionDescription = `Selected Destination: ${destination}`;
-        if (payload.transport) {
-            actionDescription += ` (Transport: ${payload.transport})`;
-        }
+      actionDescription = `Selected Destination: ${destination}`;
+      if (payload.transport) {
+        actionDescription += ` (Transport: ${payload.transport})`;
+      }
     }
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: actionDescription }];
+    const partnerMessage: Message | null = partnerBroadcast
+      ? {
+          role: "partner",
+          content: partnerBroadcast.partnerLine,
+          partnerName: partnerBroadcast.partnerName,
+          partnerRole: partnerBroadcast.partnerRole,
+        }
+      : null;
+
+    const newMessages: Message[] = partnerMessage
+      ? [...messages, partnerMessage]
+      : [...messages, { role: "user", content: actionDescription }];
     setMessages(newMessages);
 
     const newAction: UserAction = {
@@ -779,7 +991,7 @@ export default function SimulationPage() {
       treatments: treatmentsArray,
       destination: destination,
     };
-     if (payload.transport) {
+    if (payload.transport) {
       newAction.transportMode = payload.transport;
     }
     const updatedUserActions = [...userActions, newAction];
@@ -799,7 +1011,8 @@ export default function SimulationPage() {
     try {
       const lastAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0];
       const userRole = currentUserRole;
-      const mandatoryActionsForRole = scenario.mandatoryActions[userRole as keyof typeof scenario.mandatoryActions] || [];
+      const mandatoryActionsForRole =
+        scenario.mandatoryActions[roleKeyForMandatory(userRole, userData)] || [];
       const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
 
       const recentMedications = ENABLE_PHARMACOKINETICS_ENGINE
@@ -928,7 +1141,95 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, sessionId]);
+  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId]);
+
+  const delegatePartnerAction = useCallback(
+    async (spec: {
+      chatter: string;
+      assessmentDetail: string;
+      treatmentIds?: string[];
+    }) => {
+      if (!partner || !allInterventions) return;
+      const names = (spec.treatmentIds ?? [])
+        .map((id) => allInterventions.find((i) => i.id === id)?.name)
+        .filter((n): n is string => Boolean(n));
+      const hasTx = names.length > 0;
+      await submitAction(
+        hasTx ? "treatment" : "assessment",
+        {
+          assessment: spec.assessmentDetail,
+          treatments: names,
+        },
+        {
+          partnerLine: `${partner.name}: ${spec.chatter}`,
+          partnerName: partner.name,
+          partnerRole: partner.role,
+        },
+      );
+    },
+    [partner, allInterventions, submitAction],
+  );
+
+  const handleAskPartner = useCallback(
+    async (question: string) => {
+      if (!scenario || !partner) return;
+      const lastAssistant = [...messages]
+        .reverse()
+        .find((m) => m.role === "assistant");
+      const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
+      const mandatory =
+        scenario.mandatoryActions[roleKeyForMandatory(currentUserRole, userData)] ?? [];
+      try {
+        const out = await getPartnerAdvice({
+          mode: "asked",
+          partnerRole: partner.role,
+          partnerName: partner.name,
+          userRole: currentUserRole,
+          scenarioSummary: scenario.details.slice(0, 12000),
+          mandatoryActions: mandatory,
+          recentUserActions: userActions.slice(-6),
+          lastPatientCondition: lastAssistant?.conditionChange,
+          currentVitals: priorVitals,
+          userQuestion: question.slice(0, 2000),
+        });
+        if (!out.advice.trim()) return;
+        lastPartnerSpeechSimTimeRef.current = time;
+        setPartnerAdviceHistory((h) =>
+          [
+            ...h,
+            {
+              id:
+                typeof crypto !== "undefined" && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : `${Date.now()}-${Math.random()}`,
+              text: out.advice,
+              urgency: out.urgency,
+              atSim: time,
+            },
+          ].slice(-5),
+        );
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "partner",
+            content: out.advice,
+            partnerName: partner.name,
+            partnerRole: partner.role,
+            urgency: out.urgency,
+          },
+        ]);
+      } catch (e: unknown) {
+        console.error(e);
+        const msg = e instanceof Error ? e.message : "Partner advice failed.";
+        toast({
+          variant: "destructive",
+          title: "Could not reach partner",
+          description: msg,
+        });
+      }
+    },
+    [scenario, partner, messages, currentUserRole, userData, userActions, time, toast],
+  );
 
   /**
    * Logs a cardiac monitor / ECG action into the user-action log so it counts
@@ -1362,9 +1663,6 @@ export default function SimulationPage() {
               pulseless={Boolean(currentArrestRhythm)}
               onRhythmChange={(kind) => setObservedRhythm(kind)}
               onAction={handleEcgAction}
-              showAutonomicDebug={isTesterOrAdminUser(userData)}
-              learnerPerfTrendLabel={learnerPerfTrendLabel}
-              viewerRole={currentUserRole}
             />
             <EquipmentDrawer />
             {(currentUserRole === 'paramedic' || currentUserRole === 'admin') && (
@@ -1619,12 +1917,68 @@ export default function SimulationPage() {
           <div className="space-y-4">
             {messages.map((message, messageIndex) => {
               if (message.role === "user") return null;
+              const isPartner = message.role === "partner";
+              const partnerLetter = partnerAvatarLetter(
+                message.partnerRole ?? partner?.role ?? "emt",
+              );
+              const avatarLetter =
+                message.role === "assistant"
+                  ? "P"
+                  : message.role === "system"
+                    ? "H"
+                    : isPartner
+                      ? partnerLetter
+                      : "S";
+              const bubbleClass =
+                message.role === "system"
+                  ? "bg-yellow-100 dark:bg-yellow-900/50"
+                  : isPartner
+                    ? "border border-emerald-800/25 bg-emerald-950/10 dark:bg-emerald-500/10"
+                    : "bg-muted";
+              const roleTooltip =
+                message.partnerRole === "paramedic"
+                  ? "Paramedic partner"
+                  : message.partnerRole === "aemt"
+                    ? "AEMT partner"
+                    : message.partnerRole === "emt"
+                      ? "EMT partner"
+                      : "Partner";
               return (
                 <div key={messageIndex} className="flex items-start gap-3">
-                  <Avatar className="w-8 h-8"><AvatarFallback>{message.role === 'assistant' ? 'P' : message.role === 'system' ? 'H' : 'S'}</AvatarFallback></Avatar>
-                  <div className={`rounded-lg p-3 max-w-lg ${message.role === 'system' ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'bg-muted'}`}>
-                    <p className="text-sm whitespace-pre-wrap">{stripGradingMarkers(message.content)}</p>
-                    {message.conditionChange && <p className="text-sm mt-2 pt-2 border-t border-muted-foreground/20">Condition: {message.conditionChange}</p>}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback
+                            className={
+                              isPartner
+                                ? "bg-emerald-700 text-xs font-semibold text-emerald-50"
+                                : undefined
+                            }
+                          >
+                            {avatarLetter}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      {isPartner ? (
+                        <TooltipContent>{roleTooltip}</TooltipContent>
+                      ) : null}
+                    </Tooltip>
+                  </TooltipProvider>
+                  <div className={`rounded-lg p-3 max-w-lg ${bubbleClass}`}>
+                    {isPartner && message.partnerName ? (
+                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                        {message.partnerName}
+                      </p>
+                    ) : null}
+                    <p className="text-sm whitespace-pre-wrap">
+                      {stripGradingMarkers(message.content)}
+                    </p>
+                    {message.conditionChange ? (
+                      <p className="mt-2 border-t border-muted-foreground/20 pt-2 text-sm">
+                        Condition: {message.conditionChange}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -1633,6 +1987,24 @@ export default function SimulationPage() {
             {isAnalyzingAED && <p>AED is analyzing...</p>}
           </div>
         </div>
+        {partner && allInterventions ? (
+          <div className="shrink-0 border-b px-4 pb-3 pt-1">
+            <PartnerPanel
+              partner={partner}
+              interventions={allInterventions}
+              adviceHistory={partnerAdviceHistory}
+              onDelegate={(spec) =>
+                delegatePartnerAction({
+                  chatter: spec.chatter,
+                  assessmentDetail: spec.assessmentDetail,
+                  treatmentIds: spec.treatmentIds,
+                })
+              }
+              onAskPartner={handleAskPartner}
+              disabled={isLoading || simulationEnded}
+            />
+          </div>
+        ) : null}
         <div className="flex min-h-0 flex-1 flex-col justify-start border-t p-4">
           <Tabs
             value={activeTab}
@@ -1699,44 +2071,19 @@ export default function SimulationPage() {
                   <>
                     <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
                         <div className="space-y-4 pr-4">
-                            <div className="flex items-center justify-between">
-                              <Label>Select cardiac arrest interventions</Label>
-                              {currentArrestRhythm && (
-                                <Badge variant={isShockable ? "destructive" : "secondary"} className="text-[11px]">
-                                  {isShockable ? "Shockable rhythm" : "Non-shockable rhythm"}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
-                            {cardiacArrestInterventions.map(t => {
-                              const showSubs =
-                                !!(selectedTreatments[t.id]?.selected && t.subOptions && t.subOptions.length > 0);
-                              return (
-                                <div key={t.id} className={cn(showSubs && "col-span-full")}>
-                                    <div className="flex items-start gap-2">
-                                        <Checkbox id={`cardiac-${t.id}`} className="mt-0.5 shrink-0" onCheckedChange={(checked) => handleTreatmentSelection(t.id, checked)} checked={selectedTreatments[t.id]?.selected || false} />
-                                        <label htmlFor={`cardiac-${t.id}`} className="text-sm font-medium leading-snug">{t.name}</label>
-                                    </div>
-                                    {showSubs && (
-                                    <div className="mt-2 space-y-2 border-l-2 border-muted pl-4 ml-1 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-x-4 md:gap-y-2 md:space-y-0">
-                                        {t.subOptions!.map(so => (
-                                        <div key={so.label} className="space-y-2">
-                                            <Label className="text-xs text-muted-foreground">{so.label}</Label>
-                                            <Select onValueChange={(value) => handleSubOptionChange(t.id, so.label, value)} defaultValue={selectedTreatments[t.id]?.subOptions?.[so.label] || so.options[0]}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={`Select ${so.label}`} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {so.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                                            </SelectContent>
-                                            </Select>
-                                        </div>
-                                        ))}
-                                    </div>
-                                    )}
-                                </div>
-                              );
-                            })}
+                            <Label>Select cardiac arrest interventions</Label>
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {cardiacArrestInterventions.map((t) => (
+                              <InterventionTile
+                                key={t.id}
+                                intervention={t}
+                                selected={selectedTreatments[t.id]}
+                                onToggle={(sel) => handleTreatmentSelection(t.id, sel)}
+                                onSubOptionChange={(label, value) =>
+                                  handleSubOptionChange(t.id, label, value)
+                                }
+                              />
+                            ))}
                             </div>
                         </div>
                     </ScrollArea>
@@ -1793,36 +2140,18 @@ export default function SimulationPage() {
                     <p className="text-muted-foreground text-sm">No interventions available for your certification level.</p>
                   )}
                   {availableInterventions.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
-                  {availableInterventions.map(t => {
-                    const showSubs =
-                      !!(selectedTreatments[t.id]?.selected && t.subOptions && t.subOptions.length > 0);
-                    return (
-                    <div key={t.id} className={cn(showSubs && "col-span-full")}>
-                      <div className="flex items-start gap-2">
-                        <Checkbox id={t.id} className="mt-0.5 shrink-0" onCheckedChange={(checked) => handleTreatmentSelection(t.id, checked)} checked={selectedTreatments[t.id]?.selected || false} />
-                        <label htmlFor={t.id} className="text-sm font-medium leading-snug">{t.name}</label>
-                      </div>
-                      {showSubs && (
-                        <div className="mt-2 space-y-2 border-l-2 border-muted pl-4 ml-1 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-x-4 md:gap-y-2 md:space-y-0">
-                          {t.subOptions!.map(so => (
-                            <div key={so.label} className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">{so.label}</Label>
-                               <Select onValueChange={(value) => handleSubOptionChange(t.id, so.label, value)} defaultValue={selectedTreatments[t.id]?.subOptions?.[so.label] || so.options[0]}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={`Select ${so.label}`} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {so.options.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                  })}
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {availableInterventions.map((t) => (
+                    <InterventionTile
+                      key={t.id}
+                      intervention={t}
+                      selected={selectedTreatments[t.id]}
+                      onToggle={(sel) => handleTreatmentSelection(t.id, sel)}
+                      onSubOptionChange={(label, value) =>
+                        handleSubOptionChange(t.id, label, value)
+                      }
+                    />
+                  ))}
                   </div>
                   )}
                 </div>

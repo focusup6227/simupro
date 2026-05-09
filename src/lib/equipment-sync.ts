@@ -41,6 +41,9 @@ export function applyEquipmentFromTreatmentSelections(
       case 'apply-four-lead-ecg':
         store.applyFourLead();
         break;
+      case 'apply-monitor-pads':
+        store.applyMonitorPads();
+        break;
       case 'apply-twelve-lead-ecg':
         store.applyTwelveLeadElectrodes();
         break;

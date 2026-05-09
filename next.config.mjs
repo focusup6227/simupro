@@ -30,7 +30,7 @@ const withPWA = withPWAInit({
       },
       {
         urlPattern: ({ url }) =>
-          /ecg-strip\.worker|capno\.worker/.test(url.pathname),
+          /ecg-strip\.worker/.test(url.pathname),
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "simupro-wave-workers",

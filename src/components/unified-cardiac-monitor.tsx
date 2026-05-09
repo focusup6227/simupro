@@ -19,7 +19,7 @@ import {
   sweepDurationSec,
 } from '@/lib/ecg-sweep-geometry';
 import { rhythmStripeWidthForContext } from '@/lib/ecg-waveform';
-import type { Scenario, UserRole } from '@/lib/types';
+import type { Scenario } from '@/lib/types';
 import {
   formatEtco2ForMonitor,
   formatSpo2ForMonitor,
@@ -60,10 +60,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE } from '@/lib/feature-flags';
-import { useMetabolicStore } from '@/stores/metabolic-store';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 
 function uid() {
@@ -74,6 +71,44 @@ const COLOR_HR = '#00FF00';
 const COLOR_SPO2 = '#00FFFF';
 const COLOR_ETCO2 = '#FFFF00';
 const COLOR_BP = '#FFFFFF';
+
+/** PALS-style severe brady / tachy for monitor alarm (tunable). */
+function severeHrAlarmThresholds(
+  ageBand: Scenario['ageBand'],
+): { brady: number; tachy: number } {
+  switch (ageBand) {
+    case 'neonate':
+      return { brady: 100, tachy: 200 };
+    case 'infant':
+      return { brady: 90, tachy: 180 };
+    case 'toddler':
+      return { brady: 80, tachy: 170 };
+    case 'child':
+      return { brady: 60, tachy: 160 };
+    case 'adolescent':
+    case 'pediatric':
+      return { brady: 50, tachy: 150 };
+    case 'adult':
+    default:
+      return { brady: 50, tachy: 150 };
+  }
+}
+
+function playAlarmChirp(actx: AudioContext) {
+  const t0 = actx.currentTime;
+  for (let i = 0; i < 2; i++) {
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = i === 0 ? 660 : 880;
+    g.gain.value = 0.06;
+    osc.connect(g);
+    g.connect(actx.destination);
+    const start = t0 + i * 0.09;
+    osc.start(start);
+    osc.stop(start + 0.08);
+  }
+}
 
 function vitalRowClass() {
   return 'relative flex min-h-[4.5rem] flex-col justify-center border-b border-zinc-800/90 px-2 py-2 font-mono ring-1 ring-inset ring-white/[0.04]';
@@ -93,19 +128,27 @@ function ChannelLed({ on, color }: { on: boolean; color: string }) {
 }
 
 function VitalBlockHr({ displayHr }: { displayHr?: string }) {
-  const { hr, isMonitorPowered, isPulseOxApplied, isFourLeadApplied, isEkgChannelOn } =
-    usePhysiologyStore(
-      useShallow((s) => ({
-        hr: s.hr,
-        isMonitorPowered: s.isMonitorPowered,
-        isPulseOxApplied: s.isPulseOxApplied,
-        isFourLeadApplied: s.isFourLeadApplied,
-        isEkgChannelOn: s.isEkgChannelOn,
-      })),
-    );
+  const {
+    hr,
+    isMonitorPowered,
+    isPulseOxApplied,
+    isFourLeadApplied,
+    isMonitorPadsApplied,
+    isEkgChannelOn,
+  } = usePhysiologyStore(
+    useShallow((s) => ({
+      hr: s.hr,
+      isMonitorPowered: s.isMonitorPowered,
+      isPulseOxApplied: s.isPulseOxApplied,
+      isFourLeadApplied: s.isFourLeadApplied,
+      isMonitorPadsApplied: s.isMonitorPadsApplied,
+      isEkgChannelOn: s.isEkgChannelOn,
+    })),
+  );
   const channelOn =
     isMonitorPowered &&
-    (isPulseOxApplied || (isFourLeadApplied && isEkgChannelOn));
+    (isPulseOxApplied ||
+      ((isFourLeadApplied || isMonitorPadsApplied) && isEkgChannelOn));
   const display = channelOn ? (displayHr ?? hr) || '—' : '—';
 
   return (
@@ -203,11 +246,7 @@ function VitalBlockEtco2() {
   );
 }
 
-function VitalBlockBp({
-  pressureAdj,
-}: {
-  pressureAdj?: { sys: number; dia: number };
-}) {
+function VitalBlockBp() {
   const st = usePhysiologyStore(
     useShallow((s) => ({
       nibpPhase: s.nibpPhase,
@@ -218,8 +257,6 @@ function VitalBlockBp({
   );
 
   let inner: ReactNode;
-  const ds = pressureAdj?.sys ?? 0;
-  const dd = pressureAdj?.dia ?? 0;
 
   if (!st.isMonitorPowered) {
     inner = (
@@ -251,10 +288,10 @@ function VitalBlockBp({
     );
   } else if (st.bpDisplaySys != null && st.bpDisplayDia != null) {
     const ms = Math.round(
-      Math.min(260, Math.max(30, st.bpDisplaySys + ds)),
+      Math.min(260, Math.max(30, st.bpDisplaySys)),
     );
     const md = Math.round(
-      Math.min(180, Math.max(20, st.bpDisplayDia + dd)),
+      Math.min(180, Math.max(20, st.bpDisplayDia)),
     );
     inner = (
       <span
@@ -294,8 +331,10 @@ function VitalBlockBp({
 
 const PulseHeartImpl = memo(function PulseHeartImpl({
   displayHr,
+  scenario,
 }: {
   displayHr?: string;
+  scenario?: Scenario | null;
 }) {
   const {
     hr,
@@ -303,6 +342,7 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
     isMonitorPowered,
     isPulseOxApplied,
     isFourLeadApplied,
+    isMonitorPadsApplied,
     isEkgChannelOn,
     isBeepMuted,
   } = usePhysiologyStore(
@@ -312,6 +352,7 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
       isMonitorPowered: s.isMonitorPowered,
       isPulseOxApplied: s.isPulseOxApplied,
       isFourLeadApplied: s.isFourLeadApplied,
+      isMonitorPadsApplied: s.isMonitorPadsApplied,
       isEkgChannelOn: s.isEkgChannelOn,
       isBeepMuted: s.isBeepMuted,
     })),
@@ -327,7 +368,8 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
   const showPulse =
     isMonitorPowered &&
     !isPulseless &&
-    (isPulseOxApplied || (isFourLeadApplied && isEkgChannelOn));
+    (isPulseOxApplied ||
+      ((isFourLeadApplied || isMonitorPadsApplied) && isEkgChannelOn));
 
   useEffect(() => {
     const onVis = () => {
@@ -362,34 +404,42 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
         return;
       setFlash(true);
       window.setTimeout(() => setFlash(false), 120);
-
-      if (
-        !reduceMotionRef.current &&
-        !isPulseless &&
-        tabVisibleRef.current &&
-        !isBeepMuted &&
-        showPulse
-      ) {
-        try {
-          const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-          if (!Ctx) return;
-          const actx = audioCtxRef.current ?? new Ctx();
-          audioCtxRef.current = actx;
-          if (actx.state === 'suspended') void actx.resume();
-          const osc = actx.createOscillator();
-          const g = actx.createGain();
-          osc.type = 'sine';
-          osc.frequency.value = 880;
-          g.gain.value = 0.06;
-          osc.connect(g);
-          g.connect(actx.destination);
-          osc.start();
-          osc.stop(actx.currentTime + 0.06);
-        } catch {
-          /* autoplay / blocked */
-        }
-      }
     }, ms);
+
+    return () => clearInterval(id);
+  }, [displayHr, hr, isPulseless, showPulse]);
+
+  useEffect(() => {
+    if (!showPulse || reduceMotionRef.current || isBeepMuted) return;
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+      return;
+
+    const hrLine = displayHr ?? hr;
+    const bpm = parseHeartRateBpm(hrLine);
+    if (!bpm || bpm <= 0) return;
+
+    const { brady, tachy } = severeHrAlarmThresholds(scenario?.ageBand);
+    const alarmOn = bpm < brady || bpm > tachy;
+    if (!alarmOn) return;
+
+    const id = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+        return;
+      if (!tabVisibleRef.current || reduceMotionRef.current) return;
+      try {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        if (!Ctx) return;
+        const actx = audioCtxRef.current ?? new Ctx();
+        audioCtxRef.current = actx;
+        if (actx.state === 'suspended') void actx.resume();
+        playAlarmChirp(actx);
+      } catch {
+        /* autoplay / blocked */
+      }
+    }, 1500);
 
     return () => clearInterval(id);
   }, [
@@ -398,6 +448,7 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
     isPulseless,
     showPulse,
     isBeepMuted,
+    scenario?.ageBand,
   ]);
 
   if (isPulseless || !showPulse) return null;
@@ -426,6 +477,7 @@ function MonitorHardwareBezel(props: {
     isEtco2ChannelOn,
     isEkgChannelOn,
     isFourLeadApplied,
+    isMonitorPadsApplied,
     requestNibpCycle,
     toggleEtco2Channel,
     toggleEkgChannel,
@@ -439,6 +491,7 @@ function MonitorHardwareBezel(props: {
       isEtco2ChannelOn: s.isEtco2ChannelOn,
       isEkgChannelOn: s.isEkgChannelOn,
       isFourLeadApplied: s.isFourLeadApplied,
+      isMonitorPadsApplied: s.isMonitorPadsApplied,
       requestNibpCycle: s.requestNibpCycle,
       toggleEtco2Channel: s.toggleEtco2Channel,
       toggleEkgChannel: s.toggleEkgChannel,
@@ -476,7 +529,7 @@ function MonitorHardwareBezel(props: {
         className={cn(rubber, isBeepMuted && lit)}
         onClick={() => toggleBeepMute()}
         aria-pressed={isBeepMuted}
-        title={isBeepMuted ? 'Unmute pulse tone' : 'Mute pulse tone'}
+        title={isBeepMuted ? 'Unmute monitor tones' : 'Mute monitor tones'}
       >
         {isBeepMuted ? (
           <VolumeX className="mx-auto mb-0.5 size-3.5" aria-hidden />
@@ -504,7 +557,9 @@ function MonitorHardwareBezel(props: {
       <button
         type="button"
         className={cn(rubber, isEkgChannelOn && lit)}
-        disabled={bezelDisabled || !isFourLeadApplied}
+        disabled={
+          bezelDisabled || (!isFourLeadApplied && !isMonitorPadsApplied)
+        }
         onClick={() => toggleEkgChannel()}
       >
         ECG
@@ -543,8 +598,13 @@ function MonitorHardwareBezel(props: {
   );
 }
 
-export function PulseHeart(props: { displayHr?: string }) {
-  return <PulseHeartImpl displayHr={props.displayHr} />;
+export function PulseHeart(props: {
+  displayHr?: string;
+  scenario?: Scenario | null;
+}) {
+  return (
+    <PulseHeartImpl displayHr={props.displayHr} scenario={props.scenario} />
+  );
 }
 
 type MonitorMode = 'four_lead' | 'twelve_lead';
@@ -557,12 +617,6 @@ export interface UnifiedCardiacMonitorProps {
   pulseless?: boolean;
   onRhythmChange?: (kind: EcgRhythmKind) => void;
   onAction?: (label: EcgActionLabel) => void;
-  /** Tester/admin: show deterministic autonomic decompensation phase. */
-  showAutonomicDebug?: boolean;
-  /** Learner-safe qualitative perfusion trend (Phase IV). */
-  learnerPerfTrendLabel?: string | null;
-  /** Role for optional perfusion teaching readouts (CPP / UOP). */
-  viewerRole?: UserRole;
 }
 
 export function UnifiedCardiacMonitor({
@@ -572,12 +626,8 @@ export function UnifiedCardiacMonitor({
   pulseless,
   onRhythmChange,
   onAction,
-  showAutonomicDebug,
-  learnerPerfTrendLabel,
-  viewerRole,
 }: UnifiedCardiacMonitorProps) {
-  const { merged, deltas, decompensationPhase } = useMergedPkDisplay();
-  const metabolicState = useMetabolicStore((s) => s.state);
+  const { merged } = useMergedPkDisplay();
 
   const vitalsForDerive = useMemo(
     () => ({
@@ -588,31 +638,6 @@ export function UnifiedCardiacMonitor({
     }),
     [merged.hr, merged.bp, merged.rr, merged.spo2],
   );
-
-  const perfusionTeaching = useMemo(() => {
-    const show =
-      viewerRole === 'paramedic' ||
-      viewerRole === 'admin' ||
-      viewerRole === 'tester';
-    if (!show) {
-      return { cpp: null as number | null, uopLine: null as string | null };
-    }
-    const m = merged.bp.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
-    if (!m) {
-      return { cpp: null as number | null, uopLine: null as string | null };
-    }
-    const sys = Number.parseInt(m[1]!, 10);
-    const dia = Number.parseInt(m[2]!, 10);
-    const map = dia + (sys - dia) / 3;
-    const icp = scenario?.icpMmHg;
-    const cpp =
-      icp != null && Number.isFinite(icp) ? map - icp : null;
-    const uopLine =
-      map < 60
-        ? 'Renal perfusion: oliguria likely'
-        : 'Renal perfusion: UOP likely adequate';
-    return { cpp, uopLine };
-  }, [viewerRole, merged.bp, scenario?.icpMmHg]);
 
   const ctx = useMemo(() => {
     const currentVitals = vitalsForDerive.hr
@@ -694,10 +719,18 @@ export function UnifiedCardiacMonitor({
   }, [ctx, onAction]);
 
   const isMonitorPowered = usePhysiologyStore((s) => s.isMonitorPowered);
-  const stripLeadsOff = usePhysiologyStore(
-    (s) => !s.isFourLeadApplied || !s.isEkgChannelOn,
-  );
+  const { isFourLeadApplied, isMonitorPadsApplied, isEkgChannelOn } =
+    usePhysiologyStore(
+      useShallow((s) => ({
+        isFourLeadApplied: s.isFourLeadApplied,
+        isMonitorPadsApplied: s.isMonitorPadsApplied,
+        isEkgChannelOn: s.isEkgChannelOn,
+      })),
+    );
+  const stripLeadsOff =
+    !(isFourLeadApplied || isMonitorPadsApplied) || !isEkgChannelOn;
   const stripOff = !isMonitorPowered || stripLeadsOff;
+  const ecgLeadLabel = isFourLeadApplied ? 'II' : 'PADS';
   const capnoLive = usePhysiologyStore(
     (s) => s.capnoSensor != null && s.isEtco2ChannelOn,
   );
@@ -738,6 +771,20 @@ export function UnifiedCardiacMonitor({
 
   /** Clock must not read `Date` during SSR initial render — server vs client seconds differ and break hydration. */
   const [statusTime, setStatusTime] = useState<string | null>(null);
+  const isBpCuffApplied = usePhysiologyStore((s) => s.isBpCuffApplied);
+
+  useEffect(() => {
+    if (!isBpCuffApplied || !isMonitorPowered) return;
+    const scheduleCycle = () => {
+      const s = usePhysiologyStore.getState();
+      if (s.nibpPhase === 'inflating' || s.nibpPhase === 'check_cuff') return;
+      s.requestNibpCycle();
+    };
+    scheduleCycle();
+    const id = window.setInterval(scheduleCycle, 120_000);
+    return () => clearInterval(id);
+  }, [isBpCuffApplied, isMonitorPowered]);
+
   useEffect(() => {
     const tick = () => {
       setStatusTime(
@@ -803,6 +850,7 @@ export function UnifiedCardiacMonitor({
                     ctx={ctx}
                     tileW={tileW}
                     leadIdx={1}
+                    leadLabel={ecgLeadLabel}
                     height={176}
                     paused={!isMonitorPowered}
                     leadsOff={stripOff}
@@ -891,53 +939,11 @@ export function UnifiedCardiacMonitor({
           </div>
 
           <div className="flex min-w-[7rem] flex-col gap-0.5 bg-gradient-to-b from-zinc-950/95 to-black/90 p-1 ring-1 ring-inset ring-white/[0.06]">
-            {ENABLE_AUTONOMIC_ENGINE && learnerPerfTrendLabel ? (
-              <Badge
-                variant="secondary"
-                className="border-emerald-800/40 text-[9px] font-normal text-emerald-100/90"
-              >
-                {learnerPerfTrendLabel}
-              </Badge>
-            ) : null}
-            {ENABLE_AUTONOMIC_ENGINE && showAutonomicDebug ? (
-              <Badge
-                variant="outline"
-                className="border-cyan-600/50 text-[9px] font-mono text-cyan-200"
-              >
-                autonomic · {decompensationPhase}
-              </Badge>
-            ) : null}
-            {ENABLE_METABOLIC_ENGINE && isMonitorPowered ? (
-              <Badge
-                variant="outline"
-                className="border-amber-700/50 text-[9px] font-mono text-amber-100/90"
-              >
-                Lac {metabolicState.lactateMmol.toFixed(1)} · HCO3{' '}
-                {metabolicState.bicarbMeqL.toFixed(0)} · pH{' '}
-                {metabolicState.ph.toFixed(2)}
-              </Badge>
-            ) : null}
-            {perfusionTeaching.cpp != null ? (
-              <Badge
-                variant="outline"
-                className="border-violet-600/50 text-[9px] font-mono text-violet-100"
-              >
-                CPP ≈ {Math.round(perfusionTeaching.cpp)} mmHg
-              </Badge>
-            ) : null}
-            {perfusionTeaching.uopLine ? (
-              <Badge
-                variant="outline"
-                className="border-slate-600/50 text-[9px] text-slate-200"
-              >
-                {perfusionTeaching.uopLine}
-              </Badge>
-            ) : null}
             <VitalBlockHr displayHr={merged.hr} />
             <VitalBlockSpo2 displaySpo2={merged.spo2} />
             <VitalBlockEtco2 />
-            <VitalBlockBp pressureAdj={{ sys: deltas.sBp, dia: deltas.dBp }} />
-            <PulseHeart displayHr={merged.hr} />
+            <VitalBlockBp />
+            <PulseHeart displayHr={merged.hr} scenario={scenario} />
           </div>
         </div>
       </div>

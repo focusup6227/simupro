@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePhysiologyStore } from "@/stores/physiology-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ export function AedPanel({
 
   const applyPads = () => {
     setPhase("ready");
+    usePhysiologyStore.getState().applyMonitorPads();
     onLogAction("Applied AED pads");
   };
 
