@@ -33,7 +33,7 @@ Runtime behavior is controlled by compile-time flags in **`src/lib/feature-flags
 - **Data & auth:** Supabase (**Postgres**, **Auth**, **RLS**) via `@supabase/ssr` and `@supabase/supabase-js`  
 - **AI:** **Genkit** + Google Gemini (`GEMINI_API_KEY` / Genkit conventions)  
 - **State:** Zustand for in-simulation stores (physiology, PK, autonomic, metabolic)  
-- **Tests:** Vitest (`npm test`, `npm run typecheck`)  
+- **Tests:** Vitest (`npm test`) and TypeScript typecheck (`npm run typecheck`)  
 - **Payments:** Stripe (secret key, price, webhook)  
 - **Observability & quality:** Sentry (`@sentry/nextjs`), optional **PWA** via `@ducanh2912/next-pwa`  
 - **Infra accents:** Optional **Upstash** rate limiting (**Redis**) where configured  
