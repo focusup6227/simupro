@@ -24,6 +24,7 @@ import {
 } from "@/ai/flows/generate-radio-report";
 import type { Scenario, UserAction, User, Insight } from '@/lib/types';
 import { applyDynamicPatientOutputGuards } from '@/lib/patient-response-guards';
+import { adjustScoresForBloodPressure } from '@/lib/bp-grading-adjust';
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
 import { captureActionError } from "@/lib/observability";
@@ -108,9 +109,14 @@ export async function processSimulationResults({
 }): Promise<Omit<Insight, 'id'>> {
   await gateAi("processSimulationResults");
   try {
+    const bpMandatory = 'Obtain a blood pressure (manual or NIBP).';
     const gradeResult = await gradeSimulationFlow({
       scenario: {
-        mandatoryActions: scenario.mandatoryActions,
+        mandatoryActions: {
+          emt: [...scenario.mandatoryActions.emt, bpMandatory],
+          aemt: [...scenario.mandatoryActions.aemt, bpMandatory],
+          paramedic: [...scenario.mandatoryActions.paramedic, bpMandatory],
+        },
         suggestedActions: scenario.suggestedActions,
         criticalFailures: scenario.criticalFailures,
       },
@@ -118,22 +124,28 @@ export async function processSimulationResults({
       userRole: user.role,
     });
 
+    const bpAdjusted = adjustScoresForBloodPressure(
+      userActions,
+      gradeResult.assessmentScore,
+      gradeResult.reasoning,
+    );
+
     const analysisResult = await analyzePerformanceFlow({
       userRole: user.role,
       scenarioTitle: scenario.title,
       scenarioDescription: scenario.description,
-      assessmentScore: gradeResult.assessmentScore,
+      assessmentScore: bpAdjusted.assessmentScore,
       treatmentScore: gradeResult.treatmentScore,
-      reasoning: gradeResult.reasoning,
+      reasoning: bpAdjusted.reasoning,
       userActions: userActions,
       isPremium: Boolean(user.isPremium),
     });
 
     return {
-      assessmentScore: gradeResult.assessmentScore,
+      assessmentScore: bpAdjusted.assessmentScore,
       treatmentScore: gradeResult.treatmentScore,
       aiFeedback: analysisResult.aiFeedback,
-      reasoning: gradeResult.reasoning,
+      reasoning: bpAdjusted.reasoning,
       premiumFeedback: analysisResult.premiumFeedback,
     };
   } catch (e) {

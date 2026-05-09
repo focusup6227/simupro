@@ -28,9 +28,11 @@ import {
 } from "@/supabase";
 import type { Scenario, SimulationSession, Insight, User } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAppTimestamp } from '@/lib/date-utils';
+import { countLearnerBrowseableScenarios } from "@/lib/scenario-catalog-visibility";
+import { isTesterOrAdminUser } from "@/lib/user-permissions";
 
 export default function DashboardPage() {
   const { user: authUser } = useUser();
@@ -115,6 +117,12 @@ export default function DashboardPage() {
 
   const recentSessions = allSessions?.slice(0, 5) || [];
   const completedSessionsCount = allSessions?.filter(s => s.status === 'completed' || s.status === 'failed').length ?? 0;
+
+  const availableScenarioCount = useMemo(() => {
+    if (!scenarios) return 0;
+    const staff = Boolean(userData && isTesterOrAdminUser(userData));
+    return countLearnerBrowseableScenarios(scenarios, staff);
+  }, [scenarios, userData]);
 
   const isLoading = isLoadingScenarios || isLoadingSessions || isUserDataLoading;
 
@@ -250,7 +258,7 @@ export default function DashboardPage() {
           <CardContent>
              {isLoading ? <Skeleton className="h-8 w-1/3" /> : (
                 <>
-                    <div className="text-2xl font-bold">{scenarios?.length ?? 0}</div>
+                    <div className="text-2xl font-bold">{availableScenarioCount}</div>
                     <p className="text-xs text-muted-foreground">
                     Ready to practice
                     </p>

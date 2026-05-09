@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useSupabase, useMemoSupabase, useUser } from '@/supabase';
 import type { User } from '@/lib/types';
+import { PREMIUM_ANNUAL_DISPLAY, PREMIUM_MONTHLY_DISPLAY } from '@/lib/pricing-display';
 import {
   ArrowRight,
   BadgeCheck,
@@ -83,9 +84,35 @@ function BillingPageContent() {
   const [isCreating, setIsCreating] = useState(false);
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
   const [cycle, setCycle] = useState<'monthly' | 'annual'>('monthly');
+  /** Set from GET /api/stripe/plan-config — annual checkout requires STRIPE_PRICE_ID_ANNUAL. */
+  const [annualOffered, setAnnualOffered] = useState(false);
+  const [plansReady, setPlansReady] = useState(false);
 
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/stripe/plan-config')
+      .then((r) => r.json() as Promise<{ annualAvailable?: boolean }>)
+      .then((j) => {
+        if (cancelled) return;
+        setAnnualOffered(Boolean(j.annualAvailable));
+        setPlansReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAnnualOffered(false);
+        setPlansReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (plansReady && !annualOffered && cycle === 'annual') setCycle('monthly');
+  }, [plansReady, annualOffered, cycle]);
 
   const handleSubscribe = async () => {
     if (!authUser) {
@@ -243,44 +270,53 @@ function BillingPageContent() {
               <span className="text-sm font-semibold uppercase tracking-wider">Premium Plan</span>
             </div>
 
-            <div
-              role="tablist"
-              aria-label="Billing cycle"
-              className="mb-3 inline-flex rounded-full border bg-muted/40 p-1 text-sm"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={cycle === 'monthly'}
-                onClick={() => setCycle('monthly')}
-                className={`rounded-full px-3 py-1 transition ${
-                  cycle === 'monthly'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+            {plansReady && annualOffered ? (
+              <div
+                role="tablist"
+                aria-label="Billing cycle"
+                className="mb-3 inline-flex rounded-full border bg-muted/40 p-1 text-sm"
               >
-                Monthly
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={cycle === 'annual'}
-                onClick={() => setCycle('annual')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
-                  cycle === 'annual'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Annual
-                <span className="rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">
-                  Save 17%
-                </span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={cycle === 'monthly'}
+                  onClick={() => setCycle('monthly')}
+                  className={`rounded-full px-3 py-1 transition ${
+                    cycle === 'monthly'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={cycle === 'annual'}
+                  onClick={() => setCycle('annual')}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
+                    cycle === 'annual'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Annual
+                  <span className="rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">
+                    Save 17%
+                  </span>
+                </button>
+              </div>
+            ) : plansReady && !annualOffered ? (
+              <p className="mb-3 text-sm text-muted-foreground">
+                Subscriptions on this site are billed monthly. (Yearly checkout appears automatically when a
+                Stripe annual price is configured for the deployment.)
+              </p>
+            ) : (
+              <p className="mb-3 text-sm text-muted-foreground">Loading plan options…</p>
+            )}
 
             <CardTitle className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
-              {cycle === 'monthly' ? '$10' : '$100'}
+              {cycle === 'monthly' ? PREMIUM_MONTHLY_DISPLAY : PREMIUM_ANNUAL_DISPLAY}
               <span className="text-base font-medium text-muted-foreground">
                 {cycle === 'monthly' ? '/month' : '/year'}
               </span>
@@ -288,7 +324,7 @@ function BillingPageContent() {
             <CardDescription>
               {cycle === 'monthly'
                 ? 'Billed monthly. Cancel anytime.'
-                : 'Billed once per year — about $8.33/mo. Cancel anytime.'}
+                : 'Billed once per year — about $12.50/mo. Cancel anytime.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -323,8 +359,8 @@ function BillingPageContent() {
               {isCreating
                 ? 'Redirecting to checkout…'
                 : cycle === 'monthly'
-                  ? 'Subscribe — $10 / month'
-                  : 'Subscribe — $100 / year'}
+                  ? `Subscribe — ${PREMIUM_MONTHLY_DISPLAY} / month`
+                  : `Subscribe — ${PREMIUM_ANNUAL_DISPLAY} / year`}
               {!isCreating && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
 

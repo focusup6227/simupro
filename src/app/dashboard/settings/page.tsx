@@ -37,6 +37,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { PREMIUM_MONTHLY_DISPLAY, PREMIUM_MONTHLY_TITLE_SUFFIX } from "@/lib/pricing-display";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -463,12 +464,12 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                You’re currently on the Free plan. Upgrade to Premium ($10/month) for the full Premium scenario library, deep-dive AI feedback, and advanced patient realism. Cancel anytime.
+                {`You’re currently on the Free plan. Upgrade to Premium (${PREMIUM_MONTHLY_TITLE_SUFFIX}) for the full Premium scenario library, deep-dive AI feedback, and advanced patient realism. Cancel anytime.`}
               </p>
               <Button asChild>
                 <Link href="/billing">
                   <Star className="mr-2 h-4 w-4" />
-                  Go Premium — $10/month
+                  {`Go Premium — ${PREMIUM_MONTHLY_TITLE_SUFFIX}`}
                 </Link>
               </Button>
             </div>
