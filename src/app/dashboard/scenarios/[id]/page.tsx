@@ -19,7 +19,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { interventionCertifications } from "@/lib/types";
 import { getPatientResponse, generateRadioReport } from "@/app/actions";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
-import { AlertCircle, ArrowRight, Activity, Clock, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useDoc,
@@ -52,6 +52,7 @@ import { EquipmentDrawer } from "@/components/equipment-drawer";
 import { listPkDoses, recordPkDoses } from "@/app/pk-actions";
 import { listAutonomicEvents, recordAutonomicEvents } from "@/app/autonomic-actions";
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from "@/lib/feature-flags";
+import { learnerMayOpenScenario } from "@/lib/scenario-catalog-visibility";
 import { learnerQualitativeDecompCue } from "@/lib/learner-decomp-cues";
 import { summarizeRecentMedications } from "@/lib/pk-recent-medications";
 import { parseTreatmentSelectionsToDoses } from "@/lib/physiology/dose-parser";
@@ -93,6 +94,14 @@ const reportIssueSchema = z.object({
 });
 
 type ReportIssueFormValues = z.infer<typeof reportIssueSchema>;
+
+const badAiResponseSchema = z.object({
+  comment: z.string().min(10, {
+    message: "Please explain what was wrong with this reply (minimum 10 characters).",
+  }),
+});
+
+type BadAiResponseFormValues = z.infer<typeof badAiResponseSchema>;
 
 type DictationTarget = "assessment" | "radioReport" | "medicalDirection";
 
@@ -217,6 +226,13 @@ export default function SimulationPage() {
       }
     }
   }, [userData]);
+
+  useEffect(() => {
+    if (isLoadingScenario || isUserDataLoading || !scenario) return;
+    const staff = isTesterOrAdminUser(userData);
+    if (learnerMayOpenScenario(id, staff)) return;
+    router.replace("/dashboard/scenarios");
+  }, [isLoadingScenario, isUserDataLoading, scenario, id, userData, router]);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const vitalsHr = usePhysiologyStore((s) => s.hr);
@@ -243,6 +259,8 @@ export default function SimulationPage() {
   /** Latest rhythm kind currently being rendered on the monitor (for the rhythm-ID quiz). */
   const [observedRhythm, setObservedRhythm] = useState<EcgRhythmKind | null>(null);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
+  const [badAiReportOpen, setBadAiReportOpen] = useState(false);
+  const [badAiReportMessageIndex, setBadAiReportMessageIndex] = useState<number | null>(null);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
   const [activeDictationTarget, setActiveDictationTarget] = useState<DictationTarget | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -254,6 +272,23 @@ export default function SimulationPage() {
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
   });
+
+  const badAiForm = useForm<BadAiResponseFormValues>({
+    resolver: zodResolver(badAiResponseSchema),
+    defaultValues: { comment: "" },
+  });
+
+  /** Assistant-only rows for “bad reply” reporting (index is position in full `messages` array). */
+  const assistantReplyPicklist = useMemo(() => {
+    const out: { index: number; preview: string }[] = [];
+    messages.forEach((m, i) => {
+      if (m.role !== "assistant") return;
+      const raw = stripGradingMarkers(m.content);
+      const preview = raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+      out.push({ index: i, preview });
+    });
+    return out;
+  }, [messages]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -568,7 +603,7 @@ export default function SimulationPage() {
     };
 
     void startSimulation();
-   }, [scenario, authUser, supabase, sessionId, toast, userData]);
+   }, [scenario, authUser, supabase, sessionId, toast, userData, router]);
 
   useEffect(() => {
     if (
@@ -1184,6 +1219,76 @@ export default function SimulationPage() {
     }
   };
 
+  const handleBadAiReport = async (values: BadAiResponseFormValues) => {
+    if (!supabase || !authUser || !scenario || badAiReportMessageIndex === null) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not submit report. Missing context.",
+      });
+      return;
+    }
+    if (!sessionId) {
+      toast({
+        variant: "destructive",
+        title: "Session not ready",
+        description: "Wait until the simulation session has started, then try again.",
+      });
+      return;
+    }
+    const flagged = messages[badAiReportMessageIndex];
+    if (!flagged || flagged.role !== "assistant") {
+      toast({
+        variant: "destructive",
+        title: "Invalid message",
+        description: "Only patient AI replies can be flagged.",
+      });
+      return;
+    }
+
+    try {
+      const feedbackId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const flaggedContent = stripGradingMarkers(flagged.content).slice(0, 8000);
+
+      const { error } = await supabase.from("ai_response_feedback").insert({
+        id: feedbackId,
+        session_id: sessionId,
+        user_id: authUser.id,
+        scenario_id: scenario.id,
+        scenario_title: scenario.title,
+        assistant_message_index: badAiReportMessageIndex,
+        flagged_assistant_content: flaggedContent,
+        messages_snapshot: messages as unknown as Json,
+        user_actions_snapshot: userActions as unknown as Json,
+        simulation_role: currentUserRole,
+        simulation_time_seconds: time,
+        user_comment: values.comment,
+        review_status: "pending",
+      });
+      if (error) throw error;
+
+      toast({
+        title: "Report sent",
+        description:
+          "Thanks — admins can review the full simulation log and note a better reply when appropriate.",
+      });
+      setBadAiReportOpen(false);
+      setBadAiReportMessageIndex(null);
+      badAiForm.reset();
+    } catch (e: unknown) {
+      console.error("ai_response_feedback insert:", e);
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: e instanceof Error ? e.message : "Could not save report.",
+      });
+    }
+  };
+
 
   if (!userData) {
     return <div className="p-8">Loading scenario...</div>;
@@ -1365,6 +1470,131 @@ export default function SimulationPage() {
                     </Form>
                 </DialogContent>
                </Dialog>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                type="button"
+                onClick={() => {
+                  setIsPaused(true);
+                  setBadAiReportMessageIndex(null);
+                  badAiForm.reset({ comment: "" });
+                  setBadAiReportOpen(true);
+                }}
+              >
+                <Flag className="mr-2 h-4 w-4" />
+                Bad AI reply?
+              </Button>
+
+              <Dialog
+                open={badAiReportOpen}
+                onOpenChange={(isOpen) => {
+                  setBadAiReportOpen(isOpen);
+                  if (!isOpen) {
+                    setBadAiReportMessageIndex(null);
+                    setIsPaused(false);
+                  }
+                }}
+              >
+                <DialogContent className="max-h-[min(90vh,40rem)] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Report a bad AI reply</DialogTitle>
+                    <DialogDescription>
+                      Choose which patient reply was wrong, then describe the problem. We send that reply plus your full
+                      simulation log to admins.
+                      {!sessionId ? (
+                        <span className="mt-2 block text-destructive">
+                          Session not active yet — wait until the simulation has started.
+                        </span>
+                      ) : null}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {assistantReplyPicklist.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      There are no patient replies in the log yet. Run an assessment or treatment step first.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Which reply was wrong?</p>
+                      <ScrollArea className="max-h-48 rounded-md border p-3">
+                        <RadioGroup
+                          value={
+                            badAiReportMessageIndex !== null ? String(badAiReportMessageIndex) : ""
+                          }
+                          onValueChange={(v) => setBadAiReportMessageIndex(parseInt(v, 10))}
+                          className="space-y-3"
+                        >
+                          {assistantReplyPicklist.map((opt, seq) => (
+                            <div key={opt.index} className="flex items-start gap-3">
+                              <RadioGroupItem
+                                value={String(opt.index)}
+                                id={`bad-ai-${opt.index}`}
+                                className="mt-1"
+                              />
+                              <Label
+                                htmlFor={`bad-ai-${opt.index}`}
+                                className="cursor-pointer font-normal leading-snug"
+                              >
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Patient reply #{seq + 1}
+                                </span>
+                                <p className="mt-0.5 text-sm">{opt.preview}</p>
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  <Form {...badAiForm}>
+                    <form onSubmit={badAiForm.handleSubmit(handleBadAiReport)} className="space-y-4 pt-2">
+                      <FormField
+                        control={badAiForm.control}
+                        name="comment"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>What was wrong?</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="e.g. contradicts prior vitals, unsafe suggestion, wrong clinical tone…"
+                                rows={4}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setBadAiReportOpen(false);
+                            setBadAiReportMessageIndex(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={
+                            badAiForm.formState.isSubmitting ||
+                            !sessionId ||
+                            badAiReportMessageIndex === null ||
+                            assistantReplyPicklist.length === 0
+                          }
+                        >
+                          {badAiForm.formState.isSubmitting ? "Sending…" : "Submit report"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+
                 <Button 
                     onClick={handleEndSimClick}
                     disabled={simulationEnded}
@@ -1387,17 +1617,18 @@ export default function SimulationPage() {
           className="max-h-[min(38dvh,24rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(52vh,26rem)]"
         >
           <div className="space-y-4">
-            {messages
-              .filter((message) => message.role !== 'user')
-              .map((message, index) => (
-                <div key={index} className="flex items-start gap-3">
+            {messages.map((message, messageIndex) => {
+              if (message.role === "user") return null;
+              return (
+                <div key={messageIndex} className="flex items-start gap-3">
                   <Avatar className="w-8 h-8"><AvatarFallback>{message.role === 'assistant' ? 'P' : message.role === 'system' ? 'H' : 'S'}</AvatarFallback></Avatar>
                   <div className={`rounded-lg p-3 max-w-lg ${message.role === 'system' ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'bg-muted'}`}>
                     <p className="text-sm whitespace-pre-wrap">{stripGradingMarkers(message.content)}</p>
                     {message.conditionChange && <p className="text-sm mt-2 pt-2 border-t border-muted-foreground/20">Condition: {message.conditionChange}</p>}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             {isLoading && <p>AI is thinking...</p>}
             {isAnalyzingAED && <p>AED is analyzing...</p>}
           </div>

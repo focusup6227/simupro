@@ -9,6 +9,7 @@ import {
   insightRowToInsight,
   reviewRowToScenarioReview,
   ticketRowToSupportTicket,
+  aiFeedbackRowToFeedback,
   rhythmAttemptRowToAttempt,
 } from '@/lib/db-mappers';
 
@@ -19,6 +20,7 @@ type SimSessionRow = Database['public']['Tables']['simulation_sessions']['Row'];
 type InsightRow = Database['public']['Tables']['session_insights']['Row'];
 type ReviewRow = Database['public']['Tables']['scenario_reviews']['Row'];
 type TicketRow = Database['public']['Tables']['support_tickets']['Row'];
+type AiFeedbackRow = Database['public']['Tables']['ai_response_feedback']['Row'];
 type RhythmAttemptRow = Database['public']['Tables']['rhythm_quiz_attempts']['Row'];
 
 export function mapDocRow(spec: Exclude<DocSpec, null>, row: Record<string, unknown>): unknown {
@@ -37,6 +39,8 @@ export function mapDocRow(spec: Exclude<DocSpec, null>, row: Record<string, unkn
       return reviewRowToScenarioReview(row as unknown as ReviewRow);
     case 'support_tickets':
       return ticketRowToSupportTicket(row as unknown as TicketRow);
+    case 'ai_response_feedback':
+      return aiFeedbackRowToFeedback(row as unknown as AiFeedbackRow);
     case 'rhythm_quiz_attempts':
       return rhythmAttemptRowToAttempt(row as unknown as RhythmAttemptRow);
     default:
@@ -66,6 +70,8 @@ export function mapCollectionRows(spec: Exclude<CollectionSpec, null>, rows: Rec
       return rows.map(r => reviewRowToScenarioReview(r as unknown as ReviewRow));
     case 'support_tickets':
       return rows.map(r => ticketRowToSupportTicket(r as unknown as TicketRow));
+    case 'ai_response_feedback':
+      return rows.map(r => aiFeedbackRowToFeedback(r as unknown as AiFeedbackRow));
     case 'rhythm_quiz_attempts':
       return rows.map(r => rhythmAttemptRowToAttempt(r as unknown as RhythmAttemptRow));
     default:

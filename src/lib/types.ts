@@ -352,3 +352,28 @@ export const SupportTicketSchema = z.object({
     responses: z.array(SupportTicketResponseSchema).optional(),
 });
 export type SupportTicket = z.infer<typeof SupportTicketSchema>;
+
+export const AI_FEEDBACK_REVIEW_STATUSES = ['pending', 'validated', 'dismissed'] as const;
+export type AiFeedbackReviewStatus = (typeof AI_FEEDBACK_REVIEW_STATUSES)[number];
+
+export type AiResponseFeedback = {
+  id: string;
+  sessionId: string | null;
+  userId: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  assistantMessageIndex: number;
+  flaggedAssistantContent: string;
+  messagesSnapshot: unknown;
+  userActionsSnapshot: unknown;
+  simulationRole: string | null;
+  simulationTimeSeconds: number | null;
+  userComment: string;
+  reviewStatus: AiFeedbackReviewStatus;
+  adminPreferredResponse: string | null;
+  adminReviewNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};

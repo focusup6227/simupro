@@ -399,6 +399,60 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      ai_response_feedback: {
+        Row: {
+          id: string;
+          session_id: string | null;
+          user_id: string;
+          scenario_id: string;
+          scenario_title: string;
+          assistant_message_index: number;
+          flagged_assistant_content: string;
+          messages_snapshot: Json;
+          user_actions_snapshot: Json;
+          simulation_role: string | null;
+          simulation_time_seconds: number | null;
+          user_comment: string;
+          review_status: string;
+          admin_preferred_response: string | null;
+          admin_review_notes: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          session_id?: string | null;
+          user_id: string;
+          scenario_id: string;
+          scenario_title: string;
+          assistant_message_index: number;
+          flagged_assistant_content: string;
+          messages_snapshot: Json;
+          user_actions_snapshot?: Json;
+          simulation_role?: string | null;
+          simulation_time_seconds?: number | null;
+          user_comment: string;
+          review_status?: string;
+          admin_preferred_response?: string | null;
+          admin_review_notes?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          session_id: string | null;
+          review_status: string;
+          admin_preferred_response: string | null;
+          admin_review_notes: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
       firebase_uid_mappings: {
         Row: { firebase_uid: string; auth_user_id: string };
         Insert: { firebase_uid: string; auth_user_id: string };

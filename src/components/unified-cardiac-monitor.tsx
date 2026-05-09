@@ -736,15 +736,10 @@ export function UnifiedCardiacMonitor({
     : null;
   const latestPrintout = acquisitions.find((a) => a.kind === 'twelve-lead');
 
-  const [statusTime, setStatusTime] = useState(() =>
-    new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }),
-  );
+  /** Clock must not read `Date` during SSR initial render — server vs client seconds differ and break hydration. */
+  const [statusTime, setStatusTime] = useState<string | null>(null);
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const tick = () => {
       setStatusTime(
         new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -752,7 +747,9 @@ export function UnifiedCardiacMonitor({
           second: '2-digit',
         }),
       );
-    }, 1000);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -773,7 +770,9 @@ export function UnifiedCardiacMonitor({
       <div className="overflow-hidden rounded-lg border border-zinc-600/90 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_18px_rgba(0,0,0,0.5)] ring-1 ring-black/45">
         <div className="flex items-center justify-between gap-2 border-b border-zinc-700/60 bg-black/35 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-zinc-500">
           <span className="font-semibold text-emerald-400/90">SIMU-PRO</span>
-          <span className="tabular-nums text-zinc-300">{statusTime}</span>
+          <span className="tabular-nums text-zinc-300">
+            {statusTime ?? '--:--:--'}
+          </span>
           <span className="flex items-center gap-0.5 text-zinc-400">
             <Battery className="size-3 shrink-0 text-emerald-500" aria-hidden />
             BATT

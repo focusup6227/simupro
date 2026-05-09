@@ -21,3 +21,9 @@ export const ENABLE_AUTONOMIC_ENGINE = true;
  * Off by default — enable after validating tutor UX + AI prompt coupling.
  */
 export const ENABLE_METABOLIC_ENGINE = false;
+
+/**
+ * When true, learners only see curated physiology QA scenarios in the browse catalog.
+ * Staff (tester/admin) still see the full published list; tutorial remains reachable via the dashboard link.
+ */
+export const HIDE_LEGACY_SCENARIOS_FROM_CATALOG = true;

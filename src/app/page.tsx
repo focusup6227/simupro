@@ -9,15 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppLogo from "@/components/app-logo";
 import {
   ArrowRight,
-  BarChart3,
-  BookText,
   BrainCircuit,
   Calculator,
-  CheckCircle2,
-  FlaskConical,
   HeartPulse,
+  Layers,
   Quote,
   ShieldCheck,
+  Sparkles,
   Star,
   Stethoscope,
 } from "lucide-react";
@@ -25,6 +23,7 @@ import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LandingInteractiveDemo } from "@/components/landing-interactive-demo";
 import { SamplePerformanceReportPreview } from "@/components/sample-performance-report-preview";
+import { PREMIUM_MONTHLY_DISPLAY } from "@/lib/pricing-display";
 
 function LoadingScreen() {
   return (
@@ -81,7 +80,7 @@ export default function LandingPage() {
                 AI-Powered EMS Training for Modern Heroes
               </h1>
               <p className="mt-6 text-base sm:text-lg md:text-xl text-gray-300">
-                Run adaptive simulations, review performance trends, and use reference tools—including the Premium ECG Trainer for rhythm drills—all in one platform. Master critical decision-making with EMS Simu-Pro.
+                Master critical decision-making with AI-driven patients plus a structured physiology layer—pathophysiology, weight-aware treatment hooks, and autonomic modeling where scenarios enable it. Go from rookie to pro with EMS Simu-Pro.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
                 <Button size="lg" asChild className="w-full sm:w-auto min-h-11">
@@ -114,22 +113,22 @@ export default function LandingPage() {
                 <div className="p-4 bg-primary/10 rounded-full mb-4">
                   <BrainCircuit className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Dynamic Scenarios</h3>
-                <p className="text-muted-foreground">Our AI crafts endless, realistic situations that evolve based on your actions, just like in the real world.</p>
+                <h3 className="text-xl font-semibold mb-2">AI + authored physiology</h3>
+                <p className="text-muted-foreground">Natural-language patients plus scenario-driven layers for vitals trends, fluids and meds where the case enables them—so practice feels clinical, not canned.</p>
               </div>
               <div className="flex flex-col items-center">
                  <div className="p-4 bg-primary/10 rounded-full mb-4">
                    <Stethoscope className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Personalized Feedback</h3>
-                <p className="text-muted-foreground">Receive instant, detailed performance analysis to pinpoint your strengths and areas for improvement.</p>
+                <h3 className="text-xl font-semibold mb-2">Personalized feedback</h3>
+                <p className="text-muted-foreground">Instant performance analysis against your role’s objectives, with deeper coaching when you are on Premium.</p>
               </div>
               <div className="flex flex-col items-center">
                  <div className="p-4 bg-primary/10 rounded-full mb-4">
                    <ShieldCheck className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Train for Your Scope</h3>
-                <p className="text-muted-foreground">Scenarios and grading are tailored to your certification level—from EMT to Paramedic.</p>
+                <h3 className="text-xl font-semibold mb-2">Train for your scope</h3>
+                <p className="text-muted-foreground">Scenarios and grading follow EMT, AEMT, and Paramedic lanes so you are not studying out of scope.</p>
               </div>
               <div className="flex flex-col items-center">
                 <div className="p-4 bg-primary/10 rounded-full mb-4">
@@ -168,7 +167,7 @@ export default function LandingPage() {
                             <CardTitle as="h3" className="text-xl font-semibold mb-2">1. Choose Your Scenario</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-muted-foreground">Select from a library of cases—filter by difficulty, Free vs Premium, tags, or try Scenario of the day.</p>
+                            <p className="text-muted-foreground">Pick a case from the library—classic EMS scenarios on the free tier, engine-backed physiology scenarios when your account includes Premium.</p>
                         </CardContent>
                     </Card>
                     <Card className="min-w-0">
@@ -176,7 +175,7 @@ export default function LandingPage() {
                            <CardTitle as="h3" className="text-xl font-semibold mb-2">2. Assess and Treat</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-muted-foreground">Interact with an AI patient that responds dynamically to your treatments and assessments.</p>
+                            <p className="text-muted-foreground">Interact with an AI patient; on engine scenarios, interventions can feed deterministic hooks so vitals and teaching rails track what you did.</p>
                         </CardContent>
                     </Card>
                     <Card className="min-w-0">
@@ -263,7 +262,7 @@ export default function LandingPage() {
                   <ul className="space-y-2.5 text-sm text-foreground/80">
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      Standard scenario library
+                      Classic EMS scenario library (free tier, always)
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -298,7 +297,7 @@ export default function LandingPage() {
                     Premium
                   </p>
                   <CardTitle className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
-                    $10
+                    {PREMIUM_MONTHLY_DISPLAY}
                     <span className="text-base font-medium text-muted-foreground">/month</span>
                   </CardTitle>
                 </CardHeader>
@@ -310,7 +309,7 @@ export default function LandingPage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Full Premium scenario library (gold star)
+                      Simu-Pro Engine scenario pack (physiology-forward cases, gold star in-app)
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />

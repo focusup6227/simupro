@@ -74,9 +74,10 @@ export default function TermsPage() {
         <p>
           Premium subscriptions unlock additional scenarios, deeper AI realism,
           and structured coaching feedback. Premium is billed in advance through
-          Stripe at the price displayed on our billing page (currently
-          $10/month). Subscriptions automatically renew at the end of each
-          billing period unless cancelled. Taxes may apply.
+          Stripe at the prices shown on our Billing page and at checkout
+          (including monthly and annual options when offered). Subscriptions
+          automatically renew at the end of each billing period unless
+          cancelled. Taxes may apply.
         </p>
         <p>
           You may cancel at any time from Settings &rarr; Subscription. Refunds

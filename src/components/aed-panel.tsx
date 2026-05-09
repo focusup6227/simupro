@@ -51,9 +51,9 @@ export function AedPanel({
   // If the rhythm changes mid-flow (e.g. ROSC, or deteriorates after shock),
   // reset the analyzer to ready so the operator must analyze again.
   useEffect(() => {
-    if (phase === "shock_advised" || phase === "no_shock_advised") {
-      setPhase("ready");
-    }
+    setPhase((p) =>
+      p === "shock_advised" || p === "no_shock_advised" ? "ready" : p,
+    );
   }, [currentArrestRhythm]);
 
   const applyPads = () => {

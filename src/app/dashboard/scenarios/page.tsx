@@ -30,6 +30,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { pickScenarioOfTheDay } from "@/lib/scenario-of-the-day";
+import { filterScenariosForLearnerBrowse } from "@/lib/scenario-catalog-visibility";
+import { isLegacyScenarioId } from "@/lib/scenarios-data";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
 
 export default function ScenariosPage() {
@@ -151,22 +153,29 @@ export default function ScenariosPage() {
     router.push(`/dashboard/scenarios/${randomScenario.id}`);
   };
 
+  const isStaff = Boolean(userData && isTesterOrAdminUser(userData));
+
+  const browseScenarios = useMemo(
+    () => filterScenariosForLearnerBrowse(scenarios ?? [], isStaff),
+    [scenarios, isStaff],
+  );
+
   const allTags = useMemo(() => {
-    if (!scenarios) return [];
+    if (!browseScenarios.length) return [];
     const tags = new Set<string>();
-    scenarios.forEach(s => s.tags.forEach(tag => tags.add(tag)));
+    browseScenarios.forEach(s => s.tags.forEach(tag => tags.add(tag)));
     return Array.from(tags).sort();
-  }, [scenarios]);
+  }, [browseScenarios]);
 
   const scenarioOfTheDay = useMemo(
-    () => pickScenarioOfTheDay(scenarios ?? []),
-    [scenarios]
+    () => pickScenarioOfTheDay(browseScenarios),
+    [browseScenarios]
   );
 
   const filteredScenarios = useMemo(() => {
-    if (!scenarios) return [];
+    if (!browseScenarios.length) return [];
     const q = searchTerm.trim().toLowerCase();
-    return scenarios.filter(scenario => {
+    return browseScenarios.filter(scenario => {
       if (scenario.id === 'welcome-tutorial') return false;
 
       const searchMatch =
@@ -181,7 +190,7 @@ export default function ScenariosPage() {
       const favoritesMatch = !favoritesOnly || favoriteIds.has(scenario.id);
       return searchMatch && difficultyMatch && tierMatch && tagsMatch && favoritesMatch;
     });
-  }, [scenarios, searchTerm, difficulty, tier, selectedTags, favoritesOnly, favoriteIds]);
+  }, [browseScenarios, searchTerm, difficulty, tier, selectedTags, favoritesOnly, favoriteIds]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -275,7 +284,14 @@ export default function ScenariosPage() {
                   <p className="text-sm text-muted-foreground">
                     Same pick for everyone each UTC day (excludes tutorial).
                   </p>
-                  <p className="mt-1 text-sm font-medium">{scenarioOfTheDay.title}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium">
+                    {scenarioOfTheDay.title}
+                    {isLegacyScenarioId(scenarioOfTheDay.id) && (
+                      <Badge variant="outline" className="font-normal text-muted-foreground">
+                        Legacy
+                      </Badge>
+                    )}
+                  </p>
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -401,11 +417,16 @@ export default function ScenariosPage() {
                 </button>
                 <CardHeader>
                   <div className="flex justify-between items-start gap-2 pr-9">
-                      <CardTitle className="flex items-center gap-2">
-                        {scenario.title}
+                      <CardTitle className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0">{scenario.title}</span>
+                        {isLegacyScenarioId(scenario.id) && (
+                          <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
+                            Legacy
+                          </Badge>
+                        )}
                         {scenario.isPremium && (
                           <Star
-                            className="h-4 w-4 text-yellow-500 fill-yellow-500"
+                            className="h-4 w-4 shrink-0 text-yellow-500 fill-yellow-500"
                             aria-label="Premium scenario"
                           />
                         )}

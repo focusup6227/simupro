@@ -9,6 +9,7 @@ import type {
   ScenarioReview,
   SupportTicket,
   SupportTicketResponse,
+  AiResponseFeedback,
   CertificationActions,
   RhythmQuizAttempt,
 } from '@/lib/types';
@@ -22,6 +23,7 @@ type SimSessionRow = Database['public']['Tables']['simulation_sessions']['Row'];
 type InsightRow = Database['public']['Tables']['session_insights']['Row'];
 type ReviewRow = Database['public']['Tables']['scenario_reviews']['Row'];
 type TicketRow = Database['public']['Tables']['support_tickets']['Row'];
+type AiFeedbackRow = Database['public']['Tables']['ai_response_feedback']['Row'];
 type RhythmQuizAttemptRow = Database['public']['Tables']['rhythm_quiz_attempts']['Row'];
 
 export function rhythmAttemptRowToAttempt(r: RhythmQuizAttemptRow): RhythmQuizAttempt {
@@ -273,5 +275,34 @@ export function ticketRowToSupportTicket(r: TicketRow): SupportTicket {
     createdAt: new Date(r.created_at),
     status: r.status as SupportTicket['status'],
     responses: parseTicketResponses(r.responses),
+  };
+}
+
+function rowAiFeedbackReviewStatus(s: string): AiResponseFeedback['reviewStatus'] {
+  if (s === 'pending' || s === 'validated' || s === 'dismissed') return s;
+  return 'pending';
+}
+
+export function aiFeedbackRowToFeedback(r: AiFeedbackRow): AiResponseFeedback {
+  return {
+    id: r.id,
+    sessionId: r.session_id,
+    userId: r.user_id,
+    scenarioId: r.scenario_id,
+    scenarioTitle: r.scenario_title,
+    assistantMessageIndex: r.assistant_message_index,
+    flaggedAssistantContent: r.flagged_assistant_content,
+    messagesSnapshot: r.messages_snapshot,
+    userActionsSnapshot: r.user_actions_snapshot,
+    simulationRole: r.simulation_role,
+    simulationTimeSeconds: r.simulation_time_seconds,
+    userComment: r.user_comment,
+    reviewStatus: rowAiFeedbackReviewStatus(r.review_status),
+    adminPreferredResponse: r.admin_preferred_response,
+    adminReviewNotes: r.admin_review_notes,
+    reviewedBy: r.reviewed_by,
+    reviewedAt: r.reviewed_at ? new Date(r.reviewed_at) : null,
+    createdAt: new Date(r.created_at),
+    updatedAt: new Date(r.updated_at),
   };
 }

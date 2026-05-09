@@ -35,6 +35,7 @@ import {
   Syringe,
   CreditCard,
   MessageSquareQuote,
+  ClipboardCheck,
   BookText,
   BookOpen,
   FlaskConical,
@@ -47,7 +48,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Separator } from "./ui/separator";
-import type { SupportTicket } from "@/lib/types";
+import type { AiResponseFeedback, SupportTicket } from "@/lib/types";
 import { isAdminUser, isTesterOrAdminUser } from "@/lib/user-permissions";
 import { Skeleton } from "./ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -76,13 +77,19 @@ const navItems = [
   { href: "/dashboard/guide", icon: <FlaskConical />, label: "Intervention Guide" },
 ];
 
-const adminNavItems = [
+const adminNavItems: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  id?: string;
+}[] = [
     { href: "/dashboard/admin", icon: <Shield />, label: "Admin Overview" },
     { href: "/dashboard/admin/users", icon: <Users />, label: "Users" },
     { href: "/dashboard/admin/billing", icon: <CreditCard />, label: "Billing" },
     { href: "/dashboard/admin/scenarios", icon: <HeartPulse />, label: "Scenarios" },
     { href: "/dashboard/admin/interventions", icon: <Syringe />, label: "Interventions" },
     { href: "/dashboard/admin/support", icon: <MessageSquareQuote />, label: "Support Tickets", id: "support" },
+    { href: "/dashboard/admin/qa", icon: <ClipboardCheck />, label: "QA", id: "qa" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -134,6 +141,19 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   );
   const { data: newTickets } = useCollection<SupportTicket>(newTicketsSpec);
   const newTicketCount = newTickets?.length || 0;
+
+  const pendingAiFeedbackSpec = useMemoSupabase(
+    () =>
+      client && isAdmin
+        ? {
+            table: "ai_response_feedback" as const,
+            eq: { review_status: "pending" },
+          }
+        : null,
+    [client, isAdmin],
+  );
+  const { data: pendingAiFeedback } = useCollection<AiResponseFeedback>(pendingAiFeedbackSpec);
+  const pendingAiFeedbackCount = pendingAiFeedback?.length ?? 0;
 
   return (
     <SidebarProvider>
@@ -214,7 +234,12 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                       >
                         {item.icon}
                         <span>{item.label}</span>
-                        {item.id === 'support' && newTicketCount > 0 && <SidebarMenuBadge>{newTicketCount}</SidebarMenuBadge>}
+                        {item.id === "support" && newTicketCount > 0 && (
+                          <SidebarMenuBadge>{newTicketCount}</SidebarMenuBadge>
+                        )}
+                        {item.id === "qa" && pendingAiFeedbackCount > 0 && (
+                          <SidebarMenuBadge>{pendingAiFeedbackCount}</SidebarMenuBadge>
+                        )}
                       </SidebarMenuButton>
                     </Link>
                   </SidebarMenuItem>
