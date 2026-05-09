@@ -9,13 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppLogo from "@/components/app-logo";
 import {
   ArrowRight,
+  BarChart3,
   BrainCircuit,
   Calculator,
+  CheckCircle2,
   HeartPulse,
-  Layers,
   Quote,
   ShieldCheck,
-  Sparkles,
   Star,
   Stethoscope,
 } from "lucide-react";
