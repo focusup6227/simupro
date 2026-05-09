@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowRight, Sparkles, User } from "lucide-react";
 import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
 import { EquipmentDrawer } from "@/components/equipment-drawer";
-import { usePhysiologyStore } from "@/stores/physiology-store";
+import { usePhysiologyStore, scenarioVitalsFromStore } from "@/stores/physiology-store";
 import { usePkStore } from "@/stores/pk-store";
 
 export default function DemoPage() {
@@ -126,7 +126,7 @@ export default function DemoPage() {
           treatment: treatment || "(none)",
           userRole: role,
           userActions: nextActions.slice(0, -1),
-          currentVitals,
+          currentVitals: scenarioVitalsFromStore(),
           patientCondition: [...messages].reverse().find((m) => m.role === "assistant")?.conditionChange,
         }),
       });

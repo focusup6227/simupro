@@ -800,7 +800,7 @@ export default function SimulationPage() {
       const lastAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0];
       const userRole = currentUserRole;
       const mandatoryActionsForRole = scenario.mandatoryActions[userRole as keyof typeof scenario.mandatoryActions] || [];
-      const priorVitals = currentVitals ?? scenario.initialVitals;
+      const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
 
       const recentMedications = ENABLE_PHARMACOKINETICS_ENGINE
         ? summarizeRecentMedications(
@@ -928,7 +928,7 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, currentVitals, sessionId]);
+  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, handleEndSimulation, currentUserRole, selectedDestination, cprStarted, sessionId]);
 
   /**
    * Logs a cardiac monitor / ECG action into the user-action log so it counts
