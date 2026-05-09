@@ -58,6 +58,8 @@ export function profileRowToUser(r: ProfileRow): User {
     premiumStatus: r.premium_status ?? undefined,
     premiumCurrentPeriodEnd: r.premium_current_period_end ?? undefined,
     hasCompletedTutorial: r.has_completed_tutorial,
+    disclaimerAcceptedAt: r.disclaimer_accepted_at ?? null,
+    disclaimerAcceptedVersion: r.disclaimer_accepted_version ?? null,
     currentStreak: r.current_streak,
     longestStreak: r.longest_streak,
     lastTrainingActivityDate: r.last_training_activity_date ?? undefined,

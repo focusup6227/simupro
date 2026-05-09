@@ -27,12 +27,27 @@ export function formatSpo2ForMonitor(raw: string | null | undefined): string {
   return m ? m[1]!.replace(/\s+/g, '') : '';
 }
 
-/** Target EtCO₂ in mmHg for capno waveform (matches default when vitals omit EtCO₂). */
+/**
+ * Target EtCO₂ in mmHg for capno waveform (matches default when vitals omit EtCO₂).
+ *
+ * The lower bound is **0** — a deceased / asystolic patient with no pulmonary
+ * blood flow truly flatlines the capnogram. The teaching default of 35 mmHg
+ * applies only when the input is missing or unparsable, so the waveform shows
+ * a clean square plateau rather than a dead-line on a freshly attached sensor
+ * before the AI has filled in a number.
+ *
+ * Upper clamp stays at 80 mmHg to keep the canvas y-axis sane if the model
+ * hallucinates a 9999 mmHg outlier.
+ */
 export function parseEtco2MmHg(s: string | null | undefined): number {
-  if (!s) return 35;
-  const m = String(s).match(/(\d{1,3}(?:\.\d+)?)/);
+  if (s === undefined || s === null) return 35;
+  const trimmed = String(s).trim();
+  if (trimmed === '') return 35;
+  const m = trimmed.match(/(-?\d+(?:\.\d+)?)/);
   if (!m) return 35;
-  return Math.min(80, Math.max(5, Number.parseFloat(m[1])));
+  const n = Number.parseFloat(m[1]);
+  if (!Number.isFinite(n)) return 35;
+  return Math.min(80, Math.max(0, n));
 }
 
 /**

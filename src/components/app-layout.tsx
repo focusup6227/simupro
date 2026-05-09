@@ -66,6 +66,10 @@ const FeatureRequestForm = dynamic(
   () => import("./feature-request-form").then((m) => m.FeatureRequestForm),
   { ssr: false }
 );
+const DisclaimerGate = dynamic(
+  () => import("./disclaimer-gate").then((m) => m.DisclaimerGate),
+  { ssr: false }
+);
 
 
 const navItems = [
@@ -324,6 +328,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
         <main id="main-content" className="min-h-0 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
+      <DisclaimerGate profile={userData ?? null} isLoading={isLoading} />
     </SidebarProvider>
   );
 }

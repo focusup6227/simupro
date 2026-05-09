@@ -20,6 +20,16 @@ import {
   type PartnerAdviceOutput,
 } from '@/ai/flows/provide-partner-advice';
 import {
+  executePartnerInstruction,
+  ExecutePartnerInstructionInputSchema,
+  type ExecutePartnerInstructionOutput,
+} from '@/ai/flows/execute-partner-instruction';
+import {
+  getHospitalHandoverDoctorReply,
+  HospitalHandoverInputSchema,
+  type HospitalHandoverOutput,
+} from '@/ai/flows/hospital-handover-doctor';
+import {
   gradeSimulationPerformance as gradeSimulationFlow,
 } from "@/ai/flows/grade-simulation-performance";
 import {
@@ -72,14 +82,57 @@ export async function generateScenario(
   }
 }
 
+export type GetPatientResponseInput = DynamicPatientResponseInput & {
+  /**
+   * Set by the runner when the engine has already declared the patient
+   * deceased on a prior turn. Used by `applyDynamicPatientOutputGuards` to
+   * suppress AI hallucinations of the patient continuing to speak / move
+   * after death.
+   */
+  patientAlreadyDeceased?: boolean;
+};
+
 export async function getPatientResponse(
-  input: DynamicPatientResponseInput
+  input: GetPatientResponseInput
 ): Promise<DynamicPatientResponseOutput> {
   const userId = await gateAi("getPatientResponse");
+  // Strip the runner-only flag before sending the input to the model so we
+  // don't leak it through Genkit schema validation.
+  const { patientAlreadyDeceased, ...flowInput } = input;
   try {
-    const raw = await provideDynamicResponsesFlow(input);
+    // Hard short-circuit: if the patient is already dead, don't even pay for
+    // the AI round-trip — synthesize a deterministic deceased-state response.
+    if (patientAlreadyDeceased) {
+      return applyDynamicPatientOutputGuards(
+        {
+          currentVitals: input.currentVitals,
+          treatment: input.treatment,
+          patientAlreadyDeceased: true,
+        },
+        // Stub output — guard will overwrite vitals + speech with
+        // canonical deceased values.
+        {
+          patientResponse: '',
+          vitals:
+            input.currentVitals ?? {
+              hr: 'Asystole',
+              bp: '0/0 (no pulse)',
+              rr: '0/min',
+              spo2: '—',
+              gcs: '3',
+              etco2: '0 mmHg',
+            },
+        },
+      );
+    }
+
+    const raw = await provideDynamicResponsesFlow(flowInput);
     return applyDynamicPatientOutputGuards(
-      { currentVitals: input.currentVitals, treatment: input.treatment },
+      {
+        currentVitals: input.currentVitals,
+        treatment: input.treatment,
+        patientAlreadyDeceased,
+      },
       raw,
     );
   } catch (e) {
@@ -225,5 +278,29 @@ export async function getPartnerAdvice(
     return await providePartnerAdvice(parsed);
   } catch (e) {
     rethrow("getPartnerAdvice", e, { userId });
+  }
+}
+
+export async function runPartnerInstruction(
+  input: z.infer<typeof ExecutePartnerInstructionInputSchema>,
+): Promise<ExecutePartnerInstructionOutput> {
+  const userId = await gateAi("runPartnerInstruction");
+  try {
+    const parsed = ExecutePartnerInstructionInputSchema.parse(input);
+    return await executePartnerInstruction(parsed);
+  } catch (e) {
+    rethrow("runPartnerInstruction", e, { userId });
+  }
+}
+
+export async function runHospitalHandover(
+  input: z.infer<typeof HospitalHandoverInputSchema>,
+): Promise<HospitalHandoverOutput> {
+  const userId = await gateAi("runHospitalHandover");
+  try {
+    const parsed = HospitalHandoverInputSchema.parse(input);
+    return await getHospitalHandoverDoctorReply(parsed);
+  } catch (e) {
+    rethrow("runHospitalHandover", e, { userId });
   }
 }

@@ -74,6 +74,10 @@ export type User = {
   premiumStatus?: string;
   premiumCurrentPeriodEnd?: string | Date;
   hasCompletedTutorial?: boolean;
+  /** ISO timestamp when the user clicked "I Understand" on the medical-advice disclaimer (B2C gate). */
+  disclaimerAcceptedAt?: string | null;
+  /** Version tag of the disclaimer the user accepted; lets us re-prompt on material legal updates. */
+  disclaimerAcceptedVersion?: string | null;
   /** UTC-date streak rules (see training-actions). */
   currentStreak?: number;
   longestStreak?: number;
@@ -311,8 +315,11 @@ export type PerformanceData = {
   finalOutcome: string;
 };
 
+/** Personality of the receiving ER physician at hospital handover. */
+export type DoctorPersonality = 'nice' | 'neutral' | 'skeptical' | 'hard';
+
 export type Message = {
-    role: 'user' | 'assistant' | 'system' | 'partner';
+    role: 'user' | 'assistant' | 'system' | 'partner' | 'doctor';
     content: string;
     vitals?: Scenario['initialVitals'];
     conditionChange?: string;
@@ -325,6 +332,9 @@ export type Message = {
     urgency?: 'low' | 'medium' | 'high';
     partnerName?: string;
     partnerRole?: PartnerSimulationRole;
+    /** Receiving ER physician metadata for `role: 'doctor'` turns. */
+    doctorName?: string;
+    doctorPersonality?: DoctorPersonality;
 }
 
 export const RhythmQuizAttemptSchema = z.object({

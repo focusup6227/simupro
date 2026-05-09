@@ -30,6 +30,8 @@ export interface Database {
           longest_streak: number;
           last_training_activity_date: string | null;
           total_completed_simulations: number;
+          disclaimer_accepted_at: string | null;
+          disclaimer_accepted_version: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -53,6 +55,8 @@ export interface Database {
           longest_streak?: number;
           last_training_activity_date?: string | null;
           total_completed_simulations?: number;
+          disclaimer_accepted_at?: string | null;
+          disclaimer_accepted_version?: string | null;
         };
         Update: {
           email?: string;
@@ -73,6 +77,8 @@ export interface Database {
           longest_streak?: number;
           last_training_activity_date?: string | null;
           total_completed_simulations?: number;
+          disclaimer_accepted_at?: string | null;
+          disclaimer_accepted_version?: string | null;
         };
         Relationships: [];
       };

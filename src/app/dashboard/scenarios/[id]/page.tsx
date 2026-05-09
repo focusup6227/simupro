@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { Message, Scenario, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole } from "@/lib/types";
+import type { Message, Scenario, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole, DoctorPersonality } from "@/lib/types";
 import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-adjust";
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
@@ -28,9 +28,9 @@ import type { Intervention } from "@/types/protocol";
 import { toLicensureLevel } from "@/types/protocol";
 import { seedInterventions } from "@/lib/interventions-data";
 import { useProtocolStore, monitorMenuRowsToScenarioOverlay } from "@/stores/protocol-store";
-import { getPatientResponse, generateRadioReport, getPartnerAdvice } from "@/app/actions";
+import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerInstruction, runHospitalHandover } from "@/app/actions";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
-import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useDoc,
@@ -60,6 +60,12 @@ import { UserGuide } from "@/components/user-guide";
 import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
 import { EquipmentDrawer } from "@/components/equipment-drawer";
 import { PartnerPanel, type PartnerAdviceItem } from "@/components/partner-panel";
+import { FeatureTour } from "@/components/feature-tour";
+import {
+  WELCOME_TOUR_ANCHORS,
+  WELCOME_TOUR_STEPS,
+  WELCOME_TOUR_STORAGE_KEY,
+} from "@/lib/welcome-tour-steps";
 import { listPkDoses, recordPkDoses } from "@/app/pk-actions";
 import { listAutonomicEvents, recordAutonomicEvents } from "@/app/autonomic-actions";
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from "@/lib/feature-flags";
@@ -97,7 +103,34 @@ type SelectedTreatments = {
   }
 };
 
-type ActiveTab = "assessment" | "treatment" | "destination" | "radioReport" | "cardiacArrest";
+type ActiveTab =
+  | "assessment"
+  | "treatment"
+  | "destination"
+  | "radioReport"
+  | "cardiacArrest"
+  | "handover";
+
+/** Names used for the receiving ER physician at hospital handover. */
+const DOCTOR_NAME_POOL = [
+  "Patel",
+  "Nguyen",
+  "Kim",
+  "Garcia",
+  "Hoffman",
+  "Reyes",
+  "Okafor",
+  "Wexler",
+  "Brennan",
+  "Tanaka",
+  "Adesanya",
+  "Sharma",
+] as const;
+
+function pickDoctorName(): string {
+  const idx = Math.floor(Math.random() * DOCTOR_NAME_POOL.length);
+  return DOCTOR_NAME_POOL[idx]!;
+}
 
 const reportIssueSchema = z.object({
   message: z.string().min(10, {
@@ -115,7 +148,21 @@ const badAiResponseSchema = z.object({
 
 type BadAiResponseFormValues = z.infer<typeof badAiResponseSchema>;
 
-type DictationTarget = "assessment" | "radioReport" | "medicalDirection";
+type DictationTarget =
+  | "assessment"
+  | "radioReport"
+  | "medicalDirection"
+  | "partnerInstruction"
+  | "handover";
+
+/**
+ * Silence (ms) in hands-free mode after which we auto-submit the Assessment
+ * box. Picked to be long enough that the learner can pause to think mid-line
+ * but short enough that a clinical statement gets fired off promptly.
+ */
+const HANDS_FREE_AUTO_SUBMIT_MS = 3500;
+/** Backoff before restarting recognition after onend in hands-free mode. */
+const HANDS_FREE_RESTART_MS = 250;
 
 /** Pixels from bottom to treat as “still following” the live tail (auto-scroll). */
 const SIMULATION_LOG_NEAR_BOTTOM_PX = 80;
@@ -289,12 +336,21 @@ export default function SimulationPage() {
   const [cprStarted, setCprStarted] = useState(false);
   /** Latest rhythm kind currently being rendered on the monitor (for the rhythm-ID quiz). */
   const [observedRhythm, setObservedRhythm] = useState<EcgRhythmKind | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [badAiReportOpen, setBadAiReportOpen] = useState(false);
   const [badAiReportMessageIndex, setBadAiReportMessageIndex] = useState<number | null>(null);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
   const [activeDictationTarget, setActiveDictationTarget] = useState<DictationTarget | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  /**
+   * Hands-free mode: mic stays on, transcript appends to the Assessment box,
+   * and after a brief silence the assessment auto-submits.
+   */
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
+  const handsFreeModeRef = useRef(false);
+  const [partnerInstructionInput, setPartnerInstructionInput] = useState("");
+  const [handoverInput, setHandoverInput] = useState("");
   const simulationLogScrollRef = useRef<HTMLDivElement>(null);
   const simulationLogNearBottomRef = useRef(true);
   const lastLearnerActionSimTimeRef = useRef<number | null>(null);
@@ -310,6 +366,23 @@ export default function SimulationPage() {
     role: PartnerSimulationRole;
   } | null>(null);
   const [partnerAdviceHistory, setPartnerAdviceHistory] = useState<PartnerAdviceItem[]>([]);
+
+  /**
+   * Hospital handover state. The receiving ER physician spawns the moment
+   * the destination is confirmed; learner and doctor exchange turns until
+   * `readyToOffload` is true, at which point the "Offload PT" button
+   * unlocks and ends the scenario.
+   */
+  const [doctorIdentity, setDoctorIdentity] = useState<{
+    name: string;
+    personality?: DoctorPersonality;
+  } | null>(null);
+  const [handoverTurns, setHandoverTurns] = useState<
+    { speaker: 'learner' | 'doctor'; text: string }[]
+  >([]);
+  const [handoverReadyToOffload, setHandoverReadyToOffload] = useState(false);
+  const [handoverBusy, setHandoverBusy] = useState(false);
+  const [doctorCritique, setDoctorCritique] = useState<string[]>([]);
 
   const partnerScopeInterventions = useMemo(() => {
     if (!partner) return [];
@@ -400,13 +473,24 @@ export default function SimulationPage() {
   const appendTranscriptToTarget = useCallback((target: DictationTarget, transcript: string) => {
     const normalized = transcript.trim();
     if (!normalized) return;
-
-    if (target === "assessment") {
-      setAssessmentInput((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${normalized}`);
-    } else if (target === "radioReport") {
-      setRadioReportInput((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${normalized}`);
-    } else {
-      setMedicalDirectionInput((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${normalized}`);
+    const join = (prev: string) =>
+      `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${normalized}`;
+    switch (target) {
+      case "assessment":
+        setAssessmentInput(join);
+        break;
+      case "radioReport":
+        setRadioReportInput(join);
+        break;
+      case "medicalDirection":
+        setMedicalDirectionInput(join);
+        break;
+      case "partnerInstruction":
+        setPartnerInstructionInput(join);
+        break;
+      case "handover":
+        setHandoverInput(join);
+        break;
     }
   }, []);
 
@@ -424,11 +508,25 @@ export default function SimulationPage() {
       return;
     }
 
+    // Manually starting a non-assessment target while hands-free is active
+    // would bounce them straight back to assessment; turn hands-free off so
+    // the user gets the target they asked for.
+    if (handsFreeModeRef.current && target !== "assessment") {
+      handsFreeModeRef.current = false;
+      setHandsFreeMode(false);
+    }
+
     if (activeDictationTarget && activeDictationTarget !== target) {
       stopDictation();
     }
 
     if (activeDictationTarget === target) {
+      // Toggling off the active target — if hands-free is on for assessment,
+      // also turn it off so the auto-restart effect doesn't re-launch us.
+      if (handsFreeModeRef.current && target === "assessment") {
+        handsFreeModeRef.current = false;
+        setHandsFreeMode(false);
+      }
       stopDictation();
       return;
     }
@@ -474,6 +572,37 @@ export default function SimulationPage() {
       stopDictation();
     }
   }, [activeDictationTarget, appendTranscriptToTarget, stopDictation, toast]);
+
+  // Keep the hands-free flag mirrored into a ref so callbacks (e.g. recognition
+  // event handlers, setTimeouts) can read the *current* value without
+  // capturing a stale closure.
+  useEffect(() => {
+    handsFreeModeRef.current = handsFreeMode;
+  }, [handsFreeMode]);
+
+  // Stable ref pointing at the latest handleSubmitAssessment. Lets the
+  // hands-free auto-submit timer call into the live function without making
+  // the effect re-run on every assessmentInput keystroke.
+  const handleSubmitAssessmentRef = useRef<() => void>(() => {});
+
+  const toggleHandsFreeMode = useCallback(() => {
+    if (!isSpeechSupported) {
+      toast({
+        title: "Speech not supported",
+        description: "Your browser does not support speech-to-text.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setHandsFreeMode((prev) => {
+      // Either toggling on or off: stop any in-flight recognition; the
+      // auto-restart effect will (re)start it on the next tick if mode is on.
+      stopDictation();
+      const next = !prev;
+      handsFreeModeRef.current = next;
+      return next;
+    });
+  }, [isSpeechSupported, stopDictation, toast]);
 
   /** Most recent arrestRhythm value emitted by the patient AI. Null = not arrested. */
   const currentArrestRhythm: ArrestRhythmKind | null = useMemo(() => {
@@ -547,6 +676,45 @@ export default function SimulationPage() {
       stopDictation();
     }
   }, [showCardiacArrestTab, simulationEnded, stopDictation]);
+
+  // When the cardiac-arrest tab takes over (or the run ends), don't let
+  // hands-free mode keep the mic alive — it would conflict with the AED panel
+  // and rapidly re-arm auto-submit on stale state.
+  useEffect(() => {
+    if ((showCardiacArrestTab || simulationEnded) && handsFreeModeRef.current) {
+      handsFreeModeRef.current = false;
+      setHandsFreeMode(false);
+    }
+  }, [showCardiacArrestTab, simulationEnded]);
+
+  // Hands-free auto-restart: when hands-free is on and recognition has ended
+  // (Chrome stops it after silence/timeouts even with continuous=true),
+  // re-start it after a small backoff so the mic stays effectively "open".
+  useEffect(() => {
+    if (!handsFreeMode) return;
+    if (activeDictationTarget !== null) return;
+    if (simulationEnded || showCardiacArrestTab) return;
+    const t = setTimeout(() => {
+      if (!handsFreeModeRef.current) return;
+      if (speechRecognitionRef.current) return;
+      startDictation("assessment");
+    }, HANDS_FREE_RESTART_MS);
+    return () => clearTimeout(t);
+  }, [handsFreeMode, activeDictationTarget, simulationEnded, showCardiacArrestTab, startDictation]);
+
+  // Hands-free auto-submit: each time the assessment text grows (a new
+  // utterance was transcribed), arm a single-shot timer. If the learner
+  // stays silent past HANDS_FREE_AUTO_SUBMIT_MS we fire the assessment.
+  useEffect(() => {
+    if (!handsFreeMode) return;
+    const text = assessmentInput.trim();
+    if (!text) return;
+    if (isLoading || simulationEnded || showCardiacArrestTab) return;
+    const t = setTimeout(() => {
+      handleSubmitAssessmentRef.current();
+    }, HANDS_FREE_AUTO_SUBMIT_MS);
+    return () => clearTimeout(t);
+  }, [handsFreeMode, assessmentInput, isLoading, simulationEnded, showCardiacArrestTab]);
 
    useEffect(() => {
     if (showCardiacArrestTab) {
@@ -676,10 +844,28 @@ export default function SimulationPage() {
 
         const initialMessage: Message = { role: 'assistant', content: scenario.details, vitals: scenario.initialVitals };
 
-        setMessages([
+        const seededMessages: Message[] = [
           { role: 'system', content: 'Simulation Started. Patient details loaded.'},
           initialMessage,
-        ]);
+        ];
+
+        // Tutorial-only: scripted partner intro that walks the learner into the
+        // first concrete steps. Keeps fresh users from staring at a blank
+        // monitor + tab list while the AI flows warm up.
+        if (scenario.id === 'welcome-tutorial' && !userData?.hasCompletedTutorial) {
+          seededMessages.push({
+            role: 'partner',
+            content:
+              `Hey, I'm ${rolled.name} — your ${rolled.role.toUpperCase()} partner for this run. ` +
+              `Let's keep it simple: open the Equipment drawer on the left and put on the 4-lead and pulse-ox so the monitor lights up, ` +
+              `then jump to the Assessment tab and grab a blood glucose. I'll back you up if you get stuck.`,
+            partnerName: rolled.name,
+            partnerRole: rolled.role,
+            urgency: 'low',
+          });
+        }
+
+        setMessages(seededMessages);
 
       } catch (e: unknown) {
         console.error('Error starting simulation session:', e);
@@ -717,6 +903,25 @@ export default function SimulationPage() {
   useEffect(() => {
     usePhysiologyStore.getState().setPulseless(Boolean(currentArrestRhythm));
   }, [currentArrestRhythm]);
+
+  /**
+   * Auto-launch the welcome feature tour the first time the user opens the
+   * orientation scenario. localStorage stops the prompt from re-firing on
+   * later visits even if their profile field hasn't synced yet.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!sessionId) return;
+    if (id !== 'welcome-tutorial') return;
+    if (userData?.hasCompletedTutorial) return;
+    try {
+      if (window.localStorage.getItem(WELCOME_TOUR_STORAGE_KEY) === '1') return;
+    } catch {
+      // localStorage unavailable; just show the tour.
+    }
+    const t = window.setTimeout(() => setTourOpen(true), 800);
+    return () => window.clearTimeout(t);
+  }, [id, sessionId, userData?.hasCompletedTutorial]);
 
   useEffect(() => {
     if (!supabase || !sessionId || !authUser || simulationEnded) return;
@@ -1055,6 +1260,11 @@ export default function SimulationPage() {
       const mandatoryActionsForRole =
         scenario.mandatoryActions[roleKeyForMandatory(userRole, userData)] || [];
       const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
+      // Engine truth-source for "already deceased" — once any prior assistant
+      // message has flagged death, the AI must not "wake the patient up".
+      const patientAlreadyDeceased = messages.some(
+        (m) => m.role === 'assistant' && m.patientIsDeceased === true,
+      );
 
       const recentMedications = ENABLE_PHARMACOKINETICS_ENGINE
         ? summarizeRecentMedications(
@@ -1091,6 +1301,7 @@ export default function SimulationPage() {
         decompensationPhase: autonomicSnapshot?.decompensationPhase,
         engineSummary,
         metabolicSnapshot,
+        patientAlreadyDeceased,
       });
       
       const newVitals = response.vitals;
@@ -1184,101 +1395,125 @@ export default function SimulationPage() {
     }
   }, [scenario, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId]);
 
-  const delegatePartnerAction = useCallback(
-    async (spec: {
-      chatter: string;
-      assessmentDetail: string;
-      treatmentIds?: string[];
-    }) => {
-      if (!partner) return;
-      const names = (spec.treatmentIds ?? [])
-        .map((id) => seedInterventions.find((i) => i.id === id)?.name)
-        .filter((n): n is string => Boolean(n));
-      const hasTx = names.length > 0;
-      await submitAction(
-        hasTx ? "treatment" : "assessment",
-        {
-          assessment: spec.assessmentDetail,
-          treatments: names,
-        },
-        {
-          partnerLine: `${partner.name}: ${spec.chatter}`,
-          partnerName: partner.name,
-          partnerRole: partner.role,
-        },
-      );
-    },
-    [partner, submitAction],
-  );
+  const [partnerSendBusy, setPartnerSendBusy] = useState(false);
 
-  const handleAskPartner = useCallback(
-    async (question: string) => {
-      if (!scenario || !partner) return;
-      const lastAssistant = [...messages]
-        .reverse()
-        .find((m) => m.role === "assistant");
-      const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
-      const mandatory =
-        scenario.mandatoryActions[roleKeyForMandatory(currentUserRole, userData)] ?? [];
+  /**
+   * Replaces the previous structured `delegatePartnerAction`. Takes a single
+   * free-form instruction, asks the AI flow what to do (chatter, in-scope
+   * treatmentIds, plain English summary), then funnels the result through
+   * `submitAction` so the existing logging, partner messaging, vitals tick
+   * and grading paths all keep working.
+   */
+  const handlePartnerInstruction = useCallback(
+    async (instruction: string) => {
+      if (!partner || !scenario) return;
+      const trimmed = instruction.trim();
+      if (!trimmed || partnerSendBusy) return;
+      setPartnerSendBusy(true);
       try {
-        const out = await getPartnerAdvice({
-          mode: "asked",
+        const lastAssistant = [...messages]
+          .reverse()
+          .find((m) => m.role === "assistant");
+        const result = await runPartnerInstruction({
           partnerRole: partner.role,
           partnerName: partner.name,
           userRole: currentUserRole,
-          scenarioSummary: scenario.details.slice(0, 12000),
-          mandatoryActions: mandatory,
-          recentUserActions: userActions.slice(-6),
+          instruction: trimmed,
+          scenarioSummary: scenario.details.slice(0, 8000),
           lastPatientCondition: lastAssistant?.conditionChange,
-          currentVitals: priorVitals,
-          userQuestion: question.slice(0, 2000),
-          priorAdviceTexts: [...recentProactiveAdviceRef.current]
-            .reverse()
-            .map((x) => x.text)
-            .slice(0, 6),
+          interventions: partnerScopeInterventions.map((i) => ({
+            id: i.id,
+            name: i.name,
+            description: i.description?.slice(0, 220),
+            certificationLevel: i.certificationLevel,
+          })),
           isPediatric: isPediatricScenario,
         });
-        if (!out.advice.trim()) return;
-        lastPartnerSpeechSimTimeRef.current = time;
-        recentProactiveAdviceRef.current = [
-          ...recentProactiveAdviceRef.current.filter((x) => time - x.simTime <= 300),
-          { text: out.advice, simTime: time },
-        ];
-        setPartnerAdviceHistory((h) =>
-          [
-            ...h,
-            {
-              id:
-                typeof crypto !== "undefined" && crypto.randomUUID
-                  ? crypto.randomUUID()
-                  : `${Date.now()}-${Math.random()}`,
-              text: out.advice,
-              urgency: out.urgency,
-              atSim: time,
-            },
-          ].slice(-5),
-        );
-        setMessages((prev) => [
-          ...prev,
+        // Always clear the input so the next instruction starts fresh.
+        setPartnerInstructionInput("");
+
+        // performed=false covers two cases that should NOT run submitAction
+        // (no treatment / assessment to grade, no vitals tick):
+        //   - refusal (out of scope) — chatter + refusalReason
+        //   - question / opinion ask — chatter is the answer
+        if (!result.performed) {
+          const reason = result.refusalReason?.trim();
+          setMessages((prev) => {
+            const out: Message[] = [
+              ...prev,
+              {
+                role: "partner",
+                content: result.chatter,
+                partnerName: partner.name,
+                partnerRole: partner.role,
+              },
+            ];
+            if (reason) {
+              out.push({
+                role: "system",
+                content: `${partner.name} pushed back: ${reason}`,
+              });
+            }
+            return out;
+          });
+          return;
+        }
+
+        const treatmentNames = result.treatmentIds
+          .map((id) => seedInterventions.find((i) => i.id === id)?.name)
+          .filter((n): n is string => Boolean(n));
+        const hasTx = treatmentNames.length > 0;
+        await submitAction(
+          hasTx ? "treatment" : "assessment",
           {
-            role: "partner",
-            content: out.advice,
+            assessment: result.assessmentDetail,
+            treatments: treatmentNames,
+          },
+          {
+            partnerLine: `${partner.name}: ${result.chatter}`,
             partnerName: partner.name,
             partnerRole: partner.role,
-            urgency: out.urgency,
           },
-        ]);
-      } catch (e: unknown) {
-        console.error(e);
-        const msg = e instanceof Error ? e.message : "Partner advice failed.";
+        );
+        if (result.refusalReason?.trim()) {
+          // Partial refusal — log the pushback so the learner sees it.
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "system",
+              content: `${partner.name} pushed back: ${result.refusalReason!.trim()}`,
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("runPartnerInstruction failed", error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to run partner instruction.";
+        const rateLimited = /rate ?limit|too many|please wait/i.test(message);
         toast({
+          title: rateLimited ? "Slow down a moment" : "Partner couldn't run that",
+          description: rateLimited
+            ? message
+            : "The AI partner couldn't carry out that instruction. Try rephrasing.",
           variant: "destructive",
-          title: "Could not reach partner",
-          description: msg,
         });
+      } finally {
+        setPartnerSendBusy(false);
       }
     },
-    [scenario, partner, messages, currentUserRole, userData, userActions, time, toast, isPediatricScenario],
+    [
+      partner,
+      scenario,
+      partnerSendBusy,
+      messages,
+      currentUserRole,
+      partnerScopeInterventions,
+      isPediatricScenario,
+      submitAction,
+      toast,
+    ],
   );
 
   /**
@@ -1327,6 +1562,9 @@ export default function SimulationPage() {
       toast({ title: 'No Input', description: 'Please enter your assessment findings.', variant: 'destructive' });
     }
   };
+  // Mirror the latest handleSubmitAssessment into the ref the hands-free
+  // auto-submit timer reads from.
+  handleSubmitAssessmentRef.current = handleSubmitAssessment;
 
   const handleSubmitTreatments = async (actionType: 'treatment' | 'cardiacArrest' = 'treatment') => {
     const treatmentsArray = Object.entries(selectedTreatments)
@@ -1419,10 +1657,132 @@ export default function SimulationPage() {
       const hospital = hospitals.find(h => h.id === selectedDestination);
       if (hospital && transportMode) {
           submitAction("destination", { destination: hospital.name, transport: transportMode });
+          // Spawn the receiving ER physician and route the user to the
+          // Handover tab. We deliberately don't pre-pin a personality —
+          // the first runHospitalHandover call lets the model decide based
+          // on field performance.
+          if (!doctorIdentity) {
+            const docName = pickDoctorName();
+            setDoctorIdentity({ name: docName });
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: 'system',
+                content: `You arrive at ${hospital.name} via ${transportMode} transport. Dr. ${docName} meets you at the door for handover.`,
+              },
+            ]);
+          }
+          setActiveTab('handover');
       } else {
           toast({ title: 'Incomplete Selection', description: 'Please select both a hospital destination and a transport mode.', variant: 'destructive' });
       }
   };
+
+  const handleSubmitHandover = useCallback(async () => {
+    if (!scenario || !doctorIdentity || !selectedDestination) return;
+    const text = handoverInput.trim();
+    if (!text) return;
+    if (handoverBusy) return;
+    setHandoverBusy(true);
+    try {
+      const lastAssistant = [...messages]
+        .reverse()
+        .find((m) => m.role === 'assistant');
+      const priorVitals = scenarioVitalsFromStore() ?? scenario.initialVitals;
+      const mandatory =
+        scenario.mandatoryActions[
+          roleKeyForMandatory(currentUserRole, userData)
+        ] ?? [];
+      const hospital = hospitals.find((h) => h.id === selectedDestination);
+      const out = await runHospitalHandover({
+        hospitalName: hospital?.name ?? selectedDestination,
+        doctorName: doctorIdentity.name,
+        personality: doctorIdentity.personality,
+        userRole: currentUserRole,
+        scenarioSummary: scenario.details.slice(0, 8000),
+        patientProfile: scenario.patientProfile,
+        mandatoryActions: mandatory,
+        userActions: userActions.slice(-30),
+        lastPatientCondition: lastAssistant?.conditionChange,
+        currentVitals: priorVitals,
+        learnerHandover: text.slice(0, 4000),
+        priorTurns: handoverTurns,
+        gaveRadioReport: hasGivenReport,
+        patientIsDeceased: messages.some(
+          (m) => m.role === 'assistant' && m.patientIsDeceased,
+        ),
+      });
+      // Pin personality on the first turn so the doctor stays in character.
+      setDoctorIdentity({
+        name: doctorIdentity.name,
+        personality: out.personality,
+      });
+      setHandoverTurns((prev) => [
+        ...prev,
+        { speaker: 'learner', text },
+        { speaker: 'doctor', text: out.doctorReply },
+      ]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'system',
+          content: `Handover to Dr. ${doctorIdentity.name}: ${text}`,
+        },
+        {
+          role: 'doctor',
+          content: out.doctorReply,
+          doctorName: doctorIdentity.name,
+          doctorPersonality: out.personality,
+        },
+      ]);
+      if (out.readyToOffload) {
+        setHandoverReadyToOffload(true);
+      }
+      if (out.critiqueNotes.length > 0) {
+        setDoctorCritique((prev) => {
+          const merged = [...prev, ...out.critiqueNotes];
+          // Dedupe while keeping order; cap to last 8.
+          const seen = new Set<string>();
+          const uniq: string[] = [];
+          for (const n of merged) {
+            const key = n.trim().toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            uniq.push(n.trim());
+          }
+          return uniq.slice(-8);
+        });
+      }
+      setHandoverInput('');
+    } catch (error) {
+      console.error('runHospitalHandover failed', error);
+      const message =
+        error instanceof Error ? error.message : 'Handover failed.';
+      const rateLimited = /rate ?limit|too many|please wait/i.test(message);
+      toast({
+        variant: 'destructive',
+        title: rateLimited ? 'Slow down a moment' : 'Handover failed',
+        description: rateLimited
+          ? message
+          : 'Could not reach the receiving doctor. Try again in a moment.',
+      });
+    } finally {
+      setHandoverBusy(false);
+    }
+  }, [
+    scenario,
+    doctorIdentity,
+    selectedDestination,
+    handoverInput,
+    handoverBusy,
+    messages,
+    currentUserRole,
+    userData,
+    userActions,
+    handoverTurns,
+    hasGivenReport,
+    toast,
+  ]);
 
 
   const handleSubmitRadioReport = () => {
@@ -1502,6 +1862,19 @@ export default function SimulationPage() {
       setEndSimAlertOpen(true);
     }
   };
+
+  const handleOffloadPatient = useCallback(() => {
+    if (!handoverReadyToOffload || !doctorIdentity) return;
+    if (simulationEnded) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'system',
+        content: `Patient offloaded to Dr. ${doctorIdentity.name}'s team. Care transferred.`,
+      },
+    ]);
+    void handleEndSimulation(false);
+  }, [handoverReadyToOffload, doctorIdentity, simulationEnded, handleEndSimulation]);
   
   const renderActionDetails = (action: UserAction) => {
     if (action.assessment && action.assessment !== 'None') {
@@ -1699,18 +2072,22 @@ export default function SimulationPage() {
         </Card>
         {vitalsReady ? (
           <div className="space-y-2">
-            <UnifiedCardiacMonitor
-              scenario={scenario}
-              cprActive={cprStarted && !hasROSC}
-              forcedRhythm={monitorForcedRhythm}
-              pulseless={Boolean(currentArrestRhythm)}
-              onRhythmChange={(kind) => setObservedRhythm(kind)}
-              onAction={handleEcgAction}
-              onMonitorMedication={(med) =>
-                handleEcgAction(`Medication (monitor menu): ${med.name}`)
-              }
-            />
-            <EquipmentDrawer />
+            <div data-tour={WELCOME_TOUR_ANCHORS.monitor}>
+              <UnifiedCardiacMonitor
+                scenario={scenario}
+                cprActive={cprStarted && !hasROSC}
+                forcedRhythm={monitorForcedRhythm}
+                pulseless={Boolean(currentArrestRhythm)}
+                onRhythmChange={(kind) => setObservedRhythm(kind)}
+                onAction={handleEcgAction}
+                onMonitorMedication={(med) =>
+                  handleEcgAction(`Medication (monitor menu): ${med.name}`)
+                }
+              />
+            </div>
+            <div data-tour={WELCOME_TOUR_ANCHORS.equipment}>
+              <EquipmentDrawer />
+            </div>
             {(currentUserRole === 'paramedic' || currentUserRole === 'admin') && (
               <div className="flex justify-end">
                 <RhythmIdQuiz
@@ -1746,6 +2123,41 @@ export default function SimulationPage() {
                   <Label>Current Role</Label>
                   <div className="capitalize text-lg font-semibold">{currentUserRole}</div>
               </div>
+              {isSpeechSupported ? (
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    Hands-free dictation
+                  </Label>
+                  <Button
+                    type="button"
+                    onClick={toggleHandsFreeMode}
+                    variant={handsFreeMode ? "default" : "outline"}
+                    className={cn(
+                      "mt-1 w-full",
+                      handsFreeMode &&
+                        "bg-emerald-700 text-white hover:bg-emerald-700/90",
+                    )}
+                    disabled={simulationEnded || showCardiacArrestTab}
+                    title={
+                      handsFreeMode
+                        ? "Mic stays on; pauses auto-submit Assessment"
+                        : "Continuous dictation into Assessment, auto-submit on a pause"
+                    }
+                  >
+                    {handsFreeMode ? (
+                      <>
+                        <Mic className="mr-2 h-4 w-4 animate-pulse" />
+                        Hands-free ON
+                      </>
+                    ) : (
+                      <>
+                        <MicOff className="mr-2 h-4 w-4" />
+                        Hands-free OFF
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-2">
                  <Button onClick={() => setIsPaused(true)} variant="outline" className="w-full" disabled={simulationEnded}>
                     <Pause className="mr-2"/> Pause
@@ -1939,19 +2351,52 @@ export default function SimulationPage() {
                 </DialogContent>
               </Dialog>
 
-                <Button 
-                    onClick={handleEndSimClick}
-                    disabled={simulationEnded}
-                    className="w-full bg-destructive hover:bg-destructive/90"
-                >
-                    {simulationEnded ? 'Ending...' : 'End Simulation'}
-                </Button>
+                {selectedDestination ? (
+                  <Button
+                    onClick={handleOffloadPatient}
+                    disabled={
+                      simulationEnded ||
+                      !handoverReadyToOffload ||
+                      !doctorIdentity
+                    }
+                    className={cn(
+                      'w-full',
+                      handoverReadyToOffload
+                        ? 'bg-emerald-700 hover:bg-emerald-700/90 text-white'
+                        : 'bg-destructive hover:bg-destructive/90',
+                    )}
+                    data-tour={WELCOME_TOUR_ANCHORS.endSim}
+                    title={
+                      handoverReadyToOffload
+                        ? 'Transfer care to the ER team and end the run'
+                        : 'Give a verbal handover to the receiving doctor first'
+                    }
+                  >
+                    {simulationEnded
+                      ? 'Ending...'
+                      : handoverReadyToOffload
+                        ? 'Offload PT'
+                        : 'Offload PT (handover pending)'}
+                  </Button>
+                ) : (
+                  <Button
+                      onClick={handleEndSimClick}
+                      disabled={simulationEnded}
+                      className="w-full bg-destructive hover:bg-destructive/90"
+                      data-tour={WELCOME_TOUR_ANCHORS.endSim}
+                  >
+                      {simulationEnded ? 'Ending...' : 'End Simulation'}
+                  </Button>
+                )}
           </CardContent>
         </Card>
       </div>
 
       {/* Right Column */}
-      <div className="lg:col-span-2 flex flex-col h-full min-h-0 bg-card rounded-lg border">
+      <div
+        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0"
+        data-tour={WELCOME_TOUR_ANCHORS.log}
+      >
         <div className="shrink-0 border-b p-4">
           <h2 className="text-xl font-bold flex items-center gap-2"><SquareTerminal /> Simulation Log</h2>
         </div>
@@ -1964,25 +2409,38 @@ export default function SimulationPage() {
             {messages.map((message, messageIndex) => {
               if (message.role === "user") return null;
               const isPartner = message.role === "partner";
+              const isDoctor = message.role === "doctor";
               const partnerLetter = partnerAvatarLetter(
                 message.partnerRole ?? partner?.role ?? "emt",
               );
-              const avatarLetter =
-                message.role === "assistant"
+              const avatarLetter = isDoctor
+                ? "Dr"
+                : message.role === "assistant"
                   ? "P"
                   : message.role === "system"
                     ? "H"
                     : isPartner
                       ? partnerLetter
                       : "S";
-              const bubbleClass =
-                message.role === "system"
+              const bubbleClass = isDoctor
+                ? "border border-sky-700/30 bg-sky-50 dark:bg-sky-950/30"
+                : message.role === "system"
                   ? "bg-yellow-100 dark:bg-yellow-900/50"
                   : isPartner
                     ? "border border-emerald-800/25 bg-emerald-950/10 dark:bg-emerald-500/10"
                     : "bg-muted";
-              const roleTooltip =
-                message.partnerRole === "paramedic"
+              const avatarBgClass = isDoctor
+                ? "bg-sky-700 text-[10px] font-semibold text-white"
+                : isPartner
+                  ? "bg-emerald-700 text-xs font-semibold text-emerald-50"
+                  : undefined;
+              const roleTooltip = isDoctor
+                ? `Receiving physician${
+                    message.doctorPersonality
+                      ? ` — ${message.doctorPersonality}`
+                      : ""
+                  }`
+                : message.partnerRole === "paramedic"
                   ? "Paramedic partner"
                   : message.partnerRole === "aemt"
                     ? "AEMT partner"
@@ -1995,18 +2453,12 @@ export default function SimulationPage() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback
-                            className={
-                              isPartner
-                                ? "bg-emerald-700 text-xs font-semibold text-emerald-50"
-                                : undefined
-                            }
-                          >
+                          <AvatarFallback className={avatarBgClass}>
                             {avatarLetter}
                           </AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
-                      {isPartner ? (
+                      {isPartner || isDoctor ? (
                         <TooltipContent>{roleTooltip}</TooltipContent>
                       ) : null}
                     </Tooltip>
@@ -2015,6 +2467,11 @@ export default function SimulationPage() {
                     {isPartner && message.partnerName ? (
                       <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
                         {message.partnerName}
+                      </p>
+                    ) : null}
+                    {isDoctor && message.doctorName ? (
+                      <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">
+                        Dr. {message.doctorName}
                       </p>
                     ) : null}
                     <p className="text-sm whitespace-pre-wrap">
@@ -2034,25 +2491,32 @@ export default function SimulationPage() {
           </div>
         </div>
         {partner ? (
-          <div className="shrink-0 border-b px-4 pb-3 pt-1">
+          <div
+            className="shrink-0 border-b px-4 pb-3 pt-1"
+            data-tour={WELCOME_TOUR_ANCHORS.partner}
+          >
             <PartnerPanel
               partner={partner}
-              interventions={partnerScopeInterventions}
               adviceHistory={partnerAdviceHistory}
               isPediatric={isPediatricScenario}
-              onDelegate={(spec) =>
-                delegatePartnerAction({
-                  chatter: spec.chatter,
-                  assessmentDetail: spec.assessmentDetail,
-                  treatmentIds: spec.treatmentIds,
-                })
+              instruction={partnerInstructionInput}
+              onInstructionChange={setPartnerInstructionInput}
+              onSend={handlePartnerInstruction}
+              onToggleMic={
+                isSpeechSupported
+                  ? () => startDictation("partnerInstruction")
+                  : undefined
               }
-              onAskPartner={handleAskPartner}
-              disabled={isLoading || simulationEnded}
+              micActive={activeDictationTarget === "partnerInstruction"}
+              busy={partnerSendBusy || isLoading}
+              disabled={simulationEnded || showCardiacArrestTab}
             />
           </div>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col justify-start border-t p-4">
+        <div
+          className="flex flex-col border-t p-4 lg:min-h-0 lg:flex-1 lg:justify-start"
+          data-tour={WELCOME_TOUR_ANCHORS.tabs}
+        >
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as ActiveTab)}
@@ -2095,6 +2559,19 @@ export default function SimulationPage() {
                     <span className="hidden sm:inline">Comms</span>
                     <span className="sm:hidden">Comm</span>
                   </TabsTrigger>
+                  {selectedDestination ? (
+                    <TabsTrigger
+                      value="handover"
+                      className="min-h-9 shrink-0 px-2.5 sm:px-3"
+                    >
+                      <Stethoscope className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
+                      <span className="hidden sm:inline">Handover</span>
+                      <span className="sm:hidden">Hand</span>
+                      {handoverReadyToOffload ? (
+                        <span className="ml-2 hidden h-2 w-2 shrink-0 rounded-full bg-emerald-500 sm:inline-block" />
+                      ) : null}
+                    </TabsTrigger>
+                  ) : null}
                 </>
               )}
             </TabsList>
@@ -2321,6 +2798,172 @@ export default function SimulationPage() {
                     </div>
                 </div>
             </TabsContent>
+            <TabsContent value="handover" className="flex-none outline-none">
+              {!doctorIdentity || !selectedDestination ? (
+                <p className="text-sm text-muted-foreground p-2">
+                  Confirm a destination from the <b>Destination</b> tab to start the bedside handover.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 rounded-md border bg-muted/30 p-3">
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarFallback className="bg-sky-700 text-white text-sm font-semibold">
+                        Dr
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">Dr. {doctorIdentity.name}</p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-[10px] capitalize',
+                            doctorIdentity.personality === 'hard'
+                              ? 'border-destructive/60 text-destructive'
+                              : doctorIdentity.personality === 'skeptical'
+                                ? 'border-amber-600/50 text-amber-800 dark:text-amber-200'
+                                : doctorIdentity.personality === 'nice'
+                                  ? 'border-emerald-700/40 text-emerald-700 dark:text-emerald-300'
+                                  : 'border-muted text-muted-foreground',
+                          )}
+                        >
+                          {doctorIdentity.personality ?? 'reading the room'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Receiving physician at{' '}
+                        {hospitals.find((h) => h.id === selectedDestination)?.name ??
+                          'the receiving hospital'}
+                        . Give a verbal handover (SBAR-style works best).
+                      </p>
+                    </div>
+                  </div>
+
+                  {handoverTurns.length > 0 ? (
+                    <ScrollArea className="max-h-48 rounded-md border bg-background p-2">
+                      <ul className="space-y-2">
+                        {handoverTurns.map((turn, i) => (
+                          <li key={i} className="text-xs">
+                            <span
+                              className={cn(
+                                'mr-1 font-semibold',
+                                turn.speaker === 'doctor'
+                                  ? 'text-sky-700 dark:text-sky-300'
+                                  : 'text-foreground',
+                              )}
+                            >
+                              {turn.speaker === 'doctor'
+                                ? `Dr. ${doctorIdentity.name}:`
+                                : 'You:'}
+                            </span>
+                            <span className="whitespace-pre-wrap">{turn.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No turns yet. Open with patient demographics, chief complaint, key
+                      findings, treatments given, and why you brought them here.
+                    </p>
+                  )}
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <Label htmlFor="handover-input">
+                        Your handover{handoverTurns.length > 0 ? ' (continued)' : ''}
+                      </Label>
+                      {isSpeechSupported && (
+                        <Button
+                          type="button"
+                          variant={
+                            activeDictationTarget === 'handover'
+                              ? 'destructive'
+                              : 'outline'
+                          }
+                          size="sm"
+                          onClick={() => startDictation('handover')}
+                          disabled={
+                            simulationEnded || showCardiacArrestTab || handoverBusy
+                          }
+                        >
+                          {activeDictationTarget === 'handover' ? (
+                            <MicOff className="mr-2 h-4 w-4" />
+                          ) : (
+                            <Mic className="mr-2 h-4 w-4" />
+                          )}
+                          {activeDictationTarget === 'handover' ? 'Stop Mic' : 'Speak'}
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea
+                      id="handover-input"
+                      placeholder={
+                        handoverTurns.length === 0
+                          ? "e.g. 'This is a 25-year-old female with a known bee-sting allergy, presenting with anaphylaxis…'"
+                          : 'Answer the doctor or add detail.'
+                      }
+                      className="h-28"
+                      value={handoverInput}
+                      onChange={(e) => setHandoverInput(e.target.value)}
+                      disabled={simulationEnded || handoverBusy}
+                    />
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        onClick={() => void handleSubmitHandover()}
+                        disabled={
+                          handoverBusy ||
+                          simulationEnded ||
+                          !handoverInput.trim()
+                        }
+                        className="w-full"
+                      >
+                        {handoverBusy ? 'Working…' : 'Submit Handover'}{' '}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleOffloadPatient}
+                        disabled={
+                          !handoverReadyToOffload ||
+                          simulationEnded ||
+                          handoverBusy
+                        }
+                        className={cn(
+                          'w-full',
+                          handoverReadyToOffload &&
+                            'bg-emerald-700 text-white hover:bg-emerald-700/90',
+                        )}
+                        title={
+                          handoverReadyToOffload
+                            ? 'Transfer care to the ER team and end the run'
+                            : 'Doctor still needs more information'
+                        }
+                      >
+                        <Hospital className="mr-2 h-4 w-4" />
+                        {handoverReadyToOffload
+                          ? 'Offload PT'
+                          : 'Offload PT (locked)'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {doctorCritique.length > 0 ? (
+                    <div className="rounded-md border bg-muted/20 p-2">
+                      <p className="mb-1 text-[11px] font-medium text-muted-foreground">
+                        Doctor&rsquo;s notes for debrief
+                      </p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs">
+                        {doctorCritique.map((note, i) => (
+                          <li key={i}>{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </TabsContent>
           </Tabs>
         </div>
         <div className="shrink-0 border-t px-4 py-3">
@@ -2355,6 +2998,12 @@ export default function SimulationPage() {
             <AlertDialogAction onClick={() => setEndSimAlertOpen(false)}>Got it</AlertDialogAction>
         </AlertDialogContent>
     </AlertDialog>
+    <FeatureTour
+      open={tourOpen}
+      steps={WELCOME_TOUR_STEPS}
+      persistKey={WELCOME_TOUR_STORAGE_KEY}
+      onClose={() => setTourOpen(false)}
+    />
     </div>
   );
 }

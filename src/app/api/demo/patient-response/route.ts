@@ -24,6 +24,8 @@ const BodySchema = z.object({
   userRole: z.enum(["emt", "aemt", "paramedic"]),
   patientCondition: z.string().max(2000).optional(),
   currentVitals: VitalsBodySchema.optional(),
+  /** Engine truth flag — once a prior turn declared death, the AI must not "wake the patient up". */
+  patientAlreadyDeceased: z.boolean().optional(),
   userActions: z.array(
     z.object({
       time: z.number(),
@@ -51,7 +53,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
     }
 
-    const { assessment, treatment, userRole, userActions, patientCondition, currentVitals } = parsed.data;
+    const {
+      assessment,
+      treatment,
+      userRole,
+      userActions,
+      patientCondition,
+      currentVitals,
+      patientAlreadyDeceased,
+    } = parsed.data;
 
     if (userActions.length >= DEMO_MAX_AI_TURNS) {
       return NextResponse.json(
@@ -67,20 +77,32 @@ export async function POST(request: Request) {
 
     const mandatory = scenario.mandatoryActions[userRole] ?? [];
 
-    const raw = await provideDynamicPatientResponses({
-      scenario: scenario.details,
-      assessment,
-      treatment,
-      patientCondition,
-      currentVitals,
-      userRole,
-      mandatoryActions: mandatory,
-      userActions: userActions as UserAction[],
-      isPremium: false,
-    });
+    const raw = patientAlreadyDeceased
+      ? {
+          patientResponse: '',
+          vitals: currentVitals ?? {
+            hr: 'Asystole',
+            bp: '0/0 (no pulse)',
+            rr: '0/min',
+            spo2: '—',
+            gcs: '3',
+            etco2: '0 mmHg',
+          },
+        }
+      : await provideDynamicPatientResponses({
+          scenario: scenario.details,
+          assessment,
+          treatment,
+          patientCondition,
+          currentVitals,
+          userRole,
+          mandatoryActions: mandatory,
+          userActions: userActions as UserAction[],
+          isPremium: false,
+        });
 
     const result = applyDynamicPatientOutputGuards(
-      { currentVitals, treatment },
+      { currentVitals, treatment, patientAlreadyDeceased },
       raw,
     );
 
