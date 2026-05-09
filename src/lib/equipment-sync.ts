@@ -1,4 +1,3 @@
-import type { LegacySupabaseIntervention } from '@/lib/types';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 
 export type TreatmentSelectionMap = Record<
@@ -12,7 +11,6 @@ export type TreatmentSelectionMap = Record<
  */
 export function applyEquipmentFromTreatmentSelections(
   selected: TreatmentSelectionMap,
-  _interventions: LegacySupabaseIntervention[] | null | undefined,
 ) {
   const store = usePhysiologyStore.getState();
 

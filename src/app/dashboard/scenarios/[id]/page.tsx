@@ -1422,7 +1422,7 @@ export default function SimulationPage() {
           });
         }
       }
-      applyEquipmentFromTreatmentSelections(selectedTreatments, seedInterventions);
+      applyEquipmentFromTreatmentSelections(selectedTreatments);
       await submitAction(actionType, { treatments: treatmentsArray });
     } else {
       toast({ title: 'No Treatments Selected', description: 'Please select at least one treatment.', variant: 'destructive' });

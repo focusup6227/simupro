@@ -15,7 +15,11 @@ export type ParseDoseContext = {
 
 export type SubOptionMap = Record<string, string>;
 
-/** Mapping from intervention id → drug catalog id. Identity for most entries. */
+/**
+ * Canonical (legacy lowercase) intervention id → drug catalog id.
+ * The NASEMSO `MED_*` ids all alias into this map via {@link INTERVENTION_ALIAS},
+ * so consumers should resolve to canonical first via {@link canonicalInterventionId}.
+ */
 const INTERVENTION_TO_DRUG: Record<string, DrugId> = {
   'epinephrine-cardiac': 'epinephrine-cardiac',
   'epinephrine-brady': 'epinephrine-brady',
@@ -33,6 +37,10 @@ const INTERVENTION_TO_DRUG: Record<string, DrugId> = {
   albuterol: 'albuterol',
   'dextrose-iv': 'dextrose-iv',
   'glucagon-im': 'glucagon-im',
+};
+
+/** NASEMSO `MED_*` protocol id → canonical (legacy lowercase) intervention id. */
+const INTERVENTION_ALIAS: Record<string, string> = {
   MED_EPI_1_10000: 'epinephrine-cardiac',
   MED_EPI_1_1000: 'epinephrine-cardiac',
   MED_ATROPINE: 'atropine',
@@ -50,6 +58,11 @@ const INTERVENTION_TO_DRUG: Record<string, DrugId> = {
   MED_DEXTROSE_50: 'dextrose-iv',
   MED_GLUCAGON: 'glucagon-im',
 };
+
+/** Resolve any supported intervention id to its canonical (legacy lowercase) form. */
+function canonicalInterventionId(interventionId: string): string {
+  return INTERVENTION_ALIAS[interventionId] ?? interventionId;
+}
 
 /** One seeded intervention row per PK drug identity for parsers/tests. */
 export const CANONICAL_INTERVENTION_FOR_DRUG = {
@@ -93,12 +106,8 @@ const DEFAULT_ROUTE: Record<DrugId, Route> = {
  * Whether this intervention is administered as a continuous infusion. The
  * engine treats the dose log row as `infusion_start` and reads `infusionRate`.
  */
-function isInfusion(interventionId: string): boolean {
-  return (
-    interventionId === 'dopamine' ||
-    interventionId === 'epinephrine-brady' ||
-    interventionId === 'MED_DOPAMINE'
-  );
+function isInfusion(canonicalId: string): boolean {
+  return canonicalId === 'dopamine' || canonicalId === 'epinephrine-brady';
 }
 
 /**
@@ -227,36 +236,34 @@ const MED_FALLBACK_DOSE_TEXT: Record<string, string> = {
 
 function chooseDoseText(
   interventionId: string,
+  canonicalId: string,
   subs: SubOptionMap | undefined,
 ): string {
-  const hasSubs = subs && Object.keys(subs).length > 0;
-  if (hasSubs) {
-    if (interventionId === 'amiodarone' || interventionId === 'MED_AMIODARONE') {
-      return (
-        subs!['Dosage (Arrest)'] ??
-        subs!['Dosage (Tachycardia)'] ??
-        subs!['Dosage'] ??
-        ''
-      );
+  if (subs && Object.keys(subs).length > 0) {
+    switch (canonicalId) {
+      case 'amiodarone':
+        return (
+          subs['Dosage (Arrest)'] ??
+          subs['Dosage (Tachycardia)'] ??
+          subs['Dosage'] ??
+          ''
+        );
+      case 'ketamine':
+        return (
+          subs['Dosage - Sedation (mg)'] ??
+          subs['Dosage - Pain (mg)'] ??
+          subs['Dosage'] ??
+          ''
+        );
+      case 'fentanyl':
+        return subs['Dosage (mcg)'] ?? subs['Dosage'] ?? '';
+      case 'midazolam':
+        return subs['Dosage (mg)'] ?? subs['Dosage'] ?? '';
+      case 'dextrose-iv':
+        return `${subs['Concentration'] ?? ''} ${subs['Dosage (mL)'] ?? ''}`.trim();
+      default:
+        return subs['Dosage'] ?? '';
     }
-    if (interventionId === 'ketamine' || interventionId === 'MED_KETAMINE') {
-      return (
-        subs!['Dosage - Sedation (mg)'] ??
-        subs!['Dosage - Pain (mg)'] ??
-        subs!['Dosage'] ??
-        ''
-      );
-    }
-    if (interventionId === 'fentanyl' || interventionId === 'MED_FENTANYL') {
-      return subs!['Dosage (mcg)'] ?? subs!['Dosage'] ?? '';
-    }
-    if (interventionId === 'midazolam' || interventionId === 'MED_MIDAZOLAM') {
-      return subs!['Dosage (mg)'] ?? subs!['Dosage'] ?? '';
-    }
-    if (interventionId === 'dextrose-iv' || interventionId === 'MED_DEXTROSE_10' || interventionId === 'MED_DEXTROSE_50') {
-      return `${subs!['Concentration'] ?? ''} ${subs!['Dosage (mL)'] ?? ''}`.trim();
-    }
-    return subs!['Dosage'] ?? '';
   }
   return MED_FALLBACK_DOSE_TEXT[interventionId] ?? '';
 }
@@ -277,14 +284,15 @@ export function parseInterventionSelectionToDose(
   subOptions: SubOptionMap,
   ctx: ParseDoseContext,
 ): DoseInput | null {
-  const drugId = INTERVENTION_TO_DRUG[interventionId];
+  const canonicalId = canonicalInterventionId(interventionId);
+  const drugId = INTERVENTION_TO_DRUG[canonicalId];
   if (!drugId) return null;
 
-  const doseText = chooseDoseText(interventionId, subOptions);
+  const doseText = chooseDoseText(interventionId, canonicalId, subOptions);
   const flatText = `${doseText} ${flattenSubOptions(subOptions)}`.trim();
   const route = detectRoute(drugId, flatText, DEFAULT_ROUTE[drugId]);
 
-  if (isInfusion(interventionId)) {
+  if (isInfusion(canonicalId)) {
     const rateText =
       subOptions['Infusion Rate (mcg/kg/min)'] ??
       subOptions['Infusion Rate (mcg/min)'] ??
@@ -307,11 +315,11 @@ export function parseInterventionSelectionToDose(
     };
   }
 
-  let doseMg: number | null = null;
-  if (interventionId === 'dextrose-iv' || interventionId === 'MED_DEXTROSE_10' || interventionId === 'MED_DEXTROSE_50') {
+  let doseMg: number | null;
+  if (canonicalId === 'dextrose-iv') {
     doseMg = parseDextroseMg(subOptions, flatText);
     if (doseMg == null) doseMg = parseDoseToMg(doseText) ?? parseDoseToMg(flatText);
-  } else if (interventionId === 'lidocaine' || interventionId === 'MED_LIDOCAINE') {
+  } else if (canonicalId === 'lidocaine') {
     doseMg = parseLidocaineMg(ctx.patientWeightKg, doseText || flatText);
   } else {
     doseMg = parseDoseToMg(doseText) ?? parseDoseToMg(flatText);
