@@ -1,6 +1,6 @@
 import {
   interventionCertifications,
-  type Intervention,
+  type LegacySupabaseIntervention,
   type PartnerSimulationRole,
   type UserAction,
   type UserRole,
@@ -56,7 +56,7 @@ export function rollPartnerForUser(userRole: UserRole): {
 }
 
 export function partnerCanPerform(
-  intervention: Intervention,
+  intervention: LegacySupabaseIntervention,
   partnerRole: PartnerSimulationRole,
 ): boolean {
   const p = interventionCertifications.indexOf(partnerRole);
@@ -71,18 +71,73 @@ export type NextAdviceGate = {
   minSecondsBetweenProactiveChecks: number;
   /** Do not proactive-nudge within this many sim seconds after a user action */
   quietSecondsAfterUserAction: number;
-  /** Dedup window for identical advice text */
+  /** Dedup window for identical or near-identical advice text */
   dedupeWindowSec: number;
+  /**
+   * Reject a proposed advice if its Jaccard token similarity to any recent
+   * advice within `dedupeWindowSec` is at least this much. 0 disables fuzzy
+   * dedup; 1 reduces fuzzy dedup to exact-token-set match.
+   */
+  tokenSimilarityDedup: number;
 };
 
 const DEFAULT_GATE: NextAdviceGate = {
   minSecondsBetweenProactiveChecks: 45,
   quietSecondsAfterUserAction: 15,
   dedupeWindowSec: 300,
+  tokenSimilarityDedup: 0.8,
 };
 
 /**
+ * Stopwords stripped before similarity scoring. Kept tight so clinical content
+ * (drug names, vitals, anatomy) drives the score, not connective tissue.
+ */
+const ADVICE_STOPWORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'and', 'as', 'at', 'be', 'by', 'for', 'from', 'i', 'in', 'is',
+  'it', 'its', 'of', 'on', 'or', 'so', 'that', 'the', 'their', 'them', 'they',
+  'this', 'to', 'we', 'with', 'you', 'your', 'our', 'if', 'then', 'will',
+  'can', 'has', 'have', 'had', 'was', 'were', 'am', 'do', 'does', 'did',
+  'but', 'than', 'about', 'also', 'just', 'any', 'all', 'some', 'no', 'not',
+  'her', 'his', 'him', 'she', 'he', 'me', 'my', 'us',
+  // Common EMS-chatter contractions
+  "i've", 'i’ve', "i'll", 'i’ll', "let's", 'let’s', "that's", 'that’s',
+  "you've", 'you’ve', "you'll", 'you’ll', "we'll", 'we’ll', "we're", 'we’re',
+  "i'm", 'i’m', "don't", 'don’t', "can't", 'can’t',
+]);
+
+function tokenizeAdvice(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[—–-]+/g, ' ')
+    // Keep letters/digits/apostrophes/slashes (e.g. iv/io, mg/kg, J/kg).
+    .replace(/[^\p{L}\p{N}'’/]+/gu, ' ')
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 1 && !ADVICE_STOPWORDS.has(t));
+}
+
+/**
+ * Jaccard similarity over normalized, stopword-filtered word tokens.
+ * Returns a value in [0, 1]. 1 = identical token sets, 0 = no overlap.
+ */
+export function partnerAdviceTokenSimilarity(a: string, b: string): number {
+  const A = new Set(tokenizeAdvice(a));
+  const B = new Set(tokenizeAdvice(b));
+  if (A.size === 0 && B.size === 0) return 1;
+  if (A.size === 0 || B.size === 0) return 0;
+  let inter = 0;
+  for (const t of A) if (B.has(t)) inter++;
+  const union = A.size + B.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+/**
  * Returns whether a proactive advice call is allowed at this simulation second.
+ *
+ * Dedup logic, when `proposedAdviceText` is provided:
+ * 1. Exact (trimmed) match within `dedupeWindowSec` ⇒ reject.
+ * 2. Token-set Jaccard similarity ≥ `tokenSimilarityDedup` against any recent
+ *    advice within the same window ⇒ reject (catches paraphrases).
  */
 export function canIssueProactiveAdvice(args: {
   currentSimTime: number;
@@ -109,12 +164,17 @@ export function canIssueProactiveAdvice(args: {
     return false;
   }
 
-  const txt = args.proposedAdviceText;
+  const txt = args.proposedAdviceText?.trim();
   if (txt) {
-    const dup = args.lastAdviceTexts.some(
-      (e) =>
-        e.text.trim() === txt.trim() && t - e.simTime <= gate.dedupeWindowSec,
-    );
+    const dup = args.lastAdviceTexts.some((e) => {
+      if (t - e.simTime > gate.dedupeWindowSec) return false;
+      const prior = e.text.trim();
+      if (prior === txt) return true;
+      if (gate.tokenSimilarityDedup <= 0) return false;
+      return (
+        partnerAdviceTokenSimilarity(prior, txt) >= gate.tokenSimilarityDedup
+      );
+    });
     if (dup) return false;
   }
 

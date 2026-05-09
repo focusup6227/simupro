@@ -1,0 +1,3586 @@
+[
+  {
+    "id": "MED_ACETAMINOPHEN",
+    "type": "MEDICATION",
+    "name": "Acetaminophen",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Pain",
+      "Fever"
+    ],
+    "contraindications": [
+      "Acetaminophen allergy",
+      "Severe acute liver disease"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "650–1000 mg PO per protocol",
+        "pediatric": "15 mg/kg PO per protocol (max per local guideline)"
+      }
+    }
+  },
+  {
+    "id": "MED_ACETAZOLAMIDE",
+    "type": "MEDICATION",
+    "name": "Acetazolamide",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute mountain sickness"
+    ],
+    "contraindications": [
+      "Hypokalemia",
+      "Hyponatremia",
+      "Sulfa allergy",
+      "Severe liver or renal disease",
+      "Angle-closure glaucoma"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Per altitude illness / toxinology protocol",
+        "pediatric": "Per protocol; weight-based"
+      }
+    }
+  },
+  {
+    "id": "MED_ACETIC_ACID",
+    "type": "MEDICATION",
+    "name": "Acetic acid (vinegar)",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Jellyfish envenomation pain (non-US species)"
+    ],
+    "contraindications": [
+      "US jellyfish envenomation—may worsen discharge"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Topical/acetic acid irrigation per envenomation protocol",
+        "pediatric": "Per toxinology protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_ACETYLCYSTEINE",
+    "type": "MEDICATION",
+    "name": "Acetylcysteine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acetaminophen overdose / suspected hepatotoxicity"
+    ],
+    "contraindications": [
+      "Acute asthma (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Per regional poison center protocol (AC loading/maintenance)",
+        "pediatric": "Per poison center; weight-based",
+        "maxDose": "Per poison center"
+      }
+    }
+  },
+  {
+    "id": "MED_ACTIVATED_CHARCOAL",
+    "type": "MEDICATION",
+    "name": "Activated Charcoal",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Toxic ingestion (appropriate substances)"
+    ],
+    "contraindications": [
+      "Unprotected airway",
+      "Caustic ingestion",
+      "Bowel obstruction",
+      "Relative: sorbitol no longer co-administered"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "1 g/kg PO (usual adult dose 50–100 g) per poisoning protocol",
+        "pediatric": "1 g/kg PO per poisoning protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_ADENOSINE",
+    "type": "MEDICATION",
+    "name": "Adenosine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Stable regular narrow-complex SVT",
+      "Regular monomorphic wide-complex tachycardia when indicated"
+    ],
+    "contraindications": [
+      "Second- or third-degree AV block (without pacemaker)",
+      "Sick sinus syndrome",
+      "Asthmatic VT",
+      "Atrial flutter/fibrillation for termination",
+      "Polymorphic VT"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "6 mg IV rapid push with 10 mL flush; then 12 mg per tachycardia protocol",
+        "pediatric": "0.1 mg/kg IV rapid push (first dose max 6 mg); subsequent 0.2 mg/kg per protocol"
+      },
+      "concentration": "3 mg/mL (typical vial dilution per agency)"
+    }
+  },
+  {
+    "id": "MED_ALBUTEROL",
+    "type": "MEDICATION",
+    "name": "Albuterol",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Bronchospasm",
+      "Anaphylaxis with bronchospasm",
+      "Asthma",
+      "COPD exacerbation"
+    ],
+    "contraindications": [
+      "Hypersensitivity",
+      "Tachycardia from structural heart disease (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "NEB"
+      ],
+      "dosages": {
+        "adult": "2.5–5 mg nebulized",
+        "pediatric": "2.5–5 mg nebulized per guideline"
+      }
+    }
+  },
+  {
+    "id": "MED_AMIODARONE",
+    "type": "MEDICATION",
+    "name": "Amiodarone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Stable wide-complex tachycardia",
+      "VF/pulseless VT refractory to CPR/shock/epinephrine",
+      "Atrial fibrillation rate control when indicated"
+    ],
+    "contraindications": [
+      "Hypersensitivity",
+      "Severe sinus node dysfunction",
+      "High-grade AV block without pacemaker",
+      "Bradycardic syncope without pacemaker",
+      "Cardiogenic shock"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "Stable: 150 mg IV over 10 min; cardiac arrest: 300 mg IV/IO (may consider 150 mg repeat); infusion per post-ROSC care",
+        "pediatric": "5 mg/kg IV/IO (max 300 mg) for VF/pulseless VT per arrest protocol",
+        "maxDose": "300 mg bolus (arrest); 150 mg for stable wide-complex"
+      }
+    }
+  },
+  {
+    "id": "MED_AMYL_NITRITE",
+    "type": "MEDICATION",
+    "name": "Amyl Nitrite",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Suspected cyanide poisoning (kit adjunct)"
+    ],
+    "contraindications": [
+      "Smoke inhalation with suspected CO poisoning",
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IN"
+      ],
+      "dosages": {
+        "adult": "Per cyanide antidote kit / protocol",
+        "pediatric": "Per cyanide kit protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_ASA",
+    "type": "MEDICATION",
+    "name": "Aspirin",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Suspected ACS"
+    ],
+    "contraindications": [
+      "ASA/NSAID hypersensitivity",
+      "Active GI bleed",
+      "Bleeding diathesis",
+      "Pediatric viral illness (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "162–325 mg chewable PO (non–enteric-coated preferred)",
+        "pediatric": "Not routinely for ACS in pediatrics—per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_ATROPINE",
+    "type": "MEDICATION",
+    "name": "Atropine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Symptomatic bradycardia",
+      "Organophosphate/nerve agent toxicity"
+    ],
+    "contraindications": [
+      "None for ACLS tox scenarios (relative glaucoma, obstruction)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "Bradycardia: 1 mg IV q3–5min (max 3 mg) per bradycardia protocol",
+        "pediatric": "0.02 mg/kg IV/IO (single dose min 0.1 mg, max child dose 0.5 mg) q5min per protocol",
+        "maxDose": "Adult max 3 mg bradycardia"
+      }
+    }
+  },
+  {
+    "id": "MED_CALCIUM_CHLORIDE",
+    "type": "MEDICATION",
+    "name": "Calcium Chloride",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hyperkalemia with ECG changes",
+      "Calcium channel blocker overdose",
+      "HF acid skin burn (adjunct)"
+    ],
+    "contraindications": [
+      "Hypercalcemia",
+      "Digitalis toxicity (relative)",
+      "Extravasation risk"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "1 g slow IV (10% solution) for hyperkalemia/CCB OD per protocol; pediatrics 20 mg/kg (0.2 mL/kg)",
+        "pediatric": "20 mg/kg IV (0.2 mL/kg of 10%) slow per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_CALCIUM_GLUCONATE",
+    "type": "MEDICATION",
+    "name": "Calcium Gluconate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hyperkalemia with ECG changes",
+      "Calcium channel blocker overdose",
+      "HF acid exposure protocol"
+    ],
+    "contraindications": [
+      "Hypercalcemia",
+      "Digitalis toxicity (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "1 g IV slow over 2 min; pediatrics 100 mg/kg (1 mL/kg of 10%)",
+        "pediatric": "100 mg/kg IV (1 mL/kg 10%) slow; may repeat per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_CIMETIDINE",
+    "type": "MEDICATION",
+    "name": "Cimetidine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Allergic reaction adjunct (H2 blocker)"
+    ],
+    "contraindications": [
+      "Cimetidine hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Per allergic reaction protocol (adjunct to diphenhydramine)",
+        "pediatric": "Per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_DEXAMETHASONE",
+    "type": "MEDICATION",
+    "name": "Dexamethasone",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Croup",
+      "Bronchospasm",
+      "High-altitude cerebral edema"
+    ],
+    "contraindications": [
+      "Systemic fungal infection",
+      "Cerebral malaria"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "0.1–0.6 mg/kg per croup/asthma protocol (agency-specific)",
+        "pediatric": "0.15–0.6 mg/kg IM/IV for croup per guideline"
+      }
+    }
+  },
+  {
+    "id": "MED_DEXTROSE_10",
+    "type": "MEDICATION",
+    "name": "Dextrose 10%",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Hypoglycemia"
+    ],
+    "contraindications": [
+      "Hyperglycemia",
+      "Intracranial hemorrhage (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO"
+      ],
+      "dosages": {
+        "adult": "D10 infusion or incremental boluses until mental status improves per hypoglycemia protocol",
+        "pediatric": "D10 preferred all ages—incremental boluses per protocol (e.g. 5 mL/kg)"
+      },
+      "concentration": "10% dextrose"
+    }
+  },
+  {
+    "id": "MED_DEXTROSE_50",
+    "type": "MEDICATION",
+    "name": "Dextrose 50%",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Hypoglycemia when D10 not carried"
+    ],
+    "contraindications": [
+      "Extravasation risk",
+      "Hyperglycemia"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO"
+      ],
+      "dosages": {
+        "adult": "25–50 mL slow IV (typical) per hypoglycemia protocol",
+        "pediatric": "Avoid D50 in pediatrics—use D10 per guideline"
+      },
+      "concentration": "50% dextrose"
+    }
+  },
+  {
+    "id": "MED_DIAZEPAM",
+    "type": "MEDICATION",
+    "name": "Diazepam",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Seizure",
+      "Agitated violent patient",
+      "Skeletal muscle relaxation"
+    ],
+    "contraindications": [
+      "Severe respiratory depression"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO",
+        "IM",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "5–10 mg IV per seizure/behavioral protocol",
+        "pediatric": "0.2–0.3 mg/kg IV (max per protocol) for seizures"
+      }
+    }
+  },
+  {
+    "id": "MED_DILTIAZEM",
+    "type": "MEDICATION",
+    "name": "Diltiazem",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Stable narrow-complex SVT / rapid AF with RVR when appropriate"
+    ],
+    "contraindications": [
+      "Hypotension SBP <90",
+      "WPW with AF",
+      "High-grade AV block without pacemaker",
+      "Acute MI (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "0.25 mg/kg IV over 2 minutes (repeat 0.35 mg/kg in 15 min per protocol)",
+        "pediatric": "Not first-line in pediatrics—per medical direction",
+        "maxDose": "typically adult bolus caps per agency"
+      }
+    }
+  },
+  {
+    "id": "MED_DIPHENHYDRAMINE",
+    "type": "MEDICATION",
+    "name": "Diphenhydramine",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Allergic reaction urticaria",
+      "Anaphylaxis adjunct",
+      "Dystonic reaction"
+    ],
+    "contraindications": [
+      "Diphenhydramine hypersensitivity",
+      "Acute asthma (controversial)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "25–50 mg IV/IM/PO per anaphylaxis protocol",
+        "pediatric": "1 mg/kg IM/IV/PO (max 50 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_DOPAMINE",
+    "type": "MEDICATION",
+    "name": "Dopamine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Shock with hypotension after volume"
+    ],
+    "contraindications": [
+      "Pheochromocytoma",
+      "VF",
+      "Uncorrected tachyarrhythmia"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "2–20 mcg/kg/min IV infusion titrate to MAP per shock protocol",
+        "pediatric": "2–20 mcg/kg/min IV per shock protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_DROPERIDOL",
+    "type": "MEDICATION",
+    "name": "Droperidol",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute psychosis / severe agitation"
+    ],
+    "contraindications": [
+      "Prolonged QT",
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "Low-dose IM/IV per behavioral emergency protocol (monitor ECG)",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_EPI_1_1000",
+    "type": "MEDICATION",
+    "name": "Epinephrine (1 mg/mL)",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Anaphylaxis",
+      "Bronchospasm with wheeze (nebulized)",
+      "Stridor (nebulized epinephrine)"
+    ],
+    "contraindications": [
+      "None in life-threatening anaphylaxis"
+    ],
+    "medicationData": {
+      "routes": [
+        "IM",
+        "NEB"
+      ],
+      "dosages": {
+        "adult": "Anaphylaxis: 0.3 mg IM lateral thigh; Neb: 5 mL of 1 mg/mL nebulized",
+        "pediatric": "Anaphylaxis: 0.15 mg IM (<25 kg); Neb: per protocol"
+      },
+      "concentration": "1 mg/mL"
+    }
+  },
+  {
+    "id": "MED_EPI_1_10000",
+    "type": "MEDICATION",
+    "name": "Epinephrine (0.1 mg/mL)",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Cardiac arrest",
+      "Push-dose vasopressor",
+      "Post-resuscitation shock",
+      "Severe anaphylaxis IV drip after IM failures"
+    ],
+    "contraindications": [
+      "None in cardiac arrest"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO"
+      ],
+      "dosages": {
+        "adult": "Arrest: 1 mg IV/IO q3–5min OR 0.1 mg/kg IV/IO (max 1 mg) first/second cycle per local guideline; push-dose: 1 mL of 0.1 mg/mL in 9 mL NS then 0.01 mg/kg boluses per perfusion protocol",
+        "pediatric": "0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) per arrest/perfusion protocol; max per guideline"
+      },
+      "concentration": "0.1 mg/mL"
+    }
+  },
+  {
+    "id": "MED_FAMOTIDINE",
+    "type": "MEDICATION",
+    "name": "Famotidine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Allergic reaction adjunct (H2 blocker)"
+    ],
+    "contraindications": [
+      "Famotidine hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "20 mg IV per anaphylaxis adjunct protocol",
+        "pediatric": "Per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_FENTANYL",
+    "type": "MEDICATION",
+    "name": "Fentanyl",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe acute pain"
+    ],
+    "contraindications": [
+      "Hypersensitivity",
+      "Severe respiratory depression risk"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IN",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "25–100 mcg slow IV titrated per pain protocol",
+        "pediatric": "1–2 mcg/kg slow IV per pain protocol (max per agency)"
+      }
+    }
+  },
+  {
+    "id": "MED_GLUCAGON",
+    "type": "MEDICATION",
+    "name": "Glucagon",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Hypoglycemia (no IV access)",
+      "Beta-blocker / CCB overdose bradycardia"
+    ],
+    "contraindications": [
+      "Pheochromocytoma",
+      "Insulinoma"
+    ],
+    "medicationData": {
+      "routes": [
+        "IM",
+        "IN",
+        "IV"
+      ],
+      "dosages": {
+        "adult": "Hypoglycemia: 1 unit IM; BB/CCB OD: 5 mg IV bolus then repeat per guideline",
+        "pediatric": "Hypoglycemia 0.5–1 mg IM; BB/CCB: 0.05 mg/kg IV boluses per tox protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_HALOPERIDOL",
+    "type": "MEDICATION",
+    "name": "Haloperidol",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute psychosis",
+      "Violent agitation refractory to de-escalation"
+    ],
+    "contraindications": [
+      "NMS",
+      "Parkinson disease",
+      "Coma",
+      "Severe CNS depression"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "2–5 mg IM/IV per behavioral protocol (monitor QT)",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_HELIOX",
+    "type": "MEDICATION",
+    "name": "Heliox (helium-oxygen)",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe bronchospasm refractory to standard care",
+      "Pediatric croup refractory"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "medicationData": {
+      "routes": [
+        "NEB"
+      ],
+      "dosages": {
+        "adult": "Heliox via tight-fitting mask / neb per respiratory distress protocol",
+        "pediatric": "Same"
+      }
+    }
+  },
+  {
+    "id": "MED_HYDRALAZINE",
+    "type": "MEDICATION",
+    "name": "Hydralazine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe hypertension with pre-eclampsia features"
+    ],
+    "contraindications": [
+      "Coronary artery disease",
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "5–10 mg IV slow per OB emergency protocol",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_HYDROCORTISONE",
+    "type": "MEDICATION",
+    "name": "Hydrocortisone succinate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Adrenal insufficiency crisis",
+      "Severe asthma adjunct"
+    ],
+    "contraindications": [
+      "Untreated systemic infection (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "100 mg IV bolus per adrenal crisis protocol",
+        "pediatric": "2 mg/kg IV per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_HYDROMORPHONE",
+    "type": "MEDICATION",
+    "name": "Hydromorphone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute severe pain"
+    ],
+    "contraindications": [
+      "Hypersensitivity",
+      "Severe respiratory depression"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "0.5–2 mg slow IV titrate per pain protocol",
+        "pediatric": "Per weight protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_HYDROXOCOBALAMIN",
+    "type": "MEDICATION",
+    "name": "Hydroxocobalamin",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Cyanide poisoning"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "5 g IV over 15 min (kit dosing) per cyanide protocol",
+        "pediatric": "70 mg/kg IV per kit (max 5 g)"
+      }
+    }
+  },
+  {
+    "id": "MED_IBUPROFEN",
+    "type": "MEDICATION",
+    "name": "Ibuprofen",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Pain",
+      "Fever"
+    ],
+    "contraindications": [
+      "Aspirin allergy",
+      "Active bleeding",
+      "Third-trimester pregnancy"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "400–600 mg PO",
+        "pediatric": "10 mg/kg PO per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_IPRATROPIUM",
+    "type": "MEDICATION",
+    "name": "Ipratropium",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Asthma",
+      "COPD exacerbation"
+    ],
+    "contraindications": [
+      "Hypersensitivity to ipratropium/atropine"
+    ],
+    "medicationData": {
+      "routes": [
+        "NEB"
+      ],
+      "dosages": {
+        "adult": "0.5 mg neb mixed with albuterol",
+        "pediatric": "0.25–0.5 mg neb per guideline"
+      }
+    }
+  },
+  {
+    "id": "MED_ISOPROPYL_ALCOHOL",
+    "type": "MEDICATION",
+    "name": "Isopropyl alcohol",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Nausea (inhaled topical technique—rare)"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "medicationData": {
+      "routes": [
+        "IN"
+      ],
+      "dosages": {
+        "adult": "Not routine; per nausea protocol",
+        "pediatric": "Avoid"
+      }
+    }
+  },
+  {
+    "id": "MED_KETAMINE",
+    "type": "MEDICATION",
+    "name": "Ketamine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe agitation",
+      "Pain (dissociative dosing)",
+      "RSI adjunct per protocol"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM",
+        "IN"
+      ],
+      "dosages": {
+        "adult": "1–2 mg/kg IV or 4–5 mg/kg IM for sedation per protocol",
+        "pediatric": "1–1.5 mg/kg IV; 3–5 mg/kg IM"
+      }
+    }
+  },
+  {
+    "id": "MED_KETOROLAC",
+    "type": "MEDICATION",
+    "name": "Ketorolac",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Moderate–severe pain when NSAID appropriate"
+    ],
+    "contraindications": [
+      "Active GI bleed",
+      "Renal failure",
+      "Bleeding disorder",
+      "Third trimester"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "15–30 mg IV/IM (max daily per policy)",
+        "pediatric": "0.5 mg/kg IV/IM (max 15 mg) per protocol",
+        "maxDose": "Agency max daily dose"
+      }
+    }
+  },
+  {
+    "id": "MED_LABETALOL",
+    "type": "MEDICATION",
+    "name": "Labetalol",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe hypertension pre-eclampsia",
+      "Aortic dissection adjunct (when ordered)"
+    ],
+    "contraindications": [
+      "Asthma",
+      "Bradycardia",
+      "Heart block without pacemaker"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "10–20 mg IV slow; double dose q10min per severe hypertension protocol",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_LIDOCAINE",
+    "type": "MEDICATION",
+    "name": "Lidocaine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "VF/pulseless VT alternative to amiodarone",
+      "Stable wide-complex VT (rare—per ACLS-trained protocols)"
+    ],
+    "contraindications": [
+      "Hypersensitivity to amide anesthetics",
+      "High-grade blocks without pacemaker"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO"
+      ],
+      "dosages": {
+        "adult": "Arrest: 1–1.5 mg/kg IV; repeat 0.5–0.75 mg/kg",
+        "pediatric": "1 mg/kg IV/IO load per arrest",
+        "maxDose": "3 mg/kg single course approx"
+      }
+    }
+  },
+  {
+    "id": "MED_LORAZEPAM",
+    "type": "MEDICATION",
+    "name": "Lorazepam",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Status epilepticus",
+      "Agitation",
+      "Hypothermia shivering"
+    ],
+    "contraindications": [
+      "Severe respiratory depression",
+      "Acute narrow-angle glaucoma"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "0.1 mg/kg IV (max 4 mg) per seizure protocol",
+        "pediatric": "0.1 mg/kg IV/IO (max 4 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_MAGNESIUM_SULFATE",
+    "type": "MEDICATION",
+    "name": "Magnesium sulfate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Torsades de pointes",
+      "Refractory bronchospasm",
+      "Eclampsia / pre-eclampsia seizure"
+    ],
+    "contraindications": [
+      "Hypermagnesemia",
+      "Heart block",
+      "Myocardial damage (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "Torsades: 2 g IV over 1–2 min; OB: 4 g load per eclampsia protocol; bronchospasm: 2 g IV over 20 min",
+        "pediatric": "Torsades 25–50 mg/kg; asthma 40 mg/kg max 2 g over 15–30 min per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_METHYLPREDNISOLONE",
+    "type": "MEDICATION",
+    "name": "Methylprednisolone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe bronchospasm",
+      "Adrenal crisis",
+      "Spinal cord injury protocol (agency-specific)"
+    ],
+    "contraindications": [
+      "Untreated infection (relative)",
+      "High-dose contraindicated TBI policy in some systems"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "40–125 mg IV per asthma protocol",
+        "pediatric": "1–2 mg/kg IV (max 125 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_METOCLOPRAMIDE",
+    "type": "MEDICATION",
+    "name": "Metoclopramide",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Nausea and vomiting"
+    ],
+    "contraindications": [
+      "GI hemorrhage",
+      "Mechanical obstruction",
+      "Seizure disorder"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "10 mg IV slow",
+        "pediatric": "0.1 mg/kg IV (max 10 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_METOPROLOL",
+    "type": "MEDICATION",
+    "name": "Metoprolol",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Stable narrow-complex tachycardia when appropriate"
+    ],
+    "contraindications": [
+      "Severe bradycardia",
+      "Decompensated heart failure",
+      "High-grade AV block"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "2.5–5 mg IV slow q5min (max 15 mg) per rate-control protocol",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_MIDAZOLAM",
+    "type": "MEDICATION",
+    "name": "Midazolam",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Seizures",
+      "Agitated patient",
+      "RSI adjunct"
+    ],
+    "contraindications": [
+      "Severe respiratory depression"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO",
+        "IM",
+        "IN"
+      ],
+      "dosages": {
+        "adult": "Seizure: 0.2 mg/kg IM (max 10 mg) or 0.1 mg/kg IV (max 4 mg) per guideline",
+        "pediatric": "0.2 mg/kg IM max 10; IV 0.1 mg/kg max 4 mg"
+      }
+    }
+  },
+  {
+    "id": "MED_MORPHINE",
+    "type": "MEDICATION",
+    "name": "Morphine sulfate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "ACS pain",
+      "Severe pain"
+    ],
+    "contraindications": [
+      "Severe respiratory depression",
+      "Unstable ventilation"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "2–4 mg slow IV titrate per pain/ACS protocol",
+        "pediatric": "0.05–0.1 mg/kg IV per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_NALOXONE",
+    "type": "MEDICATION",
+    "name": "Naloxone",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Suspected opioid toxicity"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM",
+        "IN"
+      ],
+      "dosages": {
+        "adult": "IN/IM/IV 0.4–2 mg titrate to breathing (device-specific: 4 mg IN spray common)",
+        "pediatric": "0.04–0.1 mg/kg IV/IM/IN; escalate per guideline"
+      }
+    }
+  },
+  {
+    "id": "MED_NIFEDIPINE",
+    "type": "MEDICATION",
+    "name": "Nifedipine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "High-altitude pulmonary edema"
+    ],
+    "contraindications": [
+      "Cardiogenic shock",
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "30 mg XR PO per altitude protocol (immediate-release not for hypertensive emergency)",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_NITROGLYCERIN",
+    "type": "MEDICATION",
+    "name": "Nitroglycerin",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Chest pain / ACS",
+      "Acute pulmonary edema preload reduction"
+    ],
+    "contraindications": [
+      "SBP <90 or ≥30 below baseline",
+      "Recent PDE-5 inhibitor",
+      "RV infarct (relative)",
+      "Bradycardia <50"
+    ],
+    "medicationData": {
+      "routes": [
+        "SL",
+        "IV"
+      ],
+      "dosages": {
+        "adult": "0.4 mg SL q3–5min if SBP >100; infusion per pulmonary edema protocol",
+        "pediatric": "Rare—per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_NITROUS_OXIDE",
+    "type": "MEDICATION",
+    "name": "Nitrous oxide",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Self-administered analgesia where authorized"
+    ],
+    "contraindications": [
+      "Pneumothorax",
+      "Bowel obstruction",
+      "Impaired ventilation"
+    ],
+    "medicationData": {
+      "routes": [
+        "IN"
+      ],
+      "dosages": {
+        "adult": "50% N2O with O2 patient-controlled per pain protocol",
+        "pediatric": "Per policy"
+      }
+    }
+  },
+  {
+    "id": "MED_NOREPINEPHRINE",
+    "type": "MEDICATION",
+    "name": "Norepinephrine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Refractory hypotension / shock"
+    ],
+    "contraindications": [
+      "Hypovolemia uncorrected"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "0.02–0.4 mcg/kg/min IV titrate to MAP per shock protocol",
+        "pediatric": "0.05–0.3 mcg/kg/min per shock protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_OLANZAPINE",
+    "type": "MEDICATION",
+    "name": "Olanzapine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute agitation / psychosis"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "5–10 mg IM per behavioral protocol (observe post-dose)",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "MED_ONDANSETRON",
+    "type": "MEDICATION",
+    "name": "Ondansetron",
+    "category": "Pharmacology",
+    "minLevel": "AEMT",
+    "indications": [
+      "Nausea and vomiting"
+    ],
+    "contraindications": [
+      "Apomorphine co-administration",
+      "Long QT (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM",
+        "PO"
+      ],
+      "dosages": {
+        "adult": "4–8 mg IV/IM/ODT",
+        "pediatric": "0.15 mg/kg IV (max 8 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_OXYMETAZOLINE",
+    "type": "MEDICATION",
+    "name": "Oxymetazoline",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Epistaxis with facial trauma"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IN"
+      ],
+      "dosages": {
+        "adult": "Topical intranasal per epistaxis protocol",
+        "pediatric": "Dose per age/product label"
+      }
+    }
+  },
+  {
+    "id": "MED_POTASSIUM_IODIDE",
+    "type": "MEDICATION",
+    "name": "Potassium iodide",
+    "category": "Pharmacology",
+    "minLevel": "EMT",
+    "indications": [
+      "Radioiodine exposure prophylaxis"
+    ],
+    "contraindications": [
+      "Iodine sensitivity contexts per protocol",
+      "Hyperthyroidism"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "130 mg PO daily during radiation emergency per public health dosing",
+        "pediatric": "Age-based public health dosing (65 mg tablets crush)"
+      }
+    }
+  },
+  {
+    "id": "MED_PRALIDOXIME",
+    "type": "MEDICATION",
+    "name": "Pralidoxime chloride (2-PAM)",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Organophosphate / nerve agent exposure"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "1–2 g IV per tox protocol (autoinjector kit dosing)",
+        "pediatric": "20–40 mg/kg IV per tox protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_PREDNISOLONE",
+    "type": "MEDICATION",
+    "name": "Prednisolone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Pediatric asthma / croup oral steroid"
+    ],
+    "contraindications": [
+      "Same as prednisone"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Liquid equivalent per prednisone dose",
+        "pediatric": "1–2 mg/kg PO per guideline"
+      }
+    }
+  },
+  {
+    "id": "MED_PREDNISONE",
+    "type": "MEDICATION",
+    "name": "Prednisone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Severe asthma / COPD",
+      "Allergic reaction when steroid indicated"
+    ],
+    "contraindications": [
+      "Untreated serious infection",
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "40–60 mg PO per respiratory protocol",
+        "pediatric": "1–2 mg/kg PO (max 60 mg)"
+      }
+    }
+  },
+  {
+    "id": "MED_PROCAINAMIDE",
+    "type": "MEDICATION",
+    "name": "Procainamide",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Stable wide-complex tachycardia (alternative agent)"
+    ],
+    "contraindications": [
+      "Torsades",
+      "High-grade AV block",
+      "SLE (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "20–50 mg/min until arrhythmia suppressed or max 17 mg/kg—follow local infusion policy",
+        "pediatric": "15 mg/kg load over 30–60 min per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_PROCHLORPERAZINE",
+    "type": "MEDICATION",
+    "name": "Prochlorperazine",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Nausea / vomiting"
+    ],
+    "contraindications": [
+      "Pediatric <2 years or <9 kg",
+      "Coma",
+      "Phenothiazine allergy"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IM"
+      ],
+      "dosages": {
+        "adult": "5–10 mg IV/IM",
+        "pediatric": "0.15 mg/kg IM/IV per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_SILDENAFIL",
+    "type": "MEDICATION",
+    "name": "Sildenafil",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "HAPE adjunct to descent when prescribed"
+    ],
+    "contraindications": [
+      "Concomitant nitrates"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Per altitude medicine protocol only",
+        "pediatric": "Not routine"
+      }
+    }
+  },
+  {
+    "id": "MED_SODIUM_BICARBONATE",
+    "type": "MEDICATION",
+    "name": "Sodium bicarbonate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hyperkalemia with arrest",
+      "Tricyclic overdose wide-complex",
+      "Severe metabolic acidosis per protocol"
+    ],
+    "contraindications": [
+      "Severe alkalosis",
+      "Hypocalcemia (relative)"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV",
+        "IO"
+      ],
+      "dosages": {
+        "adult": "1 mEq/kg IV bolus for TCA OD or hyperkalemia per arrest/tox protocol",
+        "pediatric": "1 mEq/kg IV per protocol"
+      }
+    }
+  },
+  {
+    "id": "MED_SODIUM_NITRITE",
+    "type": "MEDICATION",
+    "name": "Sodium nitrite",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Cyanide toxicity kit"
+    ],
+    "contraindications": [
+      "Smoke inhalation with CO poisoning"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "300 mg IV over 5+ minutes per Nithiodote kit (follow protocol)",
+        "pediatric": "Weight-based kit dosing"
+      }
+    }
+  },
+  {
+    "id": "MED_SODIUM_THIOSULFATE",
+    "type": "MEDICATION",
+    "name": "Sodium thiosulfate",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Cyanide toxicity (kit adjunct)"
+    ],
+    "contraindications": [
+      "Hypersensitivity"
+    ],
+    "medicationData": {
+      "routes": [
+        "IV"
+      ],
+      "dosages": {
+        "adult": "12.5 g IV per kit following sodium nitrite",
+        "pediatric": "412.5 mg/kg IV (max 12.5 g)"
+      }
+    }
+  },
+  {
+    "id": "MED_SORBITOL",
+    "type": "MEDICATION",
+    "name": "Sorbitol",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Historically with charcoal—not recommended co-administration per NASEMSO note"
+    ],
+    "contraindications": [
+      "Undifferentiated abdominal pain"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Not routine—per poisoning specialist only",
+        "pediatric": "Avoid routine"
+      }
+    }
+  },
+  {
+    "id": "MED_TADALAFIL",
+    "type": "MEDICATION",
+    "name": "Tadalafil",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "HAPE adjunct when prescribed"
+    ],
+    "contraindications": [
+      "Concomitant nitrates"
+    ],
+    "medicationData": {
+      "routes": [
+        "PO"
+      ],
+      "dosages": {
+        "adult": "Per altitude medicine / MD order",
+        "pediatric": "Not routine"
+      }
+    }
+  },
+  {
+    "id": "MED_ZIPRASIDONE",
+    "type": "MEDICATION",
+    "name": "Ziprasidone",
+    "category": "Pharmacology",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Acute agitation"
+    ],
+    "contraindications": [
+      "QT prolongation",
+      "Recent MI",
+      "Decompensated CHF"
+    ],
+    "medicationData": {
+      "routes": [
+        "IM"
+      ],
+      "dosages": {
+        "adult": "10–20 mg IM per behavioral protocol",
+        "pediatric": "Per medical direction"
+      }
+    }
+  },
+  {
+    "id": "PROC_12_LEAD_EKG",
+    "type": "PROCEDURE",
+    "name": "12-lead ECG acquisition",
+    "category": "Cardiac",
+    "minLevel": "AEMT",
+    "indications": [
+      "Chest pain",
+      "Suspected ACS",
+      "Syncope unexplained",
+      "Wide-complex tachycardia evaluation"
+    ],
+    "contraindications": [
+      "None when clinically indicated"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "ECG machine",
+        "Electrodes",
+        "Razor/skin prep"
+      ],
+      "parameters": "Obtain within 10 minutes of contact for ACS suspicion",
+      "successCriteria": "Diagnostic-quality tracing transmitted or hand-delivered"
+    }
+  },
+  {
+    "id": "PROC_AED_USE",
+    "type": "PROCEDURE",
+    "name": "AED application and shock delivery",
+    "category": "Cardiac",
+    "minLevel": "EMT",
+    "indications": [
+      "Cardiac arrest",
+      "Unwitnessed collapse with no pulse"
+    ],
+    "contraindications": [
+      "Wet chest—dry before pads"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "AED",
+        "Defibrillator pads"
+      ],
+      "parameters": "Follow device audio prompts; shock when indicated",
+      "successCriteria": "VF/VT terminated or device advises no shock; CPR resumed immediately"
+    }
+  },
+  {
+    "id": "PROC_BAG_VALVE_MASK",
+    "type": "PROCEDURE",
+    "name": "Bag-valve-mask ventilation",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Respiratory failure",
+      "Apnea",
+      "Preoxygenation prior to airway placement"
+    ],
+    "contraindications": [
+      "None when alternative ventilation required"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "BVM",
+        "Oxygen supply",
+        "OPA/NPA appropriate size"
+      ],
+      "parameters": "Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline",
+      "successCriteria": "Visible chest rise; SpO2 improves or CO2 trace when monitored"
+    }
+  },
+  {
+    "id": "PROC_BIPAP",
+    "type": "PROCEDURE",
+    "name": "Non-invasive positive pressure ventilation (BiPAP)",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Respiratory failure with spontaneous ventilation",
+      "Pulmonary edema with distress"
+    ],
+    "contraindications": [
+      "Apnea",
+      "Unable to protect airway",
+      "Severe facial trauma (relative)"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "BiPAP device",
+        "Mask",
+        "Capnography if available"
+      ],
+      "parameters": "IPAP/EPAP per protocol; continuous SpO2 monitoring",
+      "successCriteria": "Reduced work of breathing; improved SpO2 and mentation"
+    }
+  },
+  {
+    "id": "PROC_CAPNOGRAPHY",
+    "type": "PROCEDURE",
+    "name": "Continuous waveform capnography",
+    "category": "Airway",
+    "minLevel": "AEMT",
+    "indications": [
+      "Procedural sedation",
+      "Intubated patient transport",
+      "CPR quality assessment"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "EtCO2 sensor",
+        "Monitor"
+      ],
+      "parameters": "Use EtCO2 numeric and waveform for tube confirmation and ROSC detection",
+      "successCriteria": "Appropriate waveform for clinical context; abrupt change investigated"
+    }
+  },
+  {
+    "id": "PROC_CARDIAC_MONITORING",
+    "type": "PROCEDURE",
+    "name": "Rhythm interpretation and cardiac monitoring",
+    "category": "Cardiac",
+    "minLevel": "AEMT",
+    "indications": [
+      "Chest pain",
+      "Dysrhythmia symptoms",
+      "Post-arrest care",
+      "Wide-complex tachycardia"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Monitor",
+        "Defibrillation pads"
+      ],
+      "parameters": "Lead II / 12-lead per presentation",
+      "successCriteria": "Rhythm classified; therapy matched to guideline"
+    }
+  },
+  {
+    "id": "PROC_CHEST_SEAL",
+    "type": "PROCEDURE",
+    "name": "Occlusive chest seal",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Open chest wound",
+      "Suspected tension pneumothorax with vented seal protocol"
+    ],
+    "contraindications": [
+      "None when indicated for penetrating trauma"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Commercial chest seal",
+        "Occlusive dressing"
+      ],
+      "parameters": "Three-sided or vented per protocol",
+      "successCriteria": "Seal adheres; ventilatory dynamics monitored"
+    }
+  },
+  {
+    "id": "PROC_CPAP",
+    "type": "PROCEDURE",
+    "name": "Continuous positive airway pressure (CPAP)",
+    "category": "Airway",
+    "minLevel": "AEMT",
+    "indications": [
+      "Pulmonary edema",
+      "Severe respiratory distress with spontaneous breathing"
+    ],
+    "contraindications": [
+      "Respiratory arrest",
+      "Severe hypotension",
+      "Vomiting inability to clear airway"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "CPAP mask",
+        "PEEP valve",
+        "O2 high flow capability"
+      ],
+      "parameters": "Start 5–10 cm H2O typical; titrate per SpO2 and distress",
+      "successCriteria": "Improved SpO2 and reduced RR/work of breathing"
+    }
+  },
+  {
+    "id": "PROC_DEFIBRILLATION",
+    "type": "PROCEDURE",
+    "name": "Unsynchronized defibrillation",
+    "category": "Cardiac",
+    "minLevel": "EMT",
+    "indications": [
+      "VF",
+      "Pulseless VT"
+    ],
+    "contraindications": [
+      "None in shockable arrest"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Defibrillator",
+        "Pads"
+      ],
+      "parameters": "Biphasic per manufacturer; monophasic 360 J adult",
+      "successCriteria": "Rhythm no longer VF after shock; ROSC or organized rhythm"
+    }
+  },
+  {
+    "id": "PROC_GLUCOMETRY",
+    "type": "PROCEDURE",
+    "name": "Point-of-care blood glucose (glucometry)",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Altered mental status",
+      "Seizure",
+      "Hypoglycemia symptoms"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Glucometer",
+        "Test strips",
+        "Lancet"
+      ],
+      "parameters": "Confirm machine calibration; repeat if discordant with clinical picture",
+      "successCriteria": "Accurate glucose documented and treated per guideline"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ABDOMINAL_PAIN",
+    "type": "PROCEDURE",
+    "name": "Abdominal pain assessment and supportive care",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Abdominal pain",
+      "Suspected intra-abdominal emergency"
+    ],
+    "contraindications": [
+      "None for assessment—avoid blind palpation if AAA suspected"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Monitor",
+        "IV supplies",
+        "Antiemetics per protocol"
+      ],
+      "parameters": "Trend vitals; NPO; surgical abdomen considerations",
+      "successCriteria": "Pain trended; timely transport to appropriate facility"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ACS_CHEST_PAIN",
+    "type": "PROCEDURE",
+    "name": "Chest pain / ACS / STEMI care bundle",
+    "category": "Cardiac",
+    "minLevel": "EMT",
+    "indications": [
+      "Chest pain suspected ACS",
+      "STEMI criteria on 12-lead"
+    ],
+    "contraindications": [
+      "Triage delays—minimize scene time"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "12-lead ECG",
+        "Aspirin",
+        "Nitroglycerin if appropriate",
+        "Monitor"
+      ],
+      "parameters": "Aspirin 162–325 mg chewable; SL NTG if SBP >100; STEMI alert",
+      "successCriteria": "Aspirin documented; ECG <10 min; cath lab activation if indicated"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_AGITATED_PATIENT",
+    "type": "PROCEDURE",
+    "name": "Agitated / violent patient—de-escalation and sedation pathway",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Dangerous agitation",
+      "Psychosis with violence risk"
+    ],
+    "contraindications": [
+      "Sedation without monitoring capability"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Restraints",
+        "Sedation agents per scope",
+        "Capnography when sedated"
+      ],
+      "parameters": "Verbal de-escalation first; avoid prone restraint",
+      "successCriteria": "Patient calmer; crew and patient safe"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_AIRWAY_MANAGEMENT",
+    "type": "PROCEDURE",
+    "name": "Universal airway management algorithm",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Airway compromise",
+      "Ventilation failure"
+    ],
+    "contraindications": [
+      "Apnea without immediate BVM—act"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Suction",
+        "OPA/NPA",
+        "BVM",
+        "Advanced airway as level permits"
+      ],
+      "parameters": "Head position; suction; escalate per difficulty",
+      "successCriteria": "Adequate oxygenation and ventilation"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ALTITUDE_ILLNESS",
+    "type": "PROCEDURE",
+    "name": "Altitude illness (AMS/HACE/HAPE) care",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "High-altitude headache with ataxia or AMS",
+      "HAPE hypoxia at altitude"
+    ],
+    "contraindications": [
+      "Delayed descent when HACE/HAPE suspected"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Pulse oximeter",
+        "Portable O2",
+        "Dexamethasone / nifedipine per protocol"
+      ],
+      "parameters": "Descent is definitive; oxygen; avoid sedatives depressing respiration",
+      "successCriteria": "Improved SpO2 and mental status during evacuation"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ANAPHYLAXIS",
+    "type": "PROCEDURE",
+    "name": "Anaphylaxis and allergic reaction management",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Multisystem allergic reaction",
+      "Hypotension with urticaria",
+      "Respiratory compromise from allergy"
+    ],
+    "contraindications": [
+      "None for epinephrine in life-threatening anaphylaxis"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Epinephrine IM",
+        "Albuterol neb",
+        "IV/IO supplies",
+        "Diphenhydramine"
+      ],
+      "parameters": "Epinephrine IM early; IV fluids 20 mL/kg for hypoperfusion",
+      "successCriteria": "Blood pressure and airway improved after first-line therapy"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BETA_BLOCKER_OD",
+    "type": "PROCEDURE",
+    "name": "Beta blocker overdose management",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Bradycardia hypotension with BB ingestion"
+    ],
+    "contraindications": [
+      "Glucagon contraindicated in pheo/insulinoma"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Glucagon",
+        "Calcium",
+        "Pacing pads",
+        "Pressors"
+      ],
+      "parameters": "High-dose glucagon bolus then infusion; consider lipid emulsion per tox",
+      "successCriteria": "Perfusion improves with vasoactive support"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BLAST_INJURY",
+    "type": "PROCEDURE",
+    "name": "Blast injury assessment and early care",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Explosion mechanism",
+      "Multi-casualty blast",
+      "Eardrum injury pattern"
+    ],
+    "contraindications": [
+      "Secondary device suspicion—scene safety"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Tourniquets",
+        "Ventilation supplies",
+        "Thermal burn care"
+      ],
+      "parameters": "Primary blast: barotrauma; secondary: fragmentation; tertiary: blunt; quaternary: tox/burn",
+      "successCriteria": "Rapid triage; life threats addressed"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BRADYCARDIA",
+    "type": "PROCEDURE",
+    "name": "Symptomatic bradycardia management",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hypotensive bradycardia",
+      "AMS with slow rate",
+      "Chest pain with bradycardia"
+    ],
+    "contraindications": [
+      "None when unstable and pacing indicated"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Atropine",
+        "Pacing pads",
+        "Dopamine/epinephrine infusion"
+      ],
+      "parameters": "Atropine 1 mg IV; TCP if refractory; treat underlying cause",
+      "successCriteria": "HR and perfusion improved"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BRONCHIOLITIS",
+    "type": "PROCEDURE",
+    "name": "Pediatric bronchiolitis / viral wheeze support",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Infant wheeze with URI symptoms",
+      "Increased work of breathing"
+    ],
+    "contraindications": [
+      "Routine bronchodilator may be ineffective—trial per protocol"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "High-flow O2",
+        "Neb if authorized",
+        "Suction"
+      ],
+      "parameters": "Hydration; nasal suction; escalate to advanced care if apnea or SpO2 fails",
+      "successCriteria": "Reduced retractions and improved SpO2"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BRUE",
+    "type": "PROCEDURE",
+    "name": "Brief resolved unexplained event (BRUE) evaluation",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Infant transient cyanosis or apnea resolved",
+      "ALTE legacy concern"
+    ],
+    "contraindications": [
+      "High-risk BRUE criteria require ED evaluation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Monitor",
+        "Glucometer",
+        "Thermometer"
+      ],
+      "parameters": "Risk stratify per newest guideline; observe during transport",
+      "successCriteria": "Stable vitals en route; appropriate disposition messaging"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_BURNS",
+    "type": "PROCEDURE",
+    "name": "Burns—cooling, fluid estimate, transport",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Thermal burn",
+      "Airway risk inhalational injury"
+    ],
+    "contraindications": [
+      "Hypothermia from prolonged cooling"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Sterile dressings",
+        "Lactated ringers",
+        "Burn charts appendix reference"
+      ],
+      "parameters": "Stop burning process; estimate TBSA; fluid bolus per pediatric policy",
+      "successCriteria": "Pain controlled; warm patient after focal cooling"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_CARDIAC_ARREST",
+    "type": "PROCEDURE",
+    "name": "Cardiac arrest (VF/VT/asystole/PEA) resuscitation",
+    "category": "Cardiac",
+    "minLevel": "EMT",
+    "indications": [
+      "Pulseless apneic patient"
+    ],
+    "contraindications": [
+      "DNR/termination criteria per policy"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Defibrillator/AED",
+        "BVM",
+        "CPR adjuncts",
+        "Epinephrine",
+        "Advanced airway"
+      ],
+      "parameters": "Quality CPR; shock VF/VT; epinephrine early; antiarrhythmics for refractory VF",
+      "successCriteria": "ROSC or organized termination per guideline"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_CCB_OVERDOSE",
+    "type": "PROCEDURE",
+    "name": "Calcium channel blocker overdose management",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hypotension bradycardia with CCB history",
+      "Hyperglycemia clue"
+    ],
+    "contraindications": [
+      "None for calcium in suspected CCB overdose with shock"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Calcium salts",
+        "Glucagon",
+        "Insulin/euglycemia adjunct if protocol",
+        "Pressors"
+      ],
+      "parameters": "Calcium chloride or gluconate boluses; pacing; lipids if high-dose verapamil/dilt",
+      "successCriteria": "BP and HR trend improved"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_CROUP",
+    "type": "PROCEDURE",
+    "name": "Pediatric croup / stridor management",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Stridor at rest",
+      "Seal-like cough",
+      "Post-tussive stridor"
+    ],
+    "contraindications": [
+      "Epiglottitis suspected—avoid agitation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Neb racemic epinephrine if carried",
+        "Steroid IM/IV",
+        "Heliox if available"
+      ],
+      "parameters": "Dexamethasone per protocol; epinephrine neb for moderate–severe",
+      "successCriteria": "Stridor improves; child calm and SpO2 adequate"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_CRUSH_INJURY",
+    "type": "PROCEDURE",
+    "name": "Crush injury / rhabdomyolysis support",
+    "category": "Trauma",
+    "minLevel": "AEMT",
+    "indications": [
+      "Prolonged limb entrapment",
+      "Suspected crush syndrome"
+    ],
+    "contraindications": [
+      "Tourniquet unless life-threatening bleed—reperfusion planning"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Large-bore IV",
+        "Normal saline",
+        "Monitor"
+      ],
+      "parameters": "Aggressive isotonic fluid prior to release when safe",
+      "successCriteria": "Vitals stable through extrication and transport"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_CYANIDE",
+    "type": "PROCEDURE",
+    "name": "Cyanide exposure antidote pathway",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Smoke inhalation with suspicion of cyanide",
+      "Industrial cyanide exposure"
+    ],
+    "contraindications": [
+      "Amyl nitrite / sodium nitrite relatively contraindicated if isolated CO—use hydroxocobalamin per tox"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Hydroxocobalamin kit",
+        "Oxygen",
+        "Second line nitrites per protocol"
+      ],
+      "parameters": "IV access; hydroxocobalamin 5 g adult; draw labs before if feasible",
+      "successCriteria": "Hemodynamics and mentation trend better with antidote"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_DIVE_INJURY",
+    "type": "PROCEDURE",
+    "name": "Dive / scuba injury and decompression illness",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Neuro deficit after ascent",
+      "Painful joints post-dive",
+      "SOB after diving"
+    ],
+    "contraindications": [
+      "Do not return to depth without hyperbaric consultation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "High-flow O2",
+        "Monitor",
+        "IV NS"
+      ],
+      "parameters": "100% O2; IV fluid; transport to hyperbaric-capable facility",
+      "successCriteria": "Symptoms stabilize or improve with O2 en route"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_DROWNING",
+    "type": "PROCEDURE",
+    "name": "Drowning and submersion resuscitation",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Submersion with respiratory arrest",
+      "Hypoxia after rescue"
+    ],
+    "contraindications": [
+      "None—prioritize oxygenation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Suction",
+        "BVM",
+        "Warm blankets"
+      ],
+      "parameters": "Spinal precautions if mechanism; oxygen; targeted temperature if ROSC",
+      "successCriteria": "Spontaneous breathing or ventilatory support adequate"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ECLAMPSIA",
+    "type": "PROCEDURE",
+    "name": "Eclampsia / severe preeclampsia seizure care",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Pregnancy with seizure",
+      "Severe HTN with headache/visual change"
+    ],
+    "contraindications": [
+      "Repeat seizures—load magnesium per OB protocol"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Magnesium sulfate",
+        "Antihypertensives",
+        "OB pads"
+      ],
+      "parameters": "Left lateral positioning; magnesium 4–6 g load per guideline; benzos if recurrent seizure",
+      "successCriteria": "Seizure stopped; BP trend controlled toward safe range"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ELECTRICAL_INJURY",
+    "type": "PROCEDURE",
+    "name": "Electrical and lightning injury care",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Cardiac monitoring after electrical contact",
+      "Lightning strike",
+      "Entry/exit wounds"
+    ],
+    "contraindications": [
+      "Assume occult dysrhythmia—monitor"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Monitor/defibrillator",
+        "Burn care supplies"
+      ],
+      "parameters": "ECG even if asymptomatic; prolonged monitoring per exposure voltage",
+      "successCriteria": "Stable rhythm; burns dressed; secondary survey complete"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_END_OF_LIFE",
+    "type": "PROCEDURE",
+    "name": "End-of-life / hospice comfort care transport",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Comfort-focused care per POLST",
+      "DNR with symptom crisis"
+    ],
+    "contraindications": [
+      "Resuscitation when POLST indicates comfort measures only"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Symptom meds per order",
+        "Oxygen comfort"
+      ],
+      "parameters": "Align interventions with goals-of-care documentation",
+      "successCriteria": "Patient comfort honored; family expectations met"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_ENVENOMATION",
+    "type": "PROCEDURE",
+    "name": "Bites / envenomation (including field irrigation)",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Snakebite",
+      "Marine sting",
+      "Insect sting with systemic reaction"
+    ],
+    "contraindications": [
+      "Tourniquet or ice for pit viper bite contraindicated per modern tox care"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Immobilize limb",
+        "Pressure immobilization only when protocol indicates species",
+        "Epi for anaphylaxis"
+      ],
+      "parameters": "Dead reptile photo; mark swelling; venom extraction kits discouraged",
+      "successCriteria": "Systemic symptoms treated; rapid transport to antivenom center when indicated"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_GENERAL_TRAUMA",
+    "type": "PROCEDURE",
+    "name": "General trauma—primary survey, hemorrhage, transport",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Multi-system trauma",
+      "Mechanism concerning for severe injury"
+    ],
+    "contraindications": [
+      "Scene delays—load and go when indicated"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "C-spine kit",
+        "Tourniquet",
+        "Hemorrhage control",
+        "Pelvic binder"
+      ],
+      "parameters": "ABCDE; 10 min scene goal when unstable",
+      "successCriteria": "Life threats addressed; appropriate trauma center"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HEAD_INJURY",
+    "type": "PROCEDURE",
+    "name": "Traumatic brain injury—ICP considerations",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "GCS decline",
+      "Battle sign",
+      "Combativeness post head strike"
+    ],
+    "contraindications": [
+      "Hypoxia and hypotension worsen secondary injury"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Capnography if intubated",
+        "Hyperosmolar therapy if protocol"
+      ],
+      "parameters": "Elevate head 30° when spine cleared; avoid hypotension",
+      "successCriteria": "GCS stable or improved; SpO2 >94%"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HEAT_ILLNESS",
+    "type": "PROCEDURE",
+    "name": "Hyperthermia / heat stroke cooling",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Hot environment with AMS",
+      "Core temp elevation",
+      "Exertional collapse"
+    ],
+    "contraindications": [
+      "Ice packs only without active cooling in heat stroke"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Ice sheets",
+        "Misting",
+        "Monitor"
+      ],
+      "parameters": "Rapid cooling; IV fluids when indicated",
+      "successCriteria": "Mental status improves with cooling"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HIGH_THREAT",
+    "type": "PROCEDURE",
+    "name": "High threat / warm zone casualty care",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Active threat paused",
+      "Tactical medicine phase"
+    ],
+    "contraindications": [
+      "Care in cold zone only until secure"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Ballistic PPE",
+        "Hemorrhage control",
+        "IFAK counterpart"
+      ],
+      "parameters": "Self-aid/buddy-aid; limited interventions; rapid extraction",
+      "successCriteria": "Casualty moved to casualty collection point alive"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HYPERGLYCEMIA",
+    "type": "PROCEDURE",
+    "name": "Hyperglycemia with ketosis / dehydration",
+    "category": "Medical",
+    "minLevel": "AEMT",
+    "indications": [
+      "DKA symptoms",
+      "Severe hyperglycemia with vomiting"
+    ],
+    "contraindications": [
+      "Fluid cautiously in CHF—titrate"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "IV NS",
+        "Monitor",
+        "Glucometer"
+      ],
+      "parameters": "Fluid resuscitation per guideline; insulin in hospital",
+      "successCriteria": "Hemodynamics support until ED insulin"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HYPOGLYCEMIA",
+    "type": "PROCEDURE",
+    "name": "Hypoglycemia treatment pathway",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Blood glucose low",
+      "AMS with suspected hypoglycemia"
+    ],
+    "contraindications": [
+      "Confirm glucose before large dextrose if uncertain"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "D10 or D50",
+        "Glucagon IM",
+        "Glucometer"
+      ],
+      "parameters": "D10 preferred; recheck glucose after treatment",
+      "successCriteria": "GCS normalizes with normoglycemia"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_HYPOTHERMIA",
+    "type": "PROCEDURE",
+    "name": "Hypothermia rewarming and resuscitation",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Cold exposure",
+      "Core temp low",
+      "Trauma in cold"
+    ],
+    "contraindications": [
+      "Rough movement in severe hypothermia—arrest rhythms"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Warm blankets",
+        "Warm IV fluids",
+        "Cardiac monitor"
+      ],
+      "parameters": "Gentle handling; active rewarming for moderate/severe",
+      "successCriteria": "Core temperature rises; perfusion improves"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_LIGHTNING",
+    "type": "PROCEDURE",
+    "name": "Lightning strike resuscitation",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Lightning strike victim apneic or pulseless",
+      "Keraunoparalysis"
+    ],
+    "contraindications": [
+      "Assume simultaneous triage—reverse triage if mass strike"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "AED",
+        "BVM"
+      ],
+      "parameters": "Aggressive BLS/ALS; prolonged resuscitation may succeed in lightning arrest",
+      "successCriteria": "ROSC or organized termination after extended effort if indicated"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_LVAD",
+    "type": "PROCEDURE",
+    "name": "Ventricular assist device patient support",
+    "category": "Cardiac",
+    "minLevel": "AEMT",
+    "indications": [
+      "LVAD patient with pump thrombosis concern",
+      "Arrhythmia with MAP palpation"
+    ],
+    "contraindications": [
+      "Chest compressions only if directed by device team protocol"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Doppler MAP",
+        "Monitor",
+        "Anticoagulation awareness"
+      ],
+      "parameters": "Palpate for pulse; treat perfusion not numeric BP alone",
+      "successCriteria": "Device flow restored or patient at VAD center"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_MASS_CASUALTY",
+    "type": "PROCEDURE",
+    "name": "Trauma mass casualty triage",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Multiple critical patients",
+      "Resources overwhelmed"
+    ],
+    "contraindications": [
+      "Transport order chaos—use triage tags"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Triage tags",
+        "MCI kits",
+        "Communications"
+      ],
+      "parameters": "START/JumpSTART per jurisdiction; designate transport officer",
+      "successCriteria": "Most survivors matched to correct transport capacity"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_NAUSEA_VOMITING",
+    "type": "PROCEDURE",
+    "name": "Nausea and vomiting symptomatic care",
+    "category": "Medical",
+    "minLevel": "AEMT",
+    "indications": [
+      "Debilitating nausea",
+      "Vomiting with dehydration risk"
+    ],
+    "contraindications": [
+      "Obstructed bowel before prokinetics"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Antiemetics per scope",
+        "IV fluids"
+      ],
+      "parameters": "Ondansetron / metoclopramide per protocol",
+      "successCriteria": "Symptoms reduced; able to tolerate transport"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_NEONATAL_RESUSCITATION",
+    "type": "PROCEDURE",
+    "name": "Neonatal resuscitation basics",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Newborn apneic or bradycardic after delivery"
+    ],
+    "contraindications": [
+      "Delayed drying/stimulation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Warm radiant environment",
+        "Bulb suction",
+        "BVM neonatal"
+      ],
+      "parameters": "Dry-stimulate-suction; CPAP if breathing effort poor; 3:1 compressions if <60 HR",
+      "successCriteria": "HR >100 with effective ventilation"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_NERVE_AGENT",
+    "type": "PROCEDURE",
+    "name": "Acetylcholinesterase inhibitor / nerve agent exposure",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "SLUDGE findings after known exposure",
+      "Organophosphate suspected"
+    ],
+    "contraindications": [
+      "Delay antidote in severe toxicity"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Atropine",
+        "Pralidoxime",
+        "Mark I / DuoDote auto-injectors",
+        "PPE"
+      ],
+      "parameters": "Repeat atropine until secretions dry; 2-PAM early",
+      "successCriteria": "Ventilation easier; secretions reduced"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_OPIOID_OVERDOSE",
+    "type": "PROCEDURE",
+    "name": "Opioid poisoning / overdose",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Respiratory depression with opioid toxidrome",
+      "Pinpoint pupils"
+    ],
+    "contraindications": [
+      "Naloxone-induced pulmonary edema risk—titrate"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Naloxone IV/IM/IN",
+        "BVM"
+      ],
+      "parameters": "Airway first; small repeat naloxone doses to spontaneous vent",
+      "successCriteria": "Adequate respiratory effort without violent withdrawal if avoidable"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_PAIN_MANAGEMENT",
+    "type": "PROCEDURE",
+    "name": "Prehospital analgesia protocol",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Moderate–severe pain",
+      "Long transport"
+    ],
+    "contraindications": [
+      "Hypotension before opioids—fluid first"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Fentanyl/morphine/ketorolac per formulary",
+        "Monitor"
+      ],
+      "parameters": "Titrate to effect; re-assess q5min",
+      "successCriteria": "Pain score decreases; vitals stable"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_POISONING_UNIVERSAL",
+    "type": "PROCEDURE",
+    "name": "Poisoning / overdose universal assessment",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Unknown toxidrome",
+      "Intentional overdose"
+    ],
+    "contraindications": [
+      "Activated charcoal when contraindicated—see tox Pearl"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Charcoal if appropriate",
+        "Decon supplies",
+        "Monitor"
+      ],
+      "parameters": "Protect airway; identify agent; contact poison center",
+      "successCriteria": "Stable airway; packaging for transport"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_POST_ROSC",
+    "type": "PROCEDURE",
+    "name": "Post–return of spontaneous circulation care",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "ROSC after cardiac arrest"
+    ],
+    "contraindications": [
+      "Hyperoxia—titrate O2 to 94–98% SpO2"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Advanced airway",
+        "Pressors",
+        "12-lead",
+        "Temperature control"
+      ],
+      "parameters": "12-lead for STEMI; avoid hyperventilation; targeted temperature if indicated",
+      "successCriteria": "BP and oxygenation supported en route to definitive care"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_RADIATION",
+    "type": "PROCEDURE",
+    "name": "Radiation exposure field response",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Known radiation incident",
+      "Radioactive contamination on scene"
+    ],
+    "contraindications": [
+      "Entering hot zone without dosimetry"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "PPE",
+        "Decon corridor setup",
+        "KI tablets if public health Mass Dispensing"
+      ],
+      "parameters": "Time-distance-shielding; remove outer garments; nasal swabs at hospital",
+      "successCriteria": "Patient decontaminated; providers stay below exposure limits"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_RESPIRATORY_DISTRESS",
+    "type": "PROCEDURE",
+    "name": "Respiratory distress (bronchospasm / pulmonary edema) pathway",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "SpO2 <90% on high-flow O2",
+      "Tripod",
+      "Accessory muscle use"
+    ],
+    "contraindications": [
+      "CPAP when vomiting/aspiration risk uncontrolled"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Albuterol/ipratropium",
+        "CPAP",
+        "Epinephrine IM if anaphylaxis mimic"
+      ],
+      "parameters": "Position upright; neb; escalate to CPAP/NIV",
+      "successCriteria": "RR decreases; SpO2 improves"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_RESPIRATORY_IRRITANT",
+    "type": "PROCEDURE",
+    "name": "Inhalational irritant / chemical airway injury",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Chlorine / ammonia exposure",
+      "Industrial inhalation"
+    ],
+    "contraindications": [
+      "Enter confined space without HAZMAT clearance"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "O2",
+        "BVM",
+        "CPAP if authorized",
+        "MARCHE"
+      ],
+      "parameters": "Humidified O2; bronchospasm treat like asthma; observe delayed pulmonary edema",
+      "successCriteria": "SpO2 maintained; wheeze improved"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_RIOT_AGENT",
+    "type": "PROCEDURE",
+    "name": "Riot control agent exposure care",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Tear gas / RC agent symptoms",
+      "OC spray exposure"
+    ],
+    "contraindications": [
+      "Asthma may flare—monitor closely"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Saline irrigation",
+        "O2",
+        "Albuterol"
+      ],
+      "parameters": "Fresh air; skin decon; remove contact lenses",
+      "successCriteria": "Eye and respiratory symptoms improve"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_SEIZURE",
+    "type": "PROCEDURE",
+    "name": "Seizure and status epilepticus",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Generalized seizure >5 minutes",
+      "Cluster seizures",
+      "Postictal prolonged"
+    ],
+    "contraindications": [
+      "Nothing in mouth during seizure"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Midazolam IM/IN/IV",
+        "Lorazepam IV",
+        "Glucose check"
+      ],
+      "parameters": "Midazolam 0.2 mg/kg IM max 10 mg per guideline",
+      "successCriteria": "Seizure activity stops; airway protected"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_SHOCK",
+    "type": "PROCEDURE",
+    "name": "Shock—fluid and vasopressor strategy",
+    "category": "Medical",
+    "minLevel": "AEMT",
+    "indications": [
+      "SBP <90",
+      "MAP <65",
+      "Delayed capillary refill with tachycardia"
+    ],
+    "contraindications": [
+      "Fluid overload in flash pulmonary edema—vasopressors"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Two large-bore IVs",
+        "Warm crystalloid",
+        "Pressors"
+      ],
+      "parameters": "20 mL/kg boluses pediatric; 1–2 L adult crystalloid per guideline",
+      "successCriteria": "MAP improved or signs of fluid responsiveness"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_SICKLE_CELL_CRISIS",
+    "type": "PROCEDURE",
+    "name": "Sickle cell pain crisis support",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Vaso-occlusive pain in known SCD",
+      "Fever with crisis"
+    ],
+    "contraindications": [
+      "Assume infection if febrile—transport"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Oxygen",
+        "Analgesia",
+        "Warm fluids"
+      ],
+      "parameters": "Rapid analgesia; avoid unnecessary hypoxia or cold",
+      "successCriteria": "Pain trend improved; hemodynamics stable"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_STIMULANT_TOXICITY",
+    "type": "PROCEDURE",
+    "name": "Stimulant poisoning / excited delirium support",
+    "category": "Medical",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hyperthermia agitation",
+      "Sympathomimetic toxidrome"
+    ],
+    "contraindications": [
+      "Physical restraint without sedation plan"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Sedation",
+        "Cooling",
+        "Monitor",
+        "Law enforcement coordination"
+      ],
+      "parameters": "Benzodiazepines first line; active cooling; watch CK/rhabdo",
+      "successCriteria": "Calm cooperative patient; core temp falling"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_STROKE_TIA",
+    "type": "PROCEDURE",
+    "name": "Suspected stroke / TIA triage",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Sudden neuro deficit",
+      "Last known well time critical"
+    ],
+    "contraindications": [
+      "Hypoglycemia mimicking stroke—check glucose"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Stroke scale",
+        "Glucometer",
+        "BP management per policy"
+      ],
+      "parameters": "Document LKW; avoid unnecessary BP lowering unless protocol exception",
+      "successCriteria": "Notification to stroke center; transport without delay"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_SYNCOPE",
+    "type": "PROCEDURE",
+    "name": "Syncope / near-syncope evaluation",
+    "category": "Cardiac",
+    "minLevel": "EMT",
+    "indications": [
+      "Transient LOC with recovery",
+      "Orthostatic symptoms"
+    ],
+    "contraindications": [
+      "STEMI must be ruled out when atypical"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "12-lead",
+        "Orthostatic vitals if safe"
+      ],
+      "parameters": "Risk stratify; PE/AAA red flags",
+      "successCriteria": "High-risk patients transported; education for low-risk"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_TACHYCARDIA",
+    "type": "PROCEDURE",
+    "name": "Tachycardia with pulse—stable vs unstable",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Wide-complex tachycardia",
+      "Narrow-complex SVT",
+      "Rapid AF"
+    ],
+    "contraindications": [
+      "Unstable = cardioversion; avoid adenosine for irregular wide"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Adenosine",
+        "Cardioversion",
+        "Amiodarone/procainamide for stable wide"
+      ],
+      "parameters": "Vagal Valsalva for stable narrow; drugs per width and stability",
+      "successCriteria": "Rate or rhythm controlled; perfusion restored"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_TASER",
+    "type": "PROCEDURE",
+    "name": "Conducted electrical weapon (CEW) injury assessment",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Post-CEW agitated patient",
+      "Fall secondary to CEW",
+      "Dart in sensitive area"
+    ],
+    "contraindications": [
+      "Prolonged restraint after CEW without assessment"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Monitor",
+        "Dart removal per policy"
+      ],
+      "parameters": "Assess for rhabdomyolysis, acidosis; evaluate traumatic fall injuries",
+      "successCriteria": "Rhythm stable; wounds managed; sedation if still combative"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_TOPICAL_CHEMICAL_BURN",
+    "type": "PROCEDURE",
+    "name": "Topical chemical burn decontamination",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Skin chemical exposure",
+      "HF acid splash"
+    ],
+    "contraindications": [
+      "Powder chemicals—brush off before irrigation"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Water irrigation",
+        "HF calcium gluconate gel if protocol"
+      ],
+      "parameters": "Prolonged irrigation; remove contaminated clothing; protect crew",
+      "successCriteria": "Pain decreases; pH normalized when measurable"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_TRACHEOSTOMY",
+    "type": "PROCEDURE",
+    "name": "Tracheostomy / stoma emergency management",
+    "category": "Airway",
+    "minLevel": "EMT",
+    "indications": [
+      "Trach patient with obstruction",
+      "Accidental decannulation"
+    ],
+    "contraindications": [
+      "Blind deep suction past stoma"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Suction",
+        "Spare same-size trach",
+        "BVM stoma interface"
+      ],
+      "parameters": "Patency first; oxygen through stoma",
+      "successCriteria": "Ventilation patent; SpO2 acceptable"
+    }
+  },
+  {
+    "id": "PROC_GUIDELINE_TRAUMA_ARREST",
+    "type": "PROCEDURE",
+    "name": "Traumatic cardiac arrest protocol",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Traumatic PEA",
+      "Tension pneumo suspected in trauma arrest"
+    ],
+    "contraindications": [
+      "Medical arrest algorithms alone without addressing trauma reversible causes"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "MTP activation if policy",
+        "Thoracotomy center transport",
+        "Blood products if available"
+      ],
+      "parameters": "Bilateral decompress if indicated; hypovolemia resuscitation",
+      "successCriteria": "ROSC or transport for definitive surgical rescue"
+    }
+  },
+  {
+    "id": "PROC_HEMORRHAGE_CONTROL",
+    "type": "PROCEDURE",
+    "name": "Direct pressure and wound packing",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "External hemorrhage"
+    ],
+    "contraindications": [
+      "None"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Hemostatic gauze",
+        "Standard gauze",
+        "Pressure dressing"
+      ],
+      "parameters": "Pack deep tracks; maintain pressure until definitive care",
+      "successCriteria": "Bleeding controlled or significantly reduced"
+    }
+  },
+  {
+    "id": "PROC_INTUBATION",
+    "type": "PROCEDURE",
+    "name": "Orotracheal intubation",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Airway protection",
+      "Refractory hypoxemia",
+      "Expected clinical course"
+    ],
+    "contraindications": [
+      "Anatomy predicts impossible laryngoscopy without backup"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Laryngoscope",
+        "ETT 6.0–8.5 typical adult",
+        "Stylet",
+        "Suction",
+        "BVM"
+      ],
+      "parameters": "ETT depth ~21–23 cm at teeth adult; confirm bilateral breath sounds + EtCO2",
+      "successCriteria": "Continuous EtCO2 waveform; SpO2 acceptable"
+    }
+  },
+  {
+    "id": "PROC_IO_ACCESS",
+    "type": "PROCEDURE",
+    "name": "Intraosseous access",
+    "category": "Medical",
+    "minLevel": "AEMT",
+    "indications": [
+      "Cardiac arrest",
+      "Shock when IV unsuccessful",
+      "Severe burns edema"
+    ],
+    "contraindications": [
+      "Fracture at site",
+      "Previous IO same bone (relative)",
+      "Infection over site"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "IO driver / needle",
+        "IV tubing",
+        "Lactated ringers"
+      ],
+      "parameters": "Proximal tibia or humerus adult; distal femur/tibia pediatric—per device",
+      "successCriteria": "Needle upright; flush easily; meds delivered"
+    }
+  },
+  {
+    "id": "PROC_IV_ACCESS",
+    "type": "PROCEDURE",
+    "name": "Peripheral intravenous access",
+    "category": "Medical",
+    "minLevel": "AEMT",
+    "indications": [
+      "Fluid/medication delivery",
+      "Contrast allergy prep",
+      "Unstable patient"
+    ],
+    "contraindications": [
+      "Affected limb vascular injury",
+      "Dialysis fistula arm"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Angiocath set",
+        "NS flush",
+        "Tourniquet"
+      ],
+      "parameters": "Large-bore preferred in shock",
+      "successCriteria": "Patent IV; no signs of extravasation"
+    }
+  },
+  {
+    "id": "PROC_MANUAL_DEFIBRILLATION",
+    "type": "PROCEDURE",
+    "name": "Manual defibrillator operation",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "VF/pulseless VT",
+      "Unstable tachycardia when synchronized mode unavailable initially"
+    ],
+    "contraindications": [
+      "Oxygen-rich env—brief pause ventilation during shock"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Manual defibrillator",
+        "Paddles or pads"
+      ],
+      "parameters": "Charge to manufacturer-recommended energy",
+      "successCriteria": "Effective shock delivery with minimal compression pause"
+    }
+  },
+  {
+    "id": "PROC_MECHANICAL_VENTILATION",
+    "type": "PROCEDURE",
+    "name": "Mechanical ventilator transport",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Interfacility transport of intubated ventilated patient"
+    ],
+    "contraindications": [
+      "None when ventilator available and trained"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Transport ventilator",
+        "Capnography",
+        "Spare circuits"
+      ],
+      "parameters": "Match rate/tidal volume/PEEP to sending facility orders",
+      "successCriteria": "Stable EtCO2 and SpO2 throughout transport"
+    }
+  },
+  {
+    "id": "PROC_NEEDLE_CRIC",
+    "type": "PROCEDURE",
+    "name": "Needle cricothyrotomy / percutaneous airway",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Pediatric upper airway obstruction",
+      "Cannot intubate cannot oxygenate (pediatric)"
+    ],
+    "contraindications": [
+      "None in imminent airway loss"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Cricothyrotomy catheter kit",
+        "Jet vent device if available"
+      ],
+      "parameters": "Verify landmark; saline coupling if jet ventilation",
+      "successCriteria": "Oxygenation improved; plan for definitive airway"
+    }
+  },
+  {
+    "id": "PROC_NEEDLE_DECOMPRESSION",
+    "type": "PROCEDURE",
+    "name": "Needle decompression tension pneumothorax",
+    "category": "Trauma",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Suspected tension pneumothorax with hemodynamic compromise"
+    ],
+    "contraindications": [
+      "None in life-threatening emergency"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "14–16G angiocath",
+        "Antiseptic",
+        "Occlusive dressing after (per protocol)"
+      ],
+      "parameters": "2nd ICS MCL or 4th–5th ICS anterior axillary per protocol",
+      "successCriteria": "Improved perfusion/BSI after decompression; reassess frequently"
+    }
+  },
+  {
+    "id": "PROC_OBSTETRIC_EMERGENCY_CARE",
+    "type": "PROCEDURE",
+    "name": "Emergency obstetric care (childbirth, cord, newborn)",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Imminent delivery",
+      "OB hemorrhage support"
+    ],
+    "contraindications": [
+      "None when delivery imminent"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "OB kit",
+        "Bulb suction",
+        "Warm blankets",
+        "Clamps"
+      ],
+      "parameters": "Support controlled delivery; warm-dry-stimulate newborn",
+      "successCriteria": "Vital newborn; controlled cord; mother stabilized for transport"
+    }
+  },
+  {
+    "id": "PROC_RESTRAINTS",
+    "type": "PROCEDURE",
+    "name": "Physical / chemical restraint protocol",
+    "category": "Medical",
+    "minLevel": "EMT",
+    "indications": [
+      "Imminent danger to self or others when de-escalation fails"
+    ],
+    "contraindications": [
+      "None when safety imperative—monitor airway and circulation continuously"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Soft restraints",
+        "Law enforcement assistance as policy",
+        "Monitoring"
+      ],
+      "parameters": "Least restrictive effective; never prone",
+      "successCriteria": "Patient and crew safe; continuous assessment documented"
+    }
+  },
+  {
+    "id": "PROC_RSI",
+    "type": "PROCEDURE",
+    "name": "Rapid sequence intubation",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "GCS <= 8",
+      "Unable to protect airway",
+      "Severe hypoxia refractory to NIV",
+      "Traumatic airway compromise"
+    ],
+    "contraindications": [
+      "Cannot oxygenate—consider surgical airway"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Suction",
+        "Video laryngoscope",
+        "ET tubes",
+        "BVM",
+        "Push drugs",
+        "Capnography"
+      ],
+      "parameters": "Preoxygenate; induction + paralytic per protocol",
+      "successCriteria": "EtCO2 waveform with ventilation; SpO2 maintained"
+    }
+  },
+  {
+    "id": "PROC_SPINAL_MOTION_RESTRICTION",
+    "type": "PROCEDURE",
+    "name": "Spinal motion restriction",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Mechanism with suspected spine injury",
+      "Neurogenic symptoms"
+    ],
+    "contraindications": [
+      "Clear spine criteria met (per local guideline)"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "C-collar",
+        "Backboard or scoop optional per policy",
+        "Head blocks"
+      ],
+      "parameters": "Manual inline stabilization until collar sized",
+      "successCriteria": "Pain/numbness reassessed; immobilization tolerable"
+    }
+  },
+  {
+    "id": "PROC_SUPRAGLOTTIC_AIRWAY",
+    "type": "PROCEDURE",
+    "name": "Supraglottic airway placement",
+    "category": "Airway",
+    "minLevel": "AEMT",
+    "indications": [
+      "Ventilation difficulty with BVM",
+      "Cardiac arrest airway adjunct",
+      "Bridge to intubation"
+    ],
+    "contraindications": [
+      "Complete upper airway obstruction",
+      "Severe aspiration risk (relative)"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "SGA device",
+        "Lubricant",
+        "BVM"
+      ],
+      "parameters": "Size per anthropometry; second verification with capnography",
+      "successCriteria": "Easy BVM ventilation; audible leak controlled"
+    }
+  },
+  {
+    "id": "PROC_SURGICAL_CRIC",
+    "type": "PROCEDURE",
+    "name": "Surgical cricothyrotomy",
+    "category": "Airway",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Cannot intubate cannot oxygenate",
+      "Massive facial trauma"
+    ],
+    "contraindications": [
+      "Pediatric larynx (needle technique preferred)"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Scalpel 10–11",
+        "Tracheal hook",
+        "6-0 cuffed tube or commercial kit"
+      ],
+      "parameters": "Identify cricothyroid membrane; confirm with EtCO2",
+      "successCriteria": "Ventilation possible; hemorrhage controlled"
+    }
+  },
+  {
+    "id": "PROC_SYNC_CARDIOVERSION",
+    "type": "PROCEDURE",
+    "name": "Synchronized cardioversion",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Unstable tachydysrhythmia with pulse",
+      "SBP <90 with altered mental status from arrhythmia"
+    ],
+    "contraindications": [
+      "Digitalis toxicity tachyarrhythmia (relative—lower energy)"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Manual cardioverter",
+        "Sedation agents",
+        "Pads"
+      ],
+      "parameters": "Start 50–100 J biphasic often; increase per guideline; ensure sync mode",
+      "successCriteria": "Restoration of perfusing rhythm or improved perfusion"
+    }
+  },
+  {
+    "id": "PROC_TOURNIQUET",
+    "type": "PROCEDURE",
+    "name": "Arterial tourniquet application",
+    "category": "Trauma",
+    "minLevel": "EMT",
+    "indications": [
+      "Life-threatening extremity hemorrhage"
+    ],
+    "contraindications": [
+      "None in exsanguinating extremity hemorrhage"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Commercial tourniquet",
+        "Time marker"
+      ],
+      "parameters": "High and tight; note time; only loosen in hospital",
+      "successCriteria": "Bleeding controlled; distal pulse absent expected"
+    }
+  },
+  {
+    "id": "PROC_TRANSCUTANEOUS_PACING",
+    "type": "PROCEDURE",
+    "name": "Transcutaneous pacing",
+    "category": "Cardiac",
+    "minLevel": "PARAMEDIC",
+    "indications": [
+      "Hemodynamically unstable bradycardia unresponsive to atropine"
+    ],
+    "contraindications": [
+      "Asystole (ineffective)—treat underlying cause"
+    ],
+    "procedureData": {
+      "equipmentNeeded": [
+        "Defibrillator with pacing mode",
+        "Pads"
+      ],
+      "parameters": "Start 80 mA typical; increase until capture; mA above capture for margin",
+      "successCriteria": "Electrical and mechanical capture; improved perfusion"
+    }
+  }
+]

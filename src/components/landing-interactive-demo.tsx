@@ -31,7 +31,10 @@ import { seedInterventions } from "@/lib/interventions-data";
 import type { Message, UserAction, ArrestRhythmKind } from "@/lib/types";
 import { interventionCertifications } from "@/lib/types";
 import { hospitals } from "@/lib/hospitals-data";
-import { EcgMonitor } from "@/components/ecg-monitor";
+import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
+import { EquipmentDrawer } from "@/components/equipment-drawer";
+import { usePhysiologyStore } from "@/stores/physiology-store";
+import { usePkStore } from "@/stores/pk-store";
 import { AedPanel } from "@/components/aed-panel";
 import {
   Droplets,
@@ -113,6 +116,24 @@ export function LandingInteractiveDemo() {
     const id = window.setInterval(() => setElapsedSec((x) => x + 1), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  /** Seed the physiology store the same way the logged-in scenario page does so the UnifiedCardiacMonitor renders with vitals + applied equipment. */
+  useEffect(() => {
+    usePkStore.getState().reset();
+    usePhysiologyStore.getState().loadScenario(scenario.initialVitals);
+    const s = usePhysiologyStore.getState();
+    if (!s.isMonitorPowered) s.togglePowerMonitor();
+    s.applyFourLead();
+    if (!s.isEkgChannelOn) s.toggleEkgChannel();
+    s.applyPulseOx();
+    s.applyBpCuff();
+    s.requestNibpCycle();
+
+    return () => {
+      usePhysiologyStore.getState().reset();
+      usePkStore.getState().reset();
+    };
+  }, [scenario.id, scenario.initialVitals]);
 
   const filteredHospitals = useMemo(() => {
     const keys = new Set(Object.keys(scenario.hospitalDistances ?? {}));
@@ -299,7 +320,10 @@ export function LandingInteractiveDemo() {
         appended.push(assistantMsg);
       }
       setMessages((prev) => [...prev, ...appended]);
-      if (data.vitals) setCurrentVitals(data.vitals);
+      if (data.vitals) {
+        setCurrentVitals(data.vitals);
+        usePhysiologyStore.getState().updateVitals(data.vitals);
+      }
       if (data.patientIsDeceased) {
         setPatientDeceased(true);
       }
@@ -404,7 +428,10 @@ export function LandingInteractiveDemo() {
         appended.push(assistantMsg);
       }
       setMessages((prev) => [...prev, ...appended]);
-      if (data.vitals) setCurrentVitals(data.vitals);
+      if (data.vitals) {
+        setCurrentVitals(data.vitals);
+        usePhysiologyStore.getState().updateVitals(data.vitals);
+      }
       if (data.patientIsDeceased) {
         setPatientDeceased(true);
       }
@@ -497,15 +524,18 @@ export function LandingInteractiveDemo() {
               </CardContent>
             </Card>
 
-            <EcgMonitor
+            <UnifiedCardiacMonitor
               scenario={scenario}
-              currentVitals={currentVitals}
               cprActive={false}
               forcedRhythm={null}
               pulseless={false}
               onAction={(label) => appendEcgLog(label)}
               onRhythmChange={() => {}}
+              onMonitorMedication={(med) =>
+                appendEcgLog(`Medication (monitor menu): ${med.name}`)
+              }
             />
+            <EquipmentDrawer />
 
             <Card className="border-emerald-800/40 bg-muted/30">
               <CardHeader className="pb-2">

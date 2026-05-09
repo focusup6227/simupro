@@ -247,6 +247,7 @@ type ScenarioVitals = {
   rr: string;
   spo2: string;
   gcs: string;
+  etco2?: string;
 };
 
 const NUMERIC_RE = /(-?\d+(?:\.\d+)?)/;

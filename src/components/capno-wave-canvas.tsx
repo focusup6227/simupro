@@ -9,6 +9,12 @@ import { usePhysiologyStore } from '@/stores/physiology-store';
 import type { CapnoSensor } from '@/stores/physiology-store';
 import { memo, useEffect, useRef } from 'react';
 
+/**
+ * Override props let the parent pass deterministic-engine values (e.g. autonomic
+ * phase override during arrest / shock) without round-tripping through the
+ * physiology store. When omitted, we fall back to the AI baseline in the store.
+ */
+
 const CAPNO_GLOW = '#FFFF00';
 
 function parseRrBpm(s: string): number {
@@ -86,16 +92,38 @@ const CYCLES_VISIBLE = 2.25;
 export function CapnoWaveCanvasImpl({
   height = 52,
   enabled = true,
+  etco2MmHg,
+  obstructionFactor,
+  rrOverrideBpm,
 }: {
   height?: number;
   /** Waveform active only when sensor applied and EtCO₂ bezel channel on. */
   enabled?: boolean;
+  /** Optional override (e.g. autonomic-phase clamped value). When omitted, store EtCO₂ is used. */
+  etco2MmHg?: number;
+  /** Optional override for capnogram obstruction (0–1). Falls back to store value. */
+  obstructionFactor?: number;
+  /**
+   * Optional override for the breath rate (bpm) used by the waveform timing.
+   * Used when the patient is being assisted (BVM) — the rescuer dictates the
+   * rate, not the patient's spontaneous RR.
+   */
+  rrOverrideBpm?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const maxMmHgRef = useRef(48);
   const phaseRef = useRef(0);
   const breathTickRef = useRef(0);
+  /** Latest props snapshot read inside the rAF loop so we don't tear down the loop on prop changes. */
+  const overridesRef = useRef<{
+    etco2MmHg: number | undefined;
+    obstructionFactor: number | undefined;
+    rrOverrideBpm: number | undefined;
+  }>({ etco2MmHg, obstructionFactor, rrOverrideBpm });
+  overridesRef.current.etco2MmHg = etco2MmHg;
+  overridesRef.current.obstructionFactor = obstructionFactor;
+  overridesRef.current.rrOverrideBpm = rrOverrideBpm;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -196,9 +224,23 @@ export function CapnoWaveCanvasImpl({
       }
 
       const s = usePhysiologyStore.getState();
-      const rr = parseRrBpm(s.rr);
-      const et = parseEtco2MmHg(s.etco2);
-      const obs = s.capnoObstructionFactor;
+      /**
+       * Bag rate beats spontaneous RR when the rescuer is bagging — the bag
+       * dictates ventilation timing on the capnogram.
+       */
+      const rateOverride = overridesRef.current.rrOverrideBpm;
+      const rr =
+        rateOverride != null && Number.isFinite(rateOverride) && rateOverride > 0
+          ? Math.max(4, Math.min(60, rateOverride))
+          : parseRrBpm(s.rr);
+      const et =
+        overridesRef.current.etco2MmHg != null
+          ? overridesRef.current.etco2MmHg
+          : parseEtco2MmHg(s.etco2);
+      const obs =
+        overridesRef.current.obstructionFactor != null
+          ? Math.min(1, Math.max(0, overridesRef.current.obstructionFactor))
+          : s.capnoObstructionFactor;
       const ws = sensorToWaveStyle(s.capnoSensor);
       maxMmHgRef.current = Math.max(50, et * 1.35);
 

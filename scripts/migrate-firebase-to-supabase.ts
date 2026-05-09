@@ -26,7 +26,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { createClient } from '@supabase/supabase-js';
 
-import type { Scenario, Intervention, UserRole } from '@/lib/types';
+import type { Scenario, LegacySupabaseIntervention, UserRole } from '@/lib/types';
 import { userToProfileInsert, scenarioToDbUpsert, interventionToDbInsert } from '@/lib/db-mappers';
 
 loadDotenv({ path: path.resolve(process.cwd(), '.env.local') });
@@ -194,7 +194,7 @@ async function migrateInterventions(db: Firestore) {
   const snap = await db.collection('interventions').get();
   console.log(`[interventions] ${snap.size}`);
   for (const doc of snap.docs) {
-    const i = { id: doc.id, ...doc.data() } as Intervention;
+    const i = { id: doc.id, ...doc.data() } as LegacySupabaseIntervention;
     const row = interventionToDbInsert(i);
     if (dryRun) continue;
     const { error } = await sb!.from('interventions').upsert(row, { onConflict: 'id' });

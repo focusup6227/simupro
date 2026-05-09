@@ -17,6 +17,13 @@ export const PartnerAdviceInputSchema = z.object({
   lastPatientCondition: z.string().optional(),
   currentVitals: VitalSignsSchema.optional(),
   userQuestion: z.string().optional(),
+  /**
+   * Recent things this partner already said, so the model can deliberately
+   * vary phrasing / openings rather than repeating itself. Most-recent first.
+   */
+  priorAdviceTexts: z.array(z.string()).max(6).optional(),
+  /** When true, partner stays inside pediatric (PALS) dosing and cadence. */
+  isPediatric: z.boolean().optional(),
 });
 
 export type PartnerAdviceInput = z.infer<typeof PartnerAdviceInputSchema>;
@@ -44,6 +51,10 @@ const prompt = ai.definePrompt({
 **Scenario (summary):**
 {{{scenarioSummary}}}
 
+{{#if isPediatric}}
+**Pediatric patient.** Use PALS-appropriate dosing/cadence (e.g. 0.01 mg/kg epi 1:10,000, 20 mL/kg fluid bolus, 2→4 J/kg defib, ~1/3 AP-depth compressions, 1 breath every 2–3s for BVM). Don't quote adult doses.
+{{/if}}
+
 **Mandatory actions for the learner's role:**
 {{#each mandatoryActions}}
 - {{{this}}}
@@ -61,6 +72,14 @@ const prompt = ai.definePrompt({
 - HR {{{currentVitals.hr}}}, BP {{{currentVitals.bp}}}, RR {{{currentVitals.rr}}}, SpO₂ {{{currentVitals.spo2}}}, GCS {{{currentVitals.gcs}}}
 {{/if}}
 
+{{#if priorAdviceTexts.length}}
+**Things you already said this run (most recent first — DO NOT repeat them verbatim or near-verbatim):**
+{{#each priorAdviceTexts}}
+- "{{{this}}}"
+{{/each}}
+If you would otherwise say the same thing, either stay quiet (set shouldSpeak: false) or rephrase materially — change the opening word, the framing (action vs observation vs question), and the focus.
+{{/if}}
+
 {{#if userQuestion}}
 The learner asked: "{{{userQuestion}}}"
 Answer briefly in first person. Stay within {{{partnerRole}}} scope — if something needs a higher certification, say so and suggest they check protocol or medical direction.
@@ -68,6 +87,12 @@ Set shouldSpeak to true.
 {{else}}
 **Proactive mode:** Set shouldSpeak to false if the team is on track or you have nothing useful to add. If true, one short nudge (max 2 sentences) about a reasonable next step they might be missing — without spoiling the entire scenario. Sound like a peer, not a lecturer.
 {{/if}}
+
+**Voice guidance (always):**
+- First-person, peer-to-peer, on-scene tone. Contractions are fine.
+- Vary your openings across turns — alternate among action ("I can grab..."), observation ("Their EtCO₂ is dropping..."), check-in ("You good if I..."), and a brief question ("Want me to set up...?").
+- Don't restate the same vital twice in the run unless it changed clinically.
+- No greetings, no sign-offs, no "as your partner". Just the line.
 
 Output JSON only per schema. urgency: low / medium / high based on clinical time-sensitivity.`,
 });
@@ -83,6 +108,8 @@ const providePartnerAdviceFlow = ai.defineFlow(
       ...input,
       lastPatientCondition: input.lastPatientCondition ?? '(unknown)',
       userQuestion: input.userQuestion ?? '',
+      priorAdviceTexts: (input.priorAdviceTexts ?? []).slice(0, 6),
+      isPediatric: input.isPediatric ?? false,
     });
     if (!output) {
       throw new Error('providePartnerAdvice: empty model output');

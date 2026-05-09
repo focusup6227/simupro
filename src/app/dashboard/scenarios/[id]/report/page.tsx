@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { processSimulationResults } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Lightbulb, Home, CheckCircle, XCircle, AlertTriangle, Hospital, RefreshCw, ListOrdered, Loader, Star, BookOpen, Target, Dumbbell, Printer } from "lucide-react";
+import { Lightbulb, Home, CheckCircle, XCircle, AlertTriangle, Hospital, RefreshCw, ListOrdered, Loader, Star, BookOpen, Target, Dumbbell, Printer, ClipboardCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
@@ -18,9 +19,18 @@ import {
   useMemoSupabase,
   useCollection,
 } from "@/supabase";
-import type { Scenario, SimulationSession, Insight, User, UserRole, CertificationActions, UserAction } from "@/lib/types";
+import type { Scenario, SimulationSession, Insight, User, UserRole, CertificationActions, UserAction, ProtocolDeviation, ProtocolWin } from "@/lib/types";
+import type { Json } from "@/lib/supabase/database.types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const DEVIATION_KIND_LABEL: Record<ProtocolDeviation['kind'], string> = {
+  scope: 'Scope Violation',
+  dosage: 'Dosage Error',
+  indication: 'Indication Error',
+  contraindication: 'Contraindication',
+  other: 'Other',
+};
 
 
 export default function ReportPage() {
@@ -112,6 +122,8 @@ export default function ReportPage() {
           ai_feedback: insightData.aiFeedback,
           reasoning: insightData.reasoning,
           premium_feedback: insightData.premiumFeedback ?? null,
+          protocol_deviations: (insightData.protocolDeviations ?? []) as unknown as Json,
+          protocol_wins: (insightData.protocolWins ?? []) as unknown as Json,
         },
         { onConflict: 'session_id,id' }
       );
@@ -251,6 +263,14 @@ export default function ReportPage() {
 
   const isLoadingInsightsData = isLoadingInsights && !insight;
 
+  const protocolWins: ProtocolWin[] = Array.isArray(insight?.protocolWins)
+    ? (insight!.protocolWins as ProtocolWin[])
+    : [];
+  const protocolDeviations: ProtocolDeviation[] = Array.isArray(insight?.protocolDeviations)
+    ? (insight!.protocolDeviations as ProtocolDeviation[])
+    : [];
+  const showProtocolAudit = protocolWins.length > 0 || protocolDeviations.length > 0;
+
   return (
     <div className="mx-auto w-full min-w-0 max-w-4xl space-y-8 p-4 md:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -364,6 +384,101 @@ export default function ReportPage() {
         </Card>
       </div>
 
+
+      {showProtocolAudit && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              Protocol Audit (NASEMSO)
+            </CardTitle>
+            <CardDescription>
+              Three-Point Check (ID, dosage, indication) against the protocol source of truth.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {protocolWins.length > 0 && (
+              <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-950/30">
+                <h4 className="mb-3 flex items-center gap-2 font-semibold text-green-900 dark:text-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  Protocol-aligned actions
+                </h4>
+                <ul className="space-y-3">
+                  {protocolWins.map((win, i) => (
+                    <li key={`win-${i}`} className="text-sm">
+                      <p className="font-medium text-foreground">
+                        <span className="font-mono text-xs text-muted-foreground mr-2">
+                          t={win.actionTime}s
+                        </span>
+                        {win.treatment}
+                      </p>
+                      {win.expected && (
+                        <p className="text-sm text-muted-foreground">{win.expected}</p>
+                      )}
+                      {win.observed && win.observed !== win.expected && (
+                        <p className="text-xs text-muted-foreground">{win.observed}</p>
+                      )}
+                      {win.reference && (
+                        <p className="text-xs text-muted-foreground/80 font-mono">
+                          {win.reference}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {protocolDeviations.length > 0 ? (
+              <div>
+                <h4 className="mb-3 flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Protocol deviations
+                </h4>
+                <ul className="space-y-4">
+                  {protocolDeviations.map((dev, i) => (
+                    <li
+                      key={`dev-${i}`}
+                      className="rounded-md border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/40 dark:bg-amber-950/20"
+                    >
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="border-amber-400 text-amber-800 dark:text-amber-200">
+                          {DEVIATION_KIND_LABEL[dev.kind] ?? 'Other'}
+                        </Badge>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          t={dev.actionTime}s
+                        </span>
+                        <span className="text-sm font-medium text-foreground">{dev.treatment}</span>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p>
+                          <span className="font-semibold text-foreground">Expected:</span>{' '}
+                          <span className="text-muted-foreground">{dev.expected}</span>
+                        </p>
+                        <p>
+                          <span className="font-semibold text-foreground">Observed:</span>{' '}
+                          <span className="text-muted-foreground">{dev.observed}</span>
+                        </p>
+                        {dev.reference && (
+                          <p className="text-xs text-muted-foreground/80 font-mono">
+                            {dev.reference}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              protocolWins.length > 0 && (
+                <p className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-200">
+                  No protocol deviations detected — protocol-aligned care.
+                </p>
+              )
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

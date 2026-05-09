@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "NODE_ENV=production next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint",    
     "typecheck": "tsc --noEmit",
+    "baseline:build": "tsx scripts/build-national-baseline.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "migrate:firebase": "tsx scripts/migrate-firebase-to-supabase.ts"

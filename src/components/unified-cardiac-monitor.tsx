@@ -19,7 +19,6 @@ import {
   sweepDurationSec,
 } from '@/lib/ecg-sweep-geometry';
 import { rhythmStripeWidthForContext } from '@/lib/ecg-waveform';
-import type { Scenario } from '@/lib/types';
 import {
   formatEtco2ForMonitor,
   formatSpo2ForMonitor,
@@ -47,7 +46,6 @@ import {
   type ReactNode,
 } from 'react';
 import { useShallow } from 'zustand/shallow';
-import type { EcgActionLabel } from '@/components/ecg-monitor';
 import {
   RhythmStripPaper,
   SavedTracingsList,
@@ -62,6 +60,10 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { usePhysiologyStore } from '@/stores/physiology-store';
+import { MedicationMenu } from '@/components/medication-menu';
+import { InterventionMenu } from '@/components/intervention-menu';
+import type { Scenario } from '@/lib/types';
+import type { Medication, Procedure } from '@/types/protocol';
 
 function uid() {
   return `ucm-${Math.random().toString(36).slice(2, 10)}`;
@@ -194,7 +196,7 @@ function VitalBlockSpo2({ displaySpo2 }: { displaySpo2?: string }) {
   );
 }
 
-function VitalBlockEtco2() {
+function VitalBlockEtco2({ displayEtco2 }: { displayEtco2?: string }) {
   const { capnoSensor, isEtco2ChannelOn, etco2, isMonitorPowered } =
     usePhysiologyStore(
       useShallow((s) => ({
@@ -212,7 +214,7 @@ function VitalBlockEtco2() {
   if (!isMonitorPowered) {
     main = '—';
   } else if (live) {
-    main = formatEtco2ForMonitor(etco2);
+    main = formatEtco2ForMonitor(displayEtco2 ?? etco2);
   } else if (!capnoSensor && !isEtco2ChannelOn) {
     main = '—';
   } else if (capnoSensor && !isEtco2ChannelOn) {
@@ -616,7 +618,12 @@ export interface UnifiedCardiacMonitorProps {
   /** Pulseless rhythm for ECG derivation (matches legacy `EcgMonitor`). */
   pulseless?: boolean;
   onRhythmChange?: (kind: EcgRhythmKind) => void;
-  onAction?: (label: EcgActionLabel) => void;
+  /** ECG / monitor chronology entries (rhythm strip, 12-lead, etc.). */
+  onAction?: (label: string) => void;
+  /** Monitor “Meds” menu — protocol catalog + scenario overlay. */
+  onMonitorMedication?: (item: Medication) => void;
+  /** Monitor “Proc” menu */
+  onMonitorIntervention?: (item: Procedure) => void;
 }
 
 export function UnifiedCardiacMonitor({
@@ -626,6 +633,8 @@ export function UnifiedCardiacMonitor({
   pulseless,
   onRhythmChange,
   onAction,
+  onMonitorMedication,
+  onMonitorIntervention,
 }: UnifiedCardiacMonitorProps) {
   const { merged } = useMergedPkDisplay();
 
@@ -872,6 +881,13 @@ export function UnifiedCardiacMonitor({
                 <CapnoWaveCanvas
                   height={52}
                   enabled={capnoLive && isMonitorPowered}
+                  etco2MmHg={merged.etco2MmHg}
+                  obstructionFactor={merged.obstruction}
+                  rrOverrideBpm={
+                    merged.ventilationMode === 'bvm' && merged.assistedRateBpm != null
+                      ? merged.assistedRateBpm
+                      : undefined
+                  }
                 />
                 <TooltipProvider delayDuration={350}>
                   <MonitorHardwareBezel
@@ -879,6 +895,30 @@ export function UnifiedCardiacMonitor({
                     twelveLeadDisabled={!isTwelveLeadElectrodesApplied}
                   />
                 </TooltipProvider>
+                {isMonitorPowered &&
+                (onMonitorMedication || onMonitorIntervention || onAction) ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <MedicationMenu
+                      onSelect={onMonitorMedication ?? undefined}
+                      disabled={!isMonitorPowered}
+                    />
+                    <InterventionMenu
+                      onSelect={
+                        onMonitorIntervention
+                          ? onMonitorIntervention
+                          : onAction
+                            ? (p) =>
+                                onAction(
+                                  p.procedureData.parameters?.trim()
+                                    ? p.procedureData.parameters
+                                    : `Procedure (monitor menu): ${p.name}`,
+                                )
+                            : undefined
+                      }
+                      disabled={!isMonitorPowered}
+                    />
+                  </div>
+                ) : null}
               </>
             )}
             {mode === 'twelve_lead' && latestPrintout && (
@@ -941,7 +981,7 @@ export function UnifiedCardiacMonitor({
           <div className="flex min-w-[7rem] flex-col gap-0.5 bg-gradient-to-b from-zinc-950/95 to-black/90 p-1 ring-1 ring-inset ring-white/[0.06]">
             <VitalBlockHr displayHr={merged.hr} />
             <VitalBlockSpo2 displaySpo2={merged.spo2} />
-            <VitalBlockEtco2 />
+            <VitalBlockEtco2 displayEtco2={merged.etco2} />
             <VitalBlockBp />
             <PulseHeart displayHr={merged.hr} scenario={scenario} />
           </div>

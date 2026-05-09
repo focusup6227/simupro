@@ -1,4 +1,4 @@
-import type { Intervention } from '@/lib/types';
+import type { LegacySupabaseIntervention } from '@/lib/types';
 import type { AutonomicEvent, AutonomicEventKind } from '@/lib/physiology/autonomic-types';
 import { AUTONOMIC_EVENT_KINDS } from '@/lib/physiology/autonomic-types';
 
@@ -49,7 +49,7 @@ function isKind(x: string): x is AutonomicEventKind {
  */
 export function parseTreatmentSelectionsToStressors(
   selected: TreatmentSelectionMap,
-  interventions: readonly Intervention[] | undefined,
+  interventions: readonly LegacySupabaseIntervention[] | undefined,
   ctx: ParseStressorContext,
 ): AutonomicEvent[] {
   if (!interventions?.length) return [];
@@ -57,8 +57,7 @@ export function parseTreatmentSelectionsToStressors(
 
   for (const [id, details] of Object.entries(selected)) {
     if (!details?.selected) continue;
-    const iv = interventions.find((i) => i.id === id);
-    if (!iv) continue;
+
     const sub = details.subOptions ?? {};
 
     const base = {
@@ -117,7 +116,20 @@ export function parseTreatmentSelectionsToStressors(
         });
         break;
       }
-      case 'cpap': {
+      case 'intubation':
+      case 'supraglottic-airway':
+      case 'PROC_INTUBATION':
+      case 'PROC_SUPRAGLOTTIC_AIRWAY': {
+        out.push({
+          ...base,
+          id: uid(),
+          kind: 'airway_secured',
+          payload: { interventionId: id },
+        });
+        break;
+      }
+      case 'cpap':
+      case 'PROC_CPAP': {
         out.push({
           ...base,
           id: uid(),
@@ -128,22 +140,13 @@ export function parseTreatmentSelectionsToStressors(
         });
         break;
       }
-      case 'needle-decompression': {
+      case 'needle-decompression':
+      case 'PROC_NEEDLE_DECOMPRESSION': {
         out.push({
           ...base,
           id: uid(),
           kind: 'tension_pneumo_resolve',
           payload: {},
-        });
-        break;
-      }
-      case 'intubation':
-      case 'supraglottic-airway': {
-        out.push({
-          ...base,
-          id: uid(),
-          kind: 'airway_secured',
-          payload: { interventionId: id },
         });
         break;
       }

@@ -38,6 +38,7 @@ import {
   ClipboardCheck,
   BookText,
   BookOpen,
+  ClipboardList,
   FlaskConical,
   Calculator,
   Lightbulb,
@@ -75,6 +76,7 @@ const navItems = [
   { href: "/tools/drug-calculator", icon: <Calculator />, label: "Drug calculator" },
   { href: "/dashboard/abbreviations", icon: <BookText />, label: "Abbreviations" },
   { href: "/dashboard/guide", icon: <FlaskConical />, label: "Intervention Guide" },
+  { href: "/dashboard/protocols", icon: <ClipboardList />, label: "Protocols" },
 ];
 
 const adminNavItems: {

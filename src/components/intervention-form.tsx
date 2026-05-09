@@ -3,8 +3,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
-import type { Intervention } from '@/lib/types';
-import { InterventionSchema, interventionCertifications } from '@/lib/types';
+import type { LegacySupabaseIntervention } from '@/lib/types';
+import { LegacySupabaseInterventionSchema, interventionCertifications } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -28,14 +28,14 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 
 interface InterventionFormProps {
-  onSubmit: (values: Omit<Intervention, 'id'>) => void;
-  defaultValues?: Intervention | null;
+  onSubmit: (values: Omit<LegacySupabaseIntervention, 'id'>) => void;
+  defaultValues?: LegacySupabaseIntervention | null;
   onCancel: () => void;
 }
 
 export function InterventionForm({ onSubmit, defaultValues, onCancel }: InterventionFormProps) {
-  const form = useForm<Omit<Intervention, 'id'>>({
-    resolver: zodResolver(InterventionSchema.omit({ id: true })),
+  const form = useForm<Omit<LegacySupabaseIntervention, 'id'>>({
+    resolver: zodResolver(LegacySupabaseInterventionSchema.omit({ id: true })),
     defaultValues: {
       name: defaultValues?.name || '',
       description: defaultValues?.description || '',

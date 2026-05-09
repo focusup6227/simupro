@@ -34,6 +34,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
 import { captureActionError } from "@/lib/observability";
 import { profileRowToUser, scenarioRowToScenario } from '@/lib/db-mappers';
+import { pickRelevantBaselineInterventions } from '@/lib/national-baseline';
 import { z } from 'zod';
 
 async function getActionUserId(): Promise<string | null> {
@@ -158,18 +159,26 @@ export async function processSimulationResults({
 
   try {
     const bpMandatory = 'Obtain a blood pressure (manual or NIBP).';
-    const gradeResult = await gradeSimulationFlow({
-      scenario: {
-        mandatoryActions: {
-          emt: [...scenario.mandatoryActions.emt, bpMandatory],
-          aemt: [...scenario.mandatoryActions.aemt, bpMandatory],
-          paramedic: [...scenario.mandatoryActions.paramedic, bpMandatory],
-        },
-        suggestedActions: scenario.suggestedActions,
-        criticalFailures: scenario.criticalFailures,
+    const scenarioForGrader = {
+      mandatoryActions: {
+        emt: [...scenario.mandatoryActions.emt, bpMandatory],
+        aemt: [...scenario.mandatoryActions.aemt, bpMandatory],
+        paramedic: [...scenario.mandatoryActions.paramedic, bpMandatory],
       },
+      suggestedActions: scenario.suggestedActions,
+      criticalFailures: scenario.criticalFailures,
+    };
+    const relevantInterventions = pickRelevantBaselineInterventions(
+      scenarioForGrader,
+      userActions,
+      user.role,
+      { max: 30 },
+    );
+    const gradeResult = await gradeSimulationFlow({
+      scenario: scenarioForGrader,
       userActions: userActions,
       userRole: user.role,
+      relevantInterventions,
     });
 
     const bpAdjusted = adjustScoresForBloodPressure(
@@ -195,6 +204,8 @@ export async function processSimulationResults({
       aiFeedback: analysisResult.aiFeedback,
       reasoning: bpAdjusted.reasoning,
       premiumFeedback: analysisResult.premiumFeedback,
+      protocolDeviations: gradeResult.protocolDeviations ?? [],
+      protocolWins: gradeResult.protocolWins ?? [],
     };
   } catch (e) {
     rethrow("processSimulationResults", e, {

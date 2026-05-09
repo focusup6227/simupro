@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCollection, useSupabase, useMemoSupabase } from "@/supabase";
-import type { Intervention } from "@/lib/types";
+import type { LegacySupabaseIntervention } from "@/lib/types";
 import { interventionToDbInsert } from "@/lib/db-mappers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,15 +53,15 @@ export default function AdminInterventionsPage() {
     const { toast } = useToast();
 
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [selectedIntervention, setSelectedIntervention] = useState<Intervention | null>(null);
+    const [selectedIntervention, setSelectedIntervention] = useState<LegacySupabaseIntervention | null>(null);
     const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
-    const [interventionToDelete, setInterventionToDelete] = useState<Intervention | null>(null);
+    const [interventionToDelete, setInterventionToDelete] = useState<LegacySupabaseIntervention | null>(null);
 
     const interventionsSpec = useMemoSupabase(
         () => (client ? { table: 'interventions' as const } : null),
         [client]
     );
-    const { data: interventions, isLoading, error } = useCollection<Intervention>(interventionsSpec);
+    const { data: interventions, isLoading, error } = useCollection<LegacySupabaseIntervention>(interventionsSpec);
 
     const handleSeedInterventions = async () => {
         if (!client) {
@@ -82,7 +82,7 @@ export default function AdminInterventionsPage() {
         });
     };
 
-    const handleFormSubmit = async (values: Omit<Intervention, 'id'>) => {
+    const handleFormSubmit = async (values: Omit<LegacySupabaseIntervention, 'id'>) => {
         if (!client) return;
 
         if (selectedIntervention) {
@@ -111,7 +111,7 @@ export default function AdminInterventionsPage() {
         setSelectedIntervention(null);
     };
 
-    const openEditDialog = (intervention: Intervention) => {
+    const openEditDialog = (intervention: LegacySupabaseIntervention) => {
         setSelectedIntervention(intervention);
         setDialogOpen(true);
     };
@@ -121,7 +121,7 @@ export default function AdminInterventionsPage() {
         setDialogOpen(true);
     };
 
-    const openDeleteDialog = (intervention: Intervention) => {
+    const openDeleteDialog = (intervention: LegacySupabaseIntervention) => {
         setInterventionToDelete(intervention);
         setDeleteAlertOpen(true);
     };

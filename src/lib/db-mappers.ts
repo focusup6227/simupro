@@ -3,7 +3,7 @@ import type {
   ScenarioCardRow,
   User,
   UserRole,
-  Intervention,
+  LegacySupabaseIntervention,
   SimulationSession,
   Insight,
   ScenarioReview,
@@ -178,19 +178,19 @@ export function scenarioToDbUpsert(values: Omit<Scenario, 'id'> & { id: string }
   return row;
 }
 
-export function interventionRowToIntervention(r: InterventionRow): Intervention {
+export function interventionRowToIntervention(r: InterventionRow): LegacySupabaseIntervention {
   return {
     id: r.id,
     name: r.name,
     description: r.description,
     indication: r.indication ?? undefined,
     mechanism: r.mechanism ?? undefined,
-    certificationLevel: r.certification_level as Intervention['certificationLevel'],
-    subOptions: (r.sub_options as Intervention['subOptions']) ?? undefined,
+    certificationLevel: r.certification_level as LegacySupabaseIntervention['certificationLevel'],
+    subOptions: (r.sub_options as LegacySupabaseIntervention['subOptions']) ?? undefined,
   };
 }
 
-export function interventionToDbInsert(values: Omit<Intervention, 'id'> & { id: string }) {
+export function interventionToDbInsert(values: Omit<LegacySupabaseIntervention, 'id'> & { id: string }) {
   return {
     id: values.id,
     name: values.name,
@@ -226,6 +226,10 @@ export function insightRowToInsight(r: InsightRow): Insight {
     aiFeedback: r.ai_feedback,
     reasoning: r.reasoning,
     premiumFeedback: (r.premium_feedback as Insight['premiumFeedback']) ?? undefined,
+    protocolDeviations:
+      (r.protocol_deviations as unknown as Insight['protocolDeviations']) ?? undefined,
+    protocolWins:
+      (r.protocol_wins as unknown as Insight['protocolWins']) ?? undefined,
   };
 }
 

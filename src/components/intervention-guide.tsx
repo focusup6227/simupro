@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Intervention } from '@/lib/types';
+import type { LegacySupabaseIntervention } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -15,7 +15,7 @@ import { Search } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 
 interface InterventionGuideProps {
-  interventions: Intervention[];
+  interventions: LegacySupabaseIntervention[];
 }
 
 export function InterventionGuide({ interventions }: InterventionGuideProps) {

@@ -1,10 +1,10 @@
 import type { DoseRecord } from '@/lib/physiology/pk-types';
-import type { Intervention } from '@/lib/types';
+import type { LegacySupabaseIntervention } from '@/lib/types';
 
 /** Short labels so the AI can narrate opioids / pressors without inventing BP/HR deltas. */
 export function summarizeRecentMedications(
   doses: readonly DoseRecord[],
-  interventions: Intervention[] | null | undefined,
+  interventions: LegacySupabaseIntervention[] | null | undefined,
   atSimSeconds: number,
   windowSecs = 120,
 ): string[] {

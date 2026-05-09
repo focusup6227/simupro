@@ -47,6 +47,12 @@ export function EquipmentDrawer() {
     removeTwelveLeadElectrodes,
     applyPulseOx,
     removePulseOx,
+    ventilationMode,
+    assistedRateBpm,
+    applyBvm,
+    clearBvm,
+    applyCpap,
+    clearCpap,
   } = usePhysiologyStore(
     useShallow((s) => ({
       capnoSensor: s.capnoSensor,
@@ -67,6 +73,12 @@ export function EquipmentDrawer() {
       removeTwelveLeadElectrodes: s.removeTwelveLeadElectrodes,
       applyPulseOx: s.applyPulseOx,
       removePulseOx: s.removePulseOx,
+      ventilationMode: s.ventilationMode,
+      assistedRateBpm: s.assistedRateBpm,
+      applyBvm: s.applyBvm,
+      clearBvm: s.clearBvm,
+      applyCpap: s.applyCpap,
+      clearCpap: s.clearCpap,
     })),
   );
 
@@ -242,6 +254,43 @@ export function EquipmentDrawer() {
               </Button>
               <span className={chip(isTwelveLeadElectrodesApplied)}>
                 {isTwelveLeadElectrodesApplied ? 'Applied' : 'Off'}
+              </span>
+            </div>
+          </Row>
+
+          <Row label="Assisted ventilation">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={ventilationMode === 'bvm' ? 'secondary' : 'outline'}
+                onClick={() => applyBvm()}
+              >
+                BVM
+              </Button>
+              <Button
+                size="sm"
+                variant={ventilationMode === 'cpap' ? 'secondary' : 'outline'}
+                onClick={() => applyCpap()}
+              >
+                CPAP
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={ventilationMode === 'spontaneous'}
+                onClick={() => {
+                  if (ventilationMode === 'bvm') clearBvm();
+                  if (ventilationMode === 'cpap') clearCpap();
+                }}
+              >
+                Spontaneous
+              </Button>
+              <span className={chip(ventilationMode !== 'spontaneous')}>
+                {ventilationMode === 'bvm'
+                  ? `BVM @ ${assistedRateBpm ?? '—'}/min`
+                  : ventilationMode === 'cpap'
+                    ? 'CPAP'
+                    : 'Spontaneous'}
               </span>
             </div>
           </Row>

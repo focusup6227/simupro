@@ -321,6 +321,8 @@ export interface Database {
           ai_feedback: string;
           reasoning: string;
           premium_feedback: Json | null;
+          protocol_deviations: Json | null;
+          protocol_wins: Json | null;
           created_at: string;
         };
         Insert: {
@@ -331,6 +333,8 @@ export interface Database {
           ai_feedback: string;
           reasoning: string;
           premium_feedback?: Json | null;
+          protocol_deviations?: Json | null;
+          protocol_wins?: Json | null;
         };
         Update: Partial<{
           assessment_score: number;
@@ -338,6 +342,8 @@ export interface Database {
           ai_feedback: string;
           reasoning: string;
           premium_feedback: Json | null;
+          protocol_deviations: Json | null;
+          protocol_wins: Json | null;
         }>;
         Relationships: [];
       };

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isoDateOnlyNotAfterToday } from '@/lib/certification-attestation';
 import { ALL_ECG_RHYTHM_KINDS, type EcgRhythmKind } from '@/lib/ecg-rhythm';
 import { ACS_PATTERN_KINDS, type AcsPatternKind } from '@/lib/ecg-acs';
+import { BaselineInterventionSchema } from '@/lib/national-baseline';
 
 /** Serialized dates from DB / legacy Firestore-shaped payloads */
 export const TimestampLikeSchema = z.union([
@@ -104,6 +105,22 @@ export const AutonomicProfileSchema = z.object({
 });
 export type AutonomicProfile = z.infer<typeof AutonomicProfileSchema>;
 
+/** Entries for the unified monitor `MedicationMenu` (backed by `usePhysiologyStore`). */
+export const MonitorMenuMedicationSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().min(1),
+  pkDrugId: z.string().optional(),
+});
+export type MonitorMenuMedication = z.infer<typeof MonitorMenuMedicationSchema>;
+
+/** Entries for the unified monitor `InterventionMenu` — `actionLabel` is logged via `onAction`. */
+export const MonitorMenuInterventionSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().min(1),
+  actionLabel: z.string().min(1),
+});
+export type MonitorMenuIntervention = z.infer<typeof MonitorMenuInterventionSchema>;
+
 export const ScenarioSchema = z.object({
   id: z.string(),
   title: z.string().min(1, "Title is required."),
@@ -120,6 +137,8 @@ export const ScenarioSchema = z.object({
     rr: z.string().min(1, "Respiratory rate is required."),
     spo2: z.string().min(1, "Oxygen saturation is required."),
     gcs: z.string().min(1, "GCS is required."),
+    /** Optional baseline EtCO₂ string with unit (e.g. "35 mmHg"). When set, seeds the capno monitor before the AI updates it. */
+    etco2: z.string().optional(),
   }),
   initialRhythm: z
     .enum(ALL_ECG_RHYTHM_KINDS as readonly [EcgRhythmKind, ...EcgRhythmKind[]])
@@ -159,6 +178,9 @@ export const ScenarioSchema = z.object({
     .optional(),
   /** Optional ICP (mmHg) for educator CPP rails (CPP ≈ MAP − ICP) when MAP is available. */
   icpMmHg: z.number().min(0).max(80).optional(),
+  /** Optional catalog for on-monitor quick menus; also push at runtime via the physiology store. */
+  monitorMenuMedications: z.array(MonitorMenuMedicationSchema).optional(),
+  monitorMenuInterventions: z.array(MonitorMenuInterventionSchema).optional(),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 export type ScenarioData = Omit<Scenario, 'id'>;
@@ -189,12 +211,27 @@ export const ScenarioReviewSchema = z.object({
 export type ScenarioReview = z.infer<typeof ScenarioReviewSchema>;
 
 
+export const ActionVitalsSnapshotSchema = z.object({
+  hr: z.number().nullable().optional(),
+  sbp: z.number().nullable().optional(),
+  dbp: z.number().nullable().optional(),
+  spo2: z.number().nullable().optional(),
+  rr: z.number().nullable().optional(),
+  etco2: z.number().nullable().optional(),
+  temp: z.number().nullable().optional(),
+  glucose: z.number().nullable().optional(),
+  gcs: z.number().nullable().optional(),
+}).partial();
+export type ActionVitalsSnapshot = z.infer<typeof ActionVitalsSnapshotSchema>;
+
 export const UserActionSchema = z.object({
   time: z.number().describe("The simulation time in seconds when the action was taken."),
   assessment: z.string().describe("The user's written assessment notes for this action."),
   treatments: z.array(z.string()).describe("A list of treatments administered in this action."),
   destination: z.string().nullable().describe("The hospital destination selected by the user."),
   transportMode: z.enum(['Routine', 'Emergency']).optional().describe("The transport mode selected by the user."),
+  vitalsAtAction: ActionVitalsSnapshotSchema.optional().describe("Snapshot of patient vitals at the moment this action was logged."),
+  context: z.string().optional().describe("Latest patient condition / chief complaint context at the moment this action was logged."),
 });
 export type UserAction = z.infer<typeof UserActionSchema>;
 
@@ -231,6 +268,25 @@ export const PremiumFeedbackSchema = z.object({
 });
 export type PremiumFeedback = z.infer<typeof PremiumFeedbackSchema>;
 
+export const ProtocolDeviationSchema = z.object({
+  kind: z.enum(['scope', 'dosage', 'indication', 'contraindication', 'other']),
+  actionTime: z.number(),
+  treatment: z.string(),
+  expected: z.string(),
+  observed: z.string(),
+  reference: z.string(),
+});
+export type ProtocolDeviation = z.infer<typeof ProtocolDeviationSchema>;
+
+export const ProtocolWinSchema = z.object({
+  actionTime: z.number(),
+  treatment: z.string(),
+  expected: z.string(),
+  observed: z.string(),
+  reference: z.string(),
+});
+export type ProtocolWin = z.infer<typeof ProtocolWinSchema>;
+
 export const InsightSchema = z.object({
   id: z.string(),
   assessmentScore: z.number(),
@@ -238,6 +294,8 @@ export const InsightSchema = z.object({
   aiFeedback: z.string(),
   reasoning: z.string(),
   premiumFeedback: PremiumFeedbackSchema.optional(),
+  protocolDeviations: z.array(ProtocolDeviationSchema).optional(),
+  protocolWins: z.array(ProtocolWinSchema).optional(),
 });
 export type Insight = z.infer<typeof InsightSchema>;
 
@@ -294,7 +352,8 @@ export const interventionCertifications = ['emt', 'aemt', 'paramedic'] as const;
 export type InterventionCertification = typeof interventionCertifications[number];
 
 
-export const InterventionSchema = z.object({
+/** Legacy Supabase-backed intervention catalog (admin CRUD, subOptions). Use `Intervention` from `@/types/protocol` for NASEMSO baseline. */
+export const LegacySupabaseInterventionSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Name is required."),
   description: z.string().min(1, "Description is required."),
@@ -306,8 +365,8 @@ export const InterventionSchema = z.object({
     options: z.array(z.string()).min(1, "At least one option is required."),
   })).optional(),
 });
-export type Intervention = z.infer<typeof InterventionSchema>;
-export type InterventionData = Omit<Intervention, 'id'>;
+export type LegacySupabaseIntervention = z.infer<typeof LegacySupabaseInterventionSchema>;
+export type LegacySupabaseInterventionData = Omit<LegacySupabaseIntervention, 'id'>;
 
 
 const GradeScenarioSchema = ScenarioSchema.pick({
@@ -320,6 +379,7 @@ export const GradeSimulationInputSchema = z.object({
   scenario: GradeScenarioSchema,
   userActions: z.array(UserActionSchema).describe("A log of all actions taken by the user during the simulation."),
   userRole: z.string().describe("The user's certification level (e.g., emt, aemt, paramedic)."),
+  relevantInterventions: z.array(BaselineInterventionSchema).default([]).describe("Active protocol rows (baseline + overrides) for grading against."),
 });
 export type GradeSimulationInput = z.infer<typeof GradeSimulationInputSchema>;
 
@@ -328,6 +388,8 @@ export const GradeSimulationOutputSchema = z.object({
   assessmentScore: z.number().describe("A numerical score from 0-100 for the user's assessment skills, based on their logged assessment notes."),
   treatmentScore: z.number().describe("A numerical score from 0-100 for the user's treatment choices, based on the mandatory, suggested, and critical failure actions relevant to their certification level."),
   reasoning: z.string().describe("A brief justification for the scores provided, explaining which key actions were missed or performed correctly based on their certification level."),
+  protocolDeviations: z.array(ProtocolDeviationSchema).default([]).describe("Categorized protocol deviations identified by the auditor (scope/dosage/indication/contraindication/other)."),
+  protocolWins: z.array(ProtocolWinSchema).default([]).describe("Learner treatments that passed the Three-Point Check against the protocol source of truth."),
 });
 export type GradeSimulationOutput = z.infer<typeof GradeSimulationOutputSchema>;
 

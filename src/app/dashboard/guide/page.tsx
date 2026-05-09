@@ -2,7 +2,7 @@
 
 import { useCollection, useSupabase, useMemoSupabase } from "@/supabase";
 import { InterventionGuide } from "@/components/intervention-guide";
-import type { Intervention } from "@/lib/types";
+import type { LegacySupabaseIntervention } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -21,7 +21,7 @@ export default function InterventionGuidePage() {
     [client]
   );
   const { data: interventions, isLoading } =
-    useCollection<Intervention>(interventionsSpec);
+    useCollection<LegacySupabaseIntervention>(interventionsSpec);
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
 
-import type { Intervention } from './types';
+import type { LegacySupabaseIntervention } from './types';
 
-export const seedInterventions: Intervention[] = [
+export const seedInterventions: LegacySupabaseIntervention[] = [
     // EMT Scope (per TN 2024-2025 Protocol)
     { 
         id: 'oxygen', 

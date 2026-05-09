@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { Message, Scenario, Intervention, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole } from "@/lib/types";
+import type { Message, Scenario, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole } from "@/lib/types";
 import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-adjust";
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
@@ -21,9 +21,13 @@ import {
   PARTNER_DELEGATION_MARKER,
   canIssueProactiveAdvice,
   mandatoryLikelyUnmet,
+  partnerCanPerform,
 } from "@/lib/partner";
 import type { Json } from "@/lib/supabase/database.types";
-import { interventionCertifications } from "@/lib/types";
+import type { Intervention } from "@/types/protocol";
+import { toLicensureLevel } from "@/types/protocol";
+import { seedInterventions } from "@/lib/interventions-data";
+import { useProtocolStore, monitorMenuRowsToScenarioOverlay } from "@/stores/protocol-store";
 import { getPatientResponse, generateRadioReport, getPartnerAdvice } from "@/app/actions";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
@@ -32,7 +36,6 @@ import {
   useDoc,
   useSupabase,
   useUser,
-  useCollection,
   useMemoSupabase,
   useDashboardProfile,
 } from "@/supabase";
@@ -69,6 +72,7 @@ import { usePharmacokineticsTick } from "@/hooks/use-pharmacokinetics-tick";
 import { useAutonomicTick } from "@/hooks/use-autonomic-tick";
 import { useMetabolicTick } from "@/hooks/use-metabolic-tick";
 import { applyEquipmentFromTreatmentSelections } from "@/lib/equipment-sync";
+import { snapshotVitalsForAction } from "@/lib/action-vitals-snapshot";
 import { resolveScenarioWeightKg } from "@/lib/physiology/scenario-physiology-defaults";
 import { usePkStore } from "@/stores/pk-store";
 import { useAutonomicStore } from "@/stores/autonomic-store";
@@ -81,6 +85,7 @@ import { recordRhythmQuizAttempt } from "@/lib/rhythm-quiz-attempts";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useShallow } from "zustand/shallow";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Link from "next/link";
 
@@ -183,6 +188,13 @@ function roleKeyForMandatory(
   return "emt";
 }
 
+function monitorMenuOptsFromScenario(s: Scenario) {
+  return {
+    scenarioMedications: s.monitorMenuMedications ?? [],
+    scenarioInterventions: s.monitorMenuInterventions ?? [],
+  };
+}
+
 function parsePartnerRow(row: {
   partner_role?: string | null;
   partner_name?: string | null;
@@ -221,21 +233,6 @@ export default function SimulationPage() {
 
   const { data: userData, isLoading: isUserDataLoading } = useDashboardProfile();
 
-  const interventionsSpec = useMemoSupabase(
-    () =>
-      supabase
-        ? ({
-            table: 'interventions',
-            order: { column: 'name' as const, ascending: true },
-            live: false,
-          } as const)
-        : null,
-    [supabase]
-  );
-  const { data: allInterventions, isLoading: isLoadingInterventions } =
-    useCollection<Intervention>(interventionsSpec);
-
-
   useEffect(() => {
     if (userData) {
       if (userData.role === 'tester') {
@@ -245,6 +242,21 @@ export default function SimulationPage() {
       }
     }
   }, [userData]);
+
+  useEffect(() => {
+    useProtocolStore.getState().setUserLevel(toLicensureLevel(currentUserRole));
+  }, [currentUserRole]);
+
+  useEffect(() => {
+    if (!scenario) return;
+    const { scenarioMedications, scenarioInterventions } = monitorMenuOptsFromScenario(scenario);
+    useProtocolStore.getState().setScenarioOverlay(
+      monitorMenuRowsToScenarioOverlay(scenarioMedications, scenarioInterventions),
+    );
+    return () => {
+      useProtocolStore.getState().clearScenarioOverlay();
+    };
+  }, [scenario]);
 
   useEffect(() => {
     if (isLoadingScenario || isUserDataLoading || !scenario) return;
@@ -298,6 +310,31 @@ export default function SimulationPage() {
     role: PartnerSimulationRole;
   } | null>(null);
   const [partnerAdviceHistory, setPartnerAdviceHistory] = useState<PartnerAdviceItem[]>([]);
+
+  const partnerScopeInterventions = useMemo(() => {
+    if (!partner) return [];
+    return seedInterventions.filter((i) => partnerCanPerform(i, partner.role));
+  }, [partner]);
+
+  /** Drives pediatric chatter / dose overrides in the partner panel. */
+  const isPediatricScenario = useMemo(() => {
+    const band = scenario?.ageBand;
+    return Boolean(band && band !== 'adult');
+  }, [scenario?.ageBand]);
+
+  const protocolMergeDeps = useProtocolStore(
+    useShallow((s) => ({
+      userLevel: s.userLevel,
+      scenarioOverlay: s.scenarioOverlay,
+      customOverrides: s.customOverrides,
+    })),
+  );
+  const availableInterventions = useMemo(
+    () => useProtocolStore.getState().availableInterventions(),
+    // Zustand `getState()` hides reactive deps; `protocolMergeDeps` (useShallow) is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [protocolMergeDeps],
+  );
 
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
@@ -562,10 +599,12 @@ export default function SimulationPage() {
             const lastVitals = [...restoredMessages].reverse().find((m) => m.vitals)?.vitals;
             usePhysiologyStore.getState().loadScenario(lastVitals ?? scenario.initialVitals, {
               weightKg: scenarioWeightKg,
+              ...monitorMenuOptsFromScenario(scenario),
             });
           } else {
             usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
               weightKg: scenarioWeightKg,
+              ...monitorMenuOptsFromScenario(scenario),
             });
             const initialMessage: Message = { role: 'assistant', content: scenario.details, vitals: scenario.initialVitals };
             setMessages([
@@ -632,6 +671,7 @@ export default function SimulationPage() {
         setPartner(rolled);
         usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
           weightKg: scenarioWeightKg,
+          ...monitorMenuOptsFromScenario(scenario),
         });
 
         const initialMessage: Message = { role: 'assistant', content: scenario.details, vitals: scenario.initialVitals };
@@ -773,6 +813,11 @@ export default function SimulationPage() {
           lastPatientCondition: lastAssistant?.conditionChange,
           currentVitals: priorVitals,
           userQuestion: "",
+          priorAdviceTexts: [...recentProactiveAdviceRef.current]
+            .reverse()
+            .map((x) => x.text)
+            .slice(0, 6),
+          isPediatric: isPediatricScenario,
         });
         if (!out.shouldSpeak || !out.advice.trim()) return;
         if (
@@ -836,6 +881,7 @@ export default function SimulationPage() {
     sessionId,
     currentUserRole,
     userData,
+    isPediatricScenario,
   ]);
 
   usePharmacokineticsTick({
@@ -898,21 +944,6 @@ export default function SimulationPage() {
   }, [router, id, time, userActions, toast, scenario, authUser, supabase, simulationEnded, sessionId]);
 
 
-  const availableInterventions = useMemo(() => {
-    if (!allInterventions) return [];
-    
-    const effectiveRole = (currentUserRole === 'admin') ? 'paramedic' : currentUserRole;
-    
-    const userLevel = interventionCertifications.indexOf(effectiveRole as 'emt' | 'aemt' | 'paramedic');
-
-    if (userLevel === -1) return [];
-
-    return allInterventions.filter(intervention => {
-      const interventionLevel = interventionCertifications.indexOf(intervention.certificationLevel);
-      return interventionLevel <= userLevel;
-    });
-  }, [currentUserRole, allInterventions]);
-
   const submitAction = useCallback(async (
     actionType: ActiveTab | "medicalDirection" | "cardiacArrest",
     payload: {
@@ -927,7 +958,7 @@ export default function SimulationPage() {
       partnerRole: PartnerSimulationRole;
     },
   ) => {
-    if (!scenario || !allInterventions || !userData || isLoading) return;
+    if (!scenario || !userData || isLoading) return;
 
     setIsLoading(true);
 
@@ -956,7 +987,10 @@ export default function SimulationPage() {
     const treatmentsArray = payload.treatments || [];
     const destination = payload.destination || null;
 
-    if (treatmentsArray.includes("Cardiopulmonary Resuscitation (CPR)") && !cprStarted) {
+    if (
+      treatmentsArray.some((t) => /\bcpr\b|cardiopulmonary|resuscitation|compressions/i.test(t)) &&
+      !cprStarted
+    ) {
       setCprStarted(true);
     }
 
@@ -985,11 +1019,18 @@ export default function SimulationPage() {
       : [...messages, { role: "user", content: actionDescription }];
     setMessages(newMessages);
 
+    const priorVitalsForAction = scenarioVitalsFromStore() ?? scenario.initialVitals;
+    const lastAssistantForContext = [...messages].reverse().find((m) => m.role === 'assistant');
+    const contextForAction =
+      lastAssistantForContext?.conditionChange ?? scenario.patientProfile.slice(0, 240);
+
     const newAction: UserAction = {
       time: time,
       assessment: assessmentText,
       treatments: treatmentsArray,
       destination: destination,
+      vitalsAtAction: snapshotVitalsForAction(priorVitalsForAction),
+      context: contextForAction,
     };
     if (payload.transport) {
       newAction.transportMode = payload.transport;
@@ -1018,7 +1059,7 @@ export default function SimulationPage() {
       const recentMedications = ENABLE_PHARMACOKINETICS_ENGINE
         ? summarizeRecentMedications(
             usePkStore.getState().doses,
-            allInterventions,
+            seedInterventions,
             time,
             120,
           )
@@ -1141,7 +1182,7 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, allInterventions, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId]);
+  }, [scenario, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId]);
 
   const delegatePartnerAction = useCallback(
     async (spec: {
@@ -1149,9 +1190,9 @@ export default function SimulationPage() {
       assessmentDetail: string;
       treatmentIds?: string[];
     }) => {
-      if (!partner || !allInterventions) return;
+      if (!partner) return;
       const names = (spec.treatmentIds ?? [])
-        .map((id) => allInterventions.find((i) => i.id === id)?.name)
+        .map((id) => seedInterventions.find((i) => i.id === id)?.name)
         .filter((n): n is string => Boolean(n));
       const hasTx = names.length > 0;
       await submitAction(
@@ -1167,7 +1208,7 @@ export default function SimulationPage() {
         },
       );
     },
-    [partner, allInterventions, submitAction],
+    [partner, submitAction],
   );
 
   const handleAskPartner = useCallback(
@@ -1191,9 +1232,18 @@ export default function SimulationPage() {
           lastPatientCondition: lastAssistant?.conditionChange,
           currentVitals: priorVitals,
           userQuestion: question.slice(0, 2000),
+          priorAdviceTexts: [...recentProactiveAdviceRef.current]
+            .reverse()
+            .map((x) => x.text)
+            .slice(0, 6),
+          isPediatric: isPediatricScenario,
         });
         if (!out.advice.trim()) return;
         lastPartnerSpeechSimTimeRef.current = time;
+        recentProactiveAdviceRef.current = [
+          ...recentProactiveAdviceRef.current.filter((x) => time - x.simTime <= 300),
+          { text: out.advice, simTime: time },
+        ];
         setPartnerAdviceHistory((h) =>
           [
             ...h,
@@ -1228,7 +1278,7 @@ export default function SimulationPage() {
         });
       }
     },
-    [scenario, partner, messages, currentUserRole, userData, userActions, time, toast],
+    [scenario, partner, messages, currentUserRole, userData, userActions, time, toast, isPediatricScenario],
   );
 
   /**
@@ -1239,18 +1289,24 @@ export default function SimulationPage() {
    */
   const handleEcgAction = useCallback((label: string) => {
     if (!scenario || !authUser) return;
+    const priorVitalsForEcg = scenarioVitalsFromStore() ?? scenario.initialVitals;
+    const lastAssistantForEcg = [...messages].reverse().find((m) => m.role === 'assistant');
+    const ecgContext =
+      lastAssistantForEcg?.conditionChange ?? scenario.patientProfile.slice(0, 240);
     const newAction: UserAction = {
       time: simulationTimeRef.current,
       assessment: '',
       treatments: [label],
       destination: null,
+      vitalsAtAction: snapshotVitalsForAction(priorVitalsForEcg),
+      context: ecgContext,
     };
     setUserActions((prev) => [...prev, newAction]);
     setMessages((prev) => [
       ...prev,
       { role: 'system', content: `Action logged · ${label}` },
     ]);
-  }, [scenario, authUser]);
+  }, [scenario, authUser, messages]);
 
   const nibpPhaseTrackedRef = useRef(usePhysiologyStore.getState().nibpPhase);
   useEffect(() => {
@@ -1276,7 +1332,9 @@ export default function SimulationPage() {
     const treatmentsArray = Object.entries(selectedTreatments)
       .filter(([, details]) => details.selected)
       .map(([id, details]) => {
-        const intervention = allInterventions?.find(i => i.id === id);
+        const intervention =
+          availableInterventions.find((i) => i.id === id) ??
+          seedInterventions.find((i) => i.id === id);
         if (!intervention) return '';
         const subOptionsStr = Object.entries(details.subOptions).map(([label, value]) => `${label}: ${value}`).join(', ');
         return `${intervention.name}${subOptionsStr ? ` (${subOptionsStr})` : ''}`;
@@ -1289,10 +1347,10 @@ export default function SimulationPage() {
         ENABLE_PHARMACOKINETICS_ENGINE &&
         sessionId &&
         uidForPk &&
-        allInterventions
+        seedInterventions.length
           ? parseTreatmentSelectionsToDoses(
               selectedTreatments,
-              allInterventions,
+              seedInterventions,
               {
                 sessionId,
                 userId: uidForPk,
@@ -1332,10 +1390,10 @@ export default function SimulationPage() {
         ENABLE_AUTONOMIC_ENGINE &&
         sessionId &&
         uidForPk &&
-        allInterventions
+        seedInterventions.length
           ? parseTreatmentSelectionsToStressors(
               selectedTreatments,
-              allInterventions,
+              seedInterventions,
               {
                 sessionId,
                 userId: uidForPk,
@@ -1364,7 +1422,7 @@ export default function SimulationPage() {
           });
         }
       }
-      applyEquipmentFromTreatmentSelections(selectedTreatments, allInterventions);
+      applyEquipmentFromTreatmentSelections(selectedTreatments, seedInterventions);
       await submitAction(actionType, { treatments: treatmentsArray });
     } else {
       toast({ title: 'No Treatments Selected', description: 'Please select at least one treatment.', variant: 'destructive' });
@@ -1422,9 +1480,8 @@ export default function SimulationPage() {
   };
 
   const handleTreatmentSelection = (id: string, checked: boolean | 'indeterminate') => {
-    if (!allInterventions) return;
-    const intervention = allInterventions.find(i => i.id === id);
-    const initialSubOptions = intervention?.subOptions?.reduce((acc, so) => {
+    const legacyInt = seedInterventions.find((i) => i.id === id);
+    const initialSubOptions = legacyInt?.subOptions?.reduce((acc, so) => {
         acc[so.label] = so.options[0]; // Default to the first option
         return acc;
     }, {} as {[key: string]: string}) || {};
@@ -1603,15 +1660,15 @@ export default function SimulationPage() {
   }
   
   const cardiacArrestInterventionIds = [
-    'cpr',
-    'apply-monitor-pads',
-    'defibrillation',
-    'epinephrine-cardiac',
-    'amiodarone',
-    'lidocaine',
-    'intubation',
-    'supraglottic-airway',
-    'pulse-rhythm-check',
+    'PROC_GUIDELINE_CARDIAC_ARREST',
+    'PROC_AED_USE',
+    'PROC_DEFIBRILLATION',
+    'MED_EPI_1_10000',
+    'MED_AMIODARONE',
+    'MED_LIDOCAINE',
+    'PROC_INTUBATION',
+    'PROC_SUPRAGLOTTIC_AIRWAY',
+    'PROC_CARDIAC_MONITORING',
   ];
 
   /**
@@ -1624,7 +1681,7 @@ export default function SimulationPage() {
     if (!currentArrestRhythm) return true;
     if (isShockable) return true;
     // Non-shockable: hide defib + antiarrhythmic-only meds.
-    return !['defibrillation', 'amiodarone', 'lidocaine'].includes(id);
+    return !['PROC_DEFIBRILLATION', 'MED_AMIODARONE', 'MED_LIDOCAINE'].includes(id);
   });
   const cardiacArrestInterventions = availableInterventions.filter((i) =>
     filteredCardiacIds.includes(i.id),
@@ -1663,6 +1720,9 @@ export default function SimulationPage() {
               pulseless={Boolean(currentArrestRhythm)}
               onRhythmChange={(kind) => setObservedRhythm(kind)}
               onAction={handleEcgAction}
+              onMonitorMedication={(med) =>
+                handleEcgAction(`Medication (monitor menu): ${med.name}`)
+              }
             />
             <EquipmentDrawer />
             {(currentUserRole === 'paramedic' || currentUserRole === 'admin') && (
@@ -1987,12 +2047,13 @@ export default function SimulationPage() {
             {isAnalyzingAED && <p>AED is analyzing...</p>}
           </div>
         </div>
-        {partner && allInterventions ? (
+        {partner ? (
           <div className="shrink-0 border-b px-4 pb-3 pt-1">
             <PartnerPanel
               partner={partner}
-              interventions={allInterventions}
+              interventions={partnerScopeInterventions}
               adviceHistory={partnerAdviceHistory}
+              isPediatric={isPediatricScenario}
               onDelegate={(spec) =>
                 delegatePartnerAction({
                   chatter: spec.chatter,
@@ -2135,8 +2196,7 @@ export default function SimulationPage() {
                <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
                 <div className="space-y-4 pr-4">
                   <Label>Select treatments to administer</Label>
-                  {isLoadingInterventions && <p>Loading interventions...</p>}
-                  {!isLoadingInterventions && availableInterventions.length === 0 && (
+                  {availableInterventions.length === 0 && (
                     <p className="text-muted-foreground text-sm">No interventions available for your certification level.</p>
                   )}
                   {availableInterventions.length > 0 && (

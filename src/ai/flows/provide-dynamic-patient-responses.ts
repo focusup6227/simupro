@@ -21,6 +21,20 @@ export const VitalSignsSchema = z.object({
   rr: z.string().describe('Respiratory Rate (e.g., "16/min")'),
   spo2: z.string().describe('Oxygen Saturation (e.g., "98%")'),
   gcs: z.string().describe('Glasgow Coma Scale (e.g., "15")'),
+  etco2: z
+    .string()
+    .optional()
+    .describe(
+      'End-tidal CO₂ as a string with unit, e.g. "32 mmHg". Physiology rules: ~35 mmHg normal; <30 hyperventilation, shock, or low cardiac output; >45 hypoventilation / CO₂ retention (opioid OD, severe COPD, post-ictal, exhaustion); <20 during active CPR (pulseless); a sudden ≥35 spike during CPR signals **ROSC** and you must omit `arrestRhythm` and revert `hr` to a numeric bpm. Always include this field whenever a perfusing or arrested patient could plausibly have a sensor (i.e. on essentially every turn after the first); omit only on the very first turn before any airway / cannula has been described.',
+    ),
+  obstruction: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe(
+      'Capnogram airway-obstruction factor in [0, 1]. 0 = clean square plateau (normal airways). 0.4–0.7 = developing shark-fin morphology (mild–moderate bronchospasm — early asthma/COPD exacerbation, anaphylaxis). 0.7–1.0 = severe obstructive pattern (status asthmaticus, severe COPD, late anaphylaxis). Increase as bronchospasm worsens; decrease toward 0 with effective bronchodilator therapy (albuterol, epinephrine for anaphylaxis), CPAP, or definitive airway. Omit if the scenario has no airway obstruction component.',
+    ),
 });
 
 export const DynamicPatientResponseInputSchema = z.object({
@@ -184,7 +198,9 @@ For evolving **extra** pathophysiology the engine does not know (rebleed, sepsis
 - RR: {{{currentVitals.rr}}}
 - SpO2: {{{currentVitals.spo2}}}
 - GCS: {{{currentVitals.gcs}}}
-{{else}}
+{{#if currentVitals.etco2}}- EtCO₂: {{{currentVitals.etco2}}}
+{{/if}}{{#if currentVitals.obstruction}}- Capnogram obstruction (0–1): {{{currentVitals.obstruction}}}
+{{/if}}{{else}}
 (First turn — infer initial vitals from the scenario only.)
 {{/if}}
 
@@ -223,6 +239,17 @@ Based on the scenario, the user's role, the history of actions, and the latest a
     - "PEA @ <rate> bpm" (rate 20–60 typical)
     - "Asystole"
     so older clients without the structured field still classify correctly. Set 'vitals.bp' to "0/0 (no pulse)" while pulseless. After successful defibrillation / ROSC, OMIT 'arrestRhythm' and revert 'vitals.hr' to a numeric BPM string.
+
+7.  **Capnography ('vitals.etco2', 'vitals.obstruction') — set on EVERY turn the patient could plausibly have a CO₂ sensor:**
+    - **Numeric value ('vitals.etco2'):** always include the unit "mmHg" (e.g. "32 mmHg").
+        * Normal perfusing adult: 35–45 mmHg.
+        * **Hyperventilation / early shock / low cardiac output / DKA Kussmaul:** drop into 20–30 mmHg.
+        * **Hypoventilation / opioid overdose / severe COPD / post-ictal:** rise into 50–70 mmHg.
+        * **Active CPR (pulseless, any arrest rhythm):** must be **<20 mmHg** — typical 10–18 mmHg with quality compressions, drifting toward 6–10 mmHg with poor CPR or prolonged downtime.
+        * **Sudden jump to ≥35 mmHg during CPR = ROSC.** When you raise EtCO₂ across that threshold from an arrested state, you MUST also omit 'arrestRhythm' and revert 'vitals.hr' to a numeric bpm and 'vitals.bp' to a perfusing pressure.
+        * Trend changes must be **physiologically continuous** with the previous EtCO₂ unless you narrate a clear new event (intubation, ROSC, re-arrest, sudden bronchospasm).
+    - **Obstruction factor ('vitals.obstruction', 0–1):** non-zero only when the patient has airway obstruction physiology — asthma exacerbation, COPD flare, anaphylaxis with bronchospasm, late upper-airway obstruction. 0.4–0.7 = mild/moderate shark-fin; 0.7–1.0 = severe shark-fin. Decrease toward 0 in response to effective bronchodilators (albuterol nebulizer, IM epinephrine for anaphylaxis), CPAP, or a definitive airway. Omit entirely (do not set 0) for scenarios with no obstructive component.
+    - **Assisted ventilation is already modeled deterministically.** When the user selects CPAP or bag-valve-mask oxygen delivery, the simulation engine independently softens the capnogram shark-fin (CPAP and BVM both reduce 'obstruction' on the displayed waveform) and pulls EtCO₂ partway toward 38 mmHg (BVM = strong pull, CPAP = mild pull). Set 'vitals.etco2' and 'vitals.obstruction' as the **patient's underlying physiology** — do **not** double-correct toward normal solely because the user picked BVM / CPAP. You may still narrate exam improvement (less work of breathing, reduced wheezing, easier bagging) and use realistic perfusion-driven numbers (e.g. 12 mmHg during CPR even while being bagged).
 
 {{#if isPremium}}
 **PREMIUM REALISM MODE — APPLY THE FOLLOWING ADDITIONAL RULES:**

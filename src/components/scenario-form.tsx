@@ -154,6 +154,15 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
         delete (v as Record<string, unknown>)[key];
       }
     }
+    if (v.initialVitals && typeof v.initialVitals.etco2 === 'string') {
+      const trimmed = v.initialVitals.etco2.trim();
+      if (!trimmed) {
+        v.initialVitals = { ...v.initialVitals };
+        delete (v.initialVitals as Record<string, unknown>).etco2;
+      } else {
+        v.initialVitals = { ...v.initialVitals, etco2: trimmed };
+      }
+    }
     onSubmit(v, defaultValues?.id);
   };
 
@@ -348,6 +357,7 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
                         <FormField control={form.control} name="initialVitals.rr" render={({ field }) => (<FormItem><FormLabel>RR</FormLabel><FormControl><Input placeholder="e.g., 28/min" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="initialVitals.spo2" render={({ field }) => (<FormItem><FormLabel>SpO2</FormLabel><FormControl><Input placeholder="e.g., 91%" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="initialVitals.gcs" render={({ field }) => (<FormItem><FormLabel>GCS</FormLabel><FormControl><Input placeholder="e.g., 15" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="initialVitals.etco2" render={({ field }) => (<FormItem><FormLabel>EtCO₂ (optional)</FormLabel><FormControl><Input placeholder="e.g., 35 mmHg" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </CardContent>
                 </Card>
 

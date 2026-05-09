@@ -1,6 +1,8 @@
 'use client';
 
-import type { Intervention } from '@/lib/types';
+import type { LegacySupabaseIntervention } from '@/lib/types';
+import type { Intervention as ProtocolIntervention } from '@/types/protocol';
+import { isMedication } from '@/types/protocol';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -18,8 +20,14 @@ export type TreatmentSelection = {
   subOptions: Record<string, string>;
 };
 
+export type InterventionTileIntervention = LegacySupabaseIntervention | ProtocolIntervention;
+
+function isLegacyTileIntervention(i: InterventionTileIntervention): i is LegacySupabaseIntervention {
+  return 'certificationLevel' in i;
+}
+
 interface InterventionTileProps {
-  intervention: Intervention;
+  intervention: InterventionTileIntervention;
   selected: TreatmentSelection | undefined;
   onToggle: (selected: boolean) => void;
   onSubOptionChange: (label: string, value: string) => void;
@@ -32,8 +40,14 @@ export function InterventionTile({
   onSubOptionChange,
 }: InterventionTileProps) {
   const isOn = Boolean(selected?.selected);
-  const subs = intervention.subOptions ?? [];
+  const subs = isLegacyTileIntervention(intervention) ? intervention.subOptions ?? [] : [];
   const showSubs = isOn && subs.length > 0;
+
+  const subtitle = !isLegacyTileIntervention(intervention)
+    ? isMedication(intervention)
+      ? intervention.medicationData.dosages.adult
+      : intervention.procedureData.parameters ?? intervention.procedureData.successCriteria
+    : null;
 
   return (
     <Card
@@ -68,6 +82,9 @@ export function InterventionTile({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-snug">{intervention.name}</p>
+          {subtitle ? (
+            <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{subtitle}</p>
+          ) : null}
           {showSubs ? (
             <div
               className="mt-3 space-y-3 border-t border-border/80 pt-3"
