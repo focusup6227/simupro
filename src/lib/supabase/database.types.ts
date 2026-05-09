@@ -205,6 +205,8 @@ export interface Database {
           actions: Json | null;
           messages: Json | null;
           user_role: string | null;
+          partner_role: string | null;
+          partner_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -220,6 +222,8 @@ export interface Database {
           actions?: Json | null;
           messages?: Json | null;
           user_role?: string | null;
+          partner_role?: string | null;
+          partner_name?: string | null;
         };
         Update: Partial<{
           scenario_id: string;
@@ -231,6 +235,8 @@ export interface Database {
           actions?: Json | null;
           messages?: Json | null;
           user_role?: string | null;
+          partner_role?: string | null;
+          partner_name?: string | null;
         }>;
         Relationships: [];
       };

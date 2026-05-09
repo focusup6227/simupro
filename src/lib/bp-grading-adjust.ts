@@ -12,9 +12,11 @@ const NIBP_COMPLETE_RE =
  * Strip the internal grading markers (e.g. [BP_GRADING_MANUAL], [BP_GRADING_NIBP])
  * from any user-facing string. The markers stay in the underlying action data so
  * grading still works, but the user never sees the bracketed tokens in the
- * simulation log or live action log.
+ * simulation log or live action log. `[PARTNER ACTION]` is stripped from UI only;
+ * delegated partner rows remain tagged in stored `UserAction.assessment` for grading.
  */
-const GRADING_MARKER_RE = /\s*\[BP_GRADING_(?:MANUAL|NIBP)\]\s*/g;
+const GRADING_MARKER_RE =
+  /\s*\[(?:BP_GRADING_(?:MANUAL|NIBP)|PARTNER ACTION)\]\s*/g;
 export function stripGradingMarkers(text: string): string {
   return text.replace(GRADING_MARKER_RE, ' ').replace(/\s{2,}/g, ' ').trim();
 }

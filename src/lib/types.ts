@@ -18,6 +18,9 @@ export type ArrestRhythmKind = (typeof ARREST_RHYTHM_KINDS)[number];
 
 export type UserRole = 'emt' | 'aemt' | 'paramedic' | 'admin' | 'tester' | 'student';
 
+/** Partner NPC certifications (subset of field provider levels). */
+export type PartnerSimulationRole = 'emt' | 'aemt' | 'paramedic';
+
 const optionalCompactDateSchema = z.union([
   z.literal(''),
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD.'),
@@ -207,6 +210,8 @@ export const SimulationSessionSchema = z.object({
     actions: z.array(UserActionSchema).optional(),
     messages: z.array(z.unknown()).optional(),
     userRole: z.custom<UserRole>().optional(),
+    partnerRole: z.enum(['emt', 'aemt', 'paramedic']).optional(),
+    partnerName: z.string().optional(),
 });
 export type SimulationSession = z.infer<typeof SimulationSessionSchema>;
 
@@ -249,7 +254,7 @@ export type PerformanceData = {
 };
 
 export type Message = {
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'partner';
     content: string;
     vitals?: Scenario['initialVitals'];
     conditionChange?: string;
@@ -258,6 +263,10 @@ export type Message = {
     arrestRhythm?: ArrestRhythmKind;
     /** Brief teaching note about why this arrest rhythm fits the underlying cause. */
     arrestRhythmRationale?: string;
+    /** Partner advice / delegation turn — UI only. */
+    urgency?: 'low' | 'medium' | 'high';
+    partnerName?: string;
+    partnerRole?: PartnerSimulationRole;
 }
 
 export const RhythmQuizAttemptSchema = z.object({
