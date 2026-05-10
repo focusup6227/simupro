@@ -33,6 +33,7 @@ export function AbbreviationsSearch({ data }: { data: Abbreviation[] }) {
         <Input
           placeholder="Search terms or definitions..."
           className="pl-10"
+          aria-label="Search abbreviations and definitions"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
