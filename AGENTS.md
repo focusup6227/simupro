@@ -49,3 +49,6 @@ See `package.json` scripts section. Summary:
 - `next.config.ts` sets `ignoreBuildErrors: true` for TypeScript — always run `npm run typecheck` separately.
 - The `cpanel-deploy/` directory is a deployment wrapper only, not a separate service.
 - ESLint has a few pre-existing warnings (React hooks deps) that are not blocking.
+- The duplicate migration file `20260508140000_simulation_pk_doses.sql` was removed (it conflicted with `20260508140000_profiles_certification_attestation.sql`). The identical content exists at `20260508140100_simulation_pk_doses.sql`.
+- Unit tests (`npm test`) run via Vitest and pass without any external services or environment variables.
+- The `/demo` route works without authentication and is the quickest way to verify the app is functional end-to-end (including AI patient responses if `GEMINI_API_KEY` is set).
