@@ -1,6 +1,10 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/admin-client';
+import {
+  resolveProfileIdForCheckoutSession,
+  resolveProfileIdForSubscription,
+} from '@/lib/stripe/resolve-profile-user-id';
 
 export const runtime = 'nodejs';
 
@@ -36,45 +40,59 @@ export async function POST(request: Request) {
 
     const admin = createServiceRoleSupabaseClient();
 
-    if (event.type === 'checkout.session.completed') {
+    if (
+      event.type === 'checkout.session.completed' ||
+      event.type === 'checkout.session.async_payment_succeeded'
+    ) {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId =
-        (session.metadata?.user_id as string | undefined) ?? session.client_reference_id;
-      const customerId =
-        typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
-      const subscriptionId =
-        typeof session.subscription === 'string'
-          ? session.subscription
-          : session.subscription?.id ?? null;
+      if (session.mode === 'subscription') {
+        const userId = await resolveProfileIdForCheckoutSession(admin, stripe, session);
+        const customerId =
+          typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+        const subscriptionId =
+          typeof session.subscription === 'string'
+            ? session.subscription
+            : session.subscription?.id ?? null;
 
-      let premiumStatus: string | null = null;
-      let periodEndIso: string | null = null;
-      if (subscriptionId) {
-        const subscription = (await stripe.subscriptions.retrieve(
-          subscriptionId
-        )) as unknown as Stripe.Subscription;
-        premiumStatus = subscription.status ?? null;
-        periodEndIso = toIsoFromUnix(subscriptionPeriodEnd(subscription));
-      }
+        let premiumStatus: string | null = null;
+        let periodEndIso: string | null = null;
+        let isPremium = true;
+        if (subscriptionId) {
+          const subscription = (await stripe.subscriptions.retrieve(
+            subscriptionId
+          )) as unknown as Stripe.Subscription;
+          premiumStatus = subscription.status ?? null;
+          periodEndIso = toIsoFromUnix(subscriptionPeriodEnd(subscription));
+          isPremium = subscription.status === 'active' || subscription.status === 'trialing';
+        }
 
-      if (typeof userId === 'string' && userId.length > 0) {
-        const { error } = await admin
-          .from('profiles')
-          .update({
-            is_premium: true,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            premium_status: premiumStatus ?? 'active',
-            premium_current_period_end: periodEndIso,
-          })
-          .eq('id', userId);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (!userId) {
+          console.error('[stripe-webhook] checkout session: could not resolve profile user id', {
+            eventType: event.type,
+            sessionId: session.id,
+            customerId,
+            client_reference_id: session.client_reference_id ?? null,
+            metadata_user_id: session.metadata?.user_id ?? null,
+          });
+        } else {
+          const { error } = await admin
+            .from('profiles')
+            .update({
+              is_premium: isPremium,
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              premium_status: premiumStatus ?? 'active',
+              premium_current_period_end: periodEndIso,
+            })
+            .eq('id', userId);
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        }
       }
     }
 
     if (event.type === 'customer.subscription.updated') {
       const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.user_id as string | undefined;
+      const userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
 
       if (typeof userId === 'string' && userId.length > 0) {
         const customerId =
@@ -97,7 +115,7 @@ export async function POST(request: Request) {
 
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.user_id as string | undefined;
+      const userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
 
       if (typeof userId === 'string' && userId.length > 0) {
         const customerId =
@@ -120,7 +138,7 @@ export async function POST(request: Request) {
 
     if (event.type === 'customer.subscription.paused') {
       const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.user_id as string | undefined;
+      const userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
 
       if (typeof userId === 'string' && userId.length > 0) {
         const customerId =
@@ -143,7 +161,7 @@ export async function POST(request: Request) {
 
     if (event.type === 'customer.subscription.resumed') {
       const subscription = event.data.object as Stripe.Subscription;
-      const userId = subscription.metadata?.user_id as string | undefined;
+      const userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
 
       if (typeof userId === 'string' && userId.length > 0) {
         const customerId =
@@ -184,7 +202,7 @@ export async function POST(request: Request) {
           const subscription = (await stripe.subscriptions.retrieve(
             subscriptionId
           )) as unknown as Stripe.Subscription;
-          userId = (subscription.metadata?.user_id as string | undefined) ?? null;
+          userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
           periodEndIso = toIsoFromUnix(subscriptionPeriodEnd(subscription));
         } catch (err) {
           console.error('[stripe-webhook] failed to retrieve subscription for invoice', err);
