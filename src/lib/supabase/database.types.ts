@@ -32,6 +32,9 @@ export interface Database {
           total_completed_simulations: number;
           disclaimer_accepted_at: string | null;
           disclaimer_accepted_version: string | null;
+          active_protocol_import_id: string | null;
+          protocol_workplace_id: string | null;
+          active_workplace_protocol_import_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -57,6 +60,9 @@ export interface Database {
           total_completed_simulations?: number;
           disclaimer_accepted_at?: string | null;
           disclaimer_accepted_version?: string | null;
+          active_protocol_import_id?: string | null;
+          protocol_workplace_id?: string | null;
+          active_workplace_protocol_import_id?: string | null;
         };
         Update: {
           email?: string;
@@ -79,7 +85,50 @@ export interface Database {
           total_completed_simulations?: number;
           disclaimer_accepted_at?: string | null;
           disclaimer_accepted_version?: string | null;
+          active_protocol_import_id?: string | null;
+          protocol_workplace_id?: string | null;
+          active_workplace_protocol_import_id?: string | null;
         };
+        Relationships: [];
+      };
+      protocol_workplace_members: {
+        Row: {
+          workplace_id: string;
+          user_id: string;
+          role: string;
+          joined_at: string;
+        };
+        Insert: {
+          workplace_id: string;
+          user_id: string;
+          role: string;
+          joined_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      protocol_workplaces: {
+        Row: {
+          id: string;
+          name: string;
+          join_code: string;
+          created_by_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          join_code: string;
+          created_by_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          name: string;
+          join_code: string;
+          updated_at: string;
+        }>;
         Relationships: [];
       };
       scenarios: {
@@ -417,6 +466,126 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      user_protocol_imports: {
+        Row: {
+          id: string;
+          user_id: string;
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status: string;
+          extracted_interventions: Json | null;
+          extraction_error: string | null;
+          admin_review_status: string | null;
+          admin_review_notes: string | null;
+          resolved_by_admin_id: string | null;
+          admin_resolved_at: string | null;
+          resolution_message_for_user: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status?: string;
+          extracted_interventions?: Json | null;
+          extraction_error?: string | null;
+          admin_review_status?: string | null;
+          admin_review_notes?: string | null;
+          resolved_by_admin_id?: string | null;
+          admin_resolved_at?: string | null;
+          resolution_message_for_user?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status: string;
+          extracted_interventions: Json | null;
+          extraction_error: string | null;
+          admin_review_status: string | null;
+          admin_review_notes: string | null;
+          resolved_by_admin_id: string | null;
+          admin_resolved_at: string | null;
+          resolution_message_for_user: string | null;
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
+      workplace_protocol_imports: {
+        Row: {
+          id: string;
+          workplace_id: string;
+          uploaded_by_user_id: string;
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status: string;
+          extracted_interventions: Json | null;
+          extraction_error: string | null;
+          admin_review_status: string | null;
+          admin_review_notes: string | null;
+          resolved_by_admin_id: string | null;
+          admin_resolved_at: string | null;
+          resolution_message_for_user: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workplace_id: string;
+          uploaded_by_user_id: string;
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status?: string;
+          extracted_interventions?: Json | null;
+          extraction_error?: string | null;
+          admin_review_status?: string | null;
+          admin_review_notes?: string | null;
+          resolved_by_admin_id?: string | null;
+          admin_resolved_at?: string | null;
+          resolution_message_for_user?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          storage_path: string;
+          original_filename: string;
+          display_name: string;
+          status: string;
+          extracted_interventions: Json | null;
+          extraction_error: string | null;
+          admin_review_status: string | null;
+          admin_review_notes: string | null;
+          resolved_by_admin_id: string | null;
+          admin_resolved_at: string | null;
+          resolution_message_for_user: string | null;
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
+      protocol_import_resolution_acks: {
+        Row: {
+          user_id: string;
+          import_scope: string;
+          import_id: string;
+          acknowledged_at: string;
+        };
+        Insert: {
+          user_id: string;
+          import_scope: string;
+          import_id: string;
+          acknowledged_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       ai_response_feedback: {
         Row: {
           id: string;
@@ -528,7 +697,18 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      create_protocol_workplace: {
+        Args: { p_name: string };
+        Returns: { id: string; join_code: string }[];
+      };
+      join_protocol_workplace: {
+        Args: { p_code: string };
+        Returns: string;
+      };
+      leave_protocol_workplace: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

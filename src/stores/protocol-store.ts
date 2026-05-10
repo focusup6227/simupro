@@ -8,63 +8,12 @@ import {
   BaselineInterventionSchema,
   getNationalBaselineInterventions,
 } from '@/lib/national-baseline';
+import { mergeCatalog } from '@/lib/protocol-merge';
 import type { Intervention, Medication, Procedure } from '@/types/protocol';
 import { isMedication, meetsLevel, type LicensureLevel } from '@/types/protocol';
 import type { MonitorMenuIntervention, MonitorMenuMedication } from '@/lib/types';
 
 const NationalArraySchema = z.array(BaselineInterventionSchema);
-
-function uniqueStrings(a: string[]): string[] {
-  return [...new Set(a)];
-}
-
-function mergeInterventionRow(base: Intervention, over: Intervention): Intervention {
-  const indications = uniqueStrings([...over.indications, ...base.indications]);
-  const contraindications = uniqueStrings([...over.contraindications, ...base.contraindications]);
-  if (over.type === 'MEDICATION' && base.type === 'MEDICATION') {
-    return {
-      ...base,
-      ...over,
-      indications,
-      contraindications,
-      medicationData: {
-        ...base.medicationData,
-        ...over.medicationData,
-        dosages: { ...base.medicationData.dosages, ...over.medicationData.dosages },
-        routes:
-          over.medicationData.routes?.length > 0
-            ? over.medicationData.routes
-            : base.medicationData.routes,
-      },
-    };
-  }
-  if (over.type === 'PROCEDURE' && base.type === 'PROCEDURE') {
-    return {
-      ...base,
-      ...over,
-      indications,
-      contraindications,
-      procedureData: {
-        ...base.procedureData,
-        ...over.procedureData,
-        equipmentNeeded:
-          over.procedureData.equipmentNeeded?.length > 0
-            ? over.procedureData.equipmentNeeded
-            : base.procedureData.equipmentNeeded,
-      },
-    };
-  }
-  return over.type === 'MEDICATION' || over.type === 'PROCEDURE' ? over : base;
-}
-
-function mergeCatalog(base: Intervention[], extra: Intervention[]): Intervention[] {
-  const map = new Map<string, Intervention>(base.map((i) => [i.id, i]));
-  for (const row of extra) {
-    const cur = map.get(row.id);
-    map.set(row.id, cur ? mergeInterventionRow(cur, row) : row);
-  }
-  return [...map.values()].sort((a, b) => a.id.localeCompare(b.id));
-}
 
 /** Scenario-only monitor rows → minimal protocol-shaped entries (always in-scope for any level). */
 export function monitorMenuRowsToScenarioOverlay(
@@ -121,6 +70,8 @@ type ProtocolState = {
   setScenarioOverlay: (rows: Intervention[]) => void;
   clearScenarioOverlay: () => void;
   applyCustomOverride: (json: unknown) => { ok: true } | { ok: false; error: string };
+  /** Replace override rows (e.g. from an active server-side PDF import). */
+  replaceCustomOverrides: (rows: Intervention[]) => void;
   clearCustomOverrides: () => void;
 
   activeInterventions: () => Intervention[];
@@ -147,6 +98,7 @@ export const useProtocolStore = create<ProtocolState>((set, get) => ({
     set((s) => ({ customOverrides: mergeCatalog(s.customOverrides, parsed.data) }));
     return { ok: true };
   },
+  replaceCustomOverrides: (rows) => set({ customOverrides: rows }),
   clearCustomOverrides: () => set({ customOverrides: [] }),
 
   activeInterventions: () =>

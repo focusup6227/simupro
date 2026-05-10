@@ -122,7 +122,7 @@ export function pickRelevantBaselineInterventions(
   scenario: ScenarioForGraderPick,
   userActions: UserActionForGraderPick[],
   userRole: string,
-  opts?: { max?: number },
+  opts?: { max?: number; catalog?: Intervention[] },
 ): Intervention[] {
   const maxRows = opts?.max ?? 30;
 
@@ -147,7 +147,7 @@ export function pickRelevantBaselineInterventions(
   }
   const haystack = haystackParts.join(' \n ').toLowerCase();
 
-  const pool = getNationalBaselineInterventions();
+  const pool = opts?.catalog ?? getNationalBaselineInterventions();
   const scored = pool
     .map((row) => {
       const nameLower = row.name.toLowerCase();

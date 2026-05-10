@@ -20,6 +20,7 @@ See `package.json` scripts section. Summary:
 - **Lint:** `npm run lint`
 - **Typecheck:** `npm run typecheck`
 - **Build:** `npm run build`
+- **Push DB migrations (remote, linked project):** `npm run db:push` (non-interactive; applies anything not yet on the hosted DB)
 
 ### Local Supabase
 
@@ -31,6 +32,11 @@ See `package.json` scripts section. Summary:
   - `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key from supabase status>`
   - `SUPABASE_SERVICE_ROLE_KEY=<secret key from supabase status>`
+
+### Hosted Supabase (production / shared project)
+
+- When you add or change `supabase/migrations/*.sql`, run `npm run db:push` after `supabase link` so the remote database stays in sync (or rely on GitLab CI below).
+- **GitLab CI:** Pushes to the default branch that touch `supabase/migrations/` run `.gitlab-ci.yml` → `supabase db push`. In GitLab → **Settings → CI/CD → Variables**, add masked/protected: `SUPABASE_ACCESS_TOKEN` (account token from the Supabase dashboard), `SUPABASE_PROJECT_REF` (project reference ID), and `SUPABASE_DB_PASSWORD` (Database password from **Project Settings → Database**).
 
 ### Docker in this environment
 

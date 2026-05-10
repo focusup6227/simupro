@@ -77,6 +77,7 @@ export function useCollection<T = unknown>(
         if (cancelled) return;
 
         if (qError) {
+          console.error('[useCollection]', collectionPathLabel(spec), qError);
           const err = new DatabasePermissionError(
             { path: collectionPathLabel(spec), operation: 'list' },
             userId

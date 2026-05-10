@@ -66,6 +66,9 @@ export function profileRowToUser(r: ProfileRow): User {
     totalCompletedSimulations: r.total_completed_simulations,
     emtProgramCompletedOn: r.emt_program_completed_on ?? undefined,
     aemtProgramCompletedOn: r.aemt_program_completed_on ?? undefined,
+    activeProtocolImportId: r.active_protocol_import_id ?? null,
+    protocolWorkplaceId: r.protocol_workplace_id ?? null,
+    activeWorkplaceProtocolImportId: r.active_workplace_protocol_import_id ?? null,
   };
 }
 

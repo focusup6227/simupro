@@ -70,6 +70,10 @@ const DisclaimerGate = dynamic(
   () => import("./disclaimer-gate").then((m) => m.DisclaimerGate),
   { ssr: false }
 );
+const ProtocolImportHydrator = dynamic(
+  () => import("./protocol-import-hydrator").then((m) => m.ProtocolImportHydrator),
+  { ssr: false },
+);
 
 
 const navItems = [
@@ -161,6 +165,32 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { data: pendingAiFeedback } = useCollection<AiResponseFeedback>(pendingAiFeedbackSpec);
   const pendingAiFeedbackCount = pendingAiFeedback?.length ?? 0;
 
+  const pendingUserProtocolSpec = useMemoSupabase(
+    () =>
+      client && isAdmin
+        ? {
+            table: "user_protocol_imports" as const,
+            eq: { admin_review_status: "open" },
+          }
+        : null,
+    [client, isAdmin],
+  );
+  const pendingWpProtocolSpec = useMemoSupabase(
+    () =>
+      client && isAdmin
+        ? {
+            table: "workplace_protocol_imports" as const,
+            eq: { admin_review_status: "open" },
+          }
+        : null,
+    [client, isAdmin],
+  );
+  const { data: pendingUserProtocol } = useCollection<unknown>(pendingUserProtocolSpec);
+  const { data: pendingWpProtocol } = useCollection<unknown>(pendingWpProtocolSpec);
+  const pendingProtocolImportCount =
+    (pendingUserProtocol?.length ?? 0) + (pendingWpProtocol?.length ?? 0);
+  const pendingQaBadgeCount = pendingAiFeedbackCount + pendingProtocolImportCount;
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -243,8 +273,8 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                         {item.id === "support" && newTicketCount > 0 && (
                           <SidebarMenuBadge>{newTicketCount}</SidebarMenuBadge>
                         )}
-                        {item.id === "qa" && pendingAiFeedbackCount > 0 && (
-                          <SidebarMenuBadge>{pendingAiFeedbackCount}</SidebarMenuBadge>
+                        {item.id === "qa" && pendingQaBadgeCount > 0 && (
+                          <SidebarMenuBadge>{pendingQaBadgeCount}</SidebarMenuBadge>
                         )}
                       </SidebarMenuButton>
                     </Link>
@@ -329,6 +359,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         <main id="main-content" className="min-h-0 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
       <DisclaimerGate profile={userData ?? null} isLoading={isLoading} />
+      <ProtocolImportHydrator />
     </SidebarProvider>
   );
 }

@@ -1,0 +1,22 @@
+# Applies new SQL migrations to the linked Supabase project when they land on the default branch.
+# GitLab → Settings → CI/CD → Variables (mask & protect as appropriate):
+#   SUPABASE_ACCESS_TOKEN — https://supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF   — Project Settings → General → Reference ID
+#   SUPABASE_DB_PASSWORD   — Project Settings → Database → Database password
+
+stages:
+  - database
+
+supabase_migrations:
+  stage: database
+  image: alpine:3.20
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - supabase/migrations/**/*
+  before_script:
+    - apk add --no-cache curl tar
+    - curl -fsSL "https://github.com/supabase/cli/releases/download/v2.98.2/supabase_linux_amd64.tar.gz" | tar xz -C /usr/local/bin
+  script:
+    - supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" --yes
+    - supabase db push --yes --linked

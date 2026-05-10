@@ -87,6 +87,12 @@ export type User = {
   emtProgramCompletedOn?: string | null;
   /** User-attested AEMT program completion (YYYY-MM-DD). */
   aemtProgramCompletedOn?: string | null;
+  /** Active Premium agency protocol import (merged with national baseline in sim + grading). */
+  activeProtocolImportId?: string | null;
+  /** Shared workplace (coworkers use one protocol library). */
+  protocolWorkplaceId?: string | null;
+  /** Active shared workplace import (takes precedence over personal when set). */
+  activeWorkplaceProtocolImportId?: string | null;
 };
 const CertificationActionsSchema = z.object({
     emt: z.array(z.string()),
@@ -390,6 +396,8 @@ export const GradeSimulationInputSchema = z.object({
   userActions: z.array(UserActionSchema).describe("A log of all actions taken by the user during the simulation."),
   userRole: z.string().describe("The user's certification level (e.g., emt, aemt, paramedic)."),
   relevantInterventions: z.array(BaselineInterventionSchema).default([]).describe("Active protocol rows (baseline + overrides) for grading against."),
+  /** Extra context for the model (e.g. merged PDF extract + licensure filtering already applied). */
+  gradingProtocolNote: z.string().optional(),
 });
 export type GradeSimulationInput = z.infer<typeof GradeSimulationInputSchema>;
 

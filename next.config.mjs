@@ -51,13 +51,13 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
     serverActions: {
-      bodySizeLimit: "10mb",
+      bodySizeLimit: "16mb",
       workerThreads: true,
     },
     // Genkit pulls in @opentelemetry/sdk-node, which optionally requires
     // @opentelemetry/exporter-jaeger. Webpack resolves that require at build
     // time even though it's never used unless OTEL_TRACES_EXPORTER=jaeger.
-    serverComponentsExternalPackages: ["@opentelemetry/sdk-node"],
+    serverComponentsExternalPackages: ["@opentelemetry/sdk-node", "pdf-parse"],
   },
   typescript: {
     ignoreBuildErrors: true,

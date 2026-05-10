@@ -9,7 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useDoc, useSupabase, useMemoSupabase, useUser } from '@/supabase';
 import type { User } from '@/lib/types';
 import { PREMIUM_ANNUAL_DISPLAY, PREMIUM_MONTHLY_DISPLAY } from '@/lib/pricing-display';
+import AppLogo from '@/components/app-logo';
 import {
+  ArrowLeft,
   ArrowRight,
   BadgeCheck,
   BookOpen,
@@ -217,6 +219,22 @@ function BillingPageContent() {
     <div className="relative mx-auto max-w-5xl px-4 py-10 sm:py-14">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-64 max-w-3xl bg-gradient-to-b from-yellow-200/40 via-yellow-100/20 to-transparent blur-3xl dark:from-yellow-500/15 dark:via-yellow-500/5" />
 
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <Link
+          href={authUser ? '/dashboard' : '/'}
+          className="inline-flex items-center rounded-md outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label={authUser ? 'Go to dashboard' : 'Go to home'}
+        >
+          <AppLogo />
+        </Link>
+        <Button variant="outline" size="sm" className="shrink-0" asChild>
+          <Link href={authUser ? '/dashboard' : '/'}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {authUser ? 'Back to dashboard' : 'Home'}
+          </Link>
+        </Button>
+      </header>
+
       <div className="mb-10 text-center">
         <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-yellow-300/60 bg-yellow-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-yellow-700 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300">
           <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
@@ -231,9 +249,17 @@ function BillingPageContent() {
       </div>
 
       {canceled && (
-        <p className="mx-auto mb-6 max-w-md rounded-md border border-amber-300 bg-amber-50 p-3 text-center text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-          Checkout was canceled. You can subscribe whenever you’re ready.
-        </p>
+        <div className="mx-auto mb-6 max-w-md space-y-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-center dark:border-amber-500/40 dark:bg-amber-500/10">
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            Checkout was canceled. You can subscribe whenever you’re ready.
+          </p>
+          <Button variant="secondary" className="w-full sm:w-auto" asChild>
+            <Link href={authUser ? '/dashboard' : '/'}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {authUser ? 'Return to dashboard' : 'Return to home'}
+            </Link>
+          </Button>
+        </div>
       )}
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">

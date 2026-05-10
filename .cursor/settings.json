@@ -5,6 +5,9 @@
     },
     "gitlab": {
       "enabled": true
+    },
+    "stripe": {
+      "enabled": true
     }
   }
 }

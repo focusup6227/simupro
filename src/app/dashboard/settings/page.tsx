@@ -42,6 +42,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
+import { ProtocolImportSettings } from "@/components/protocol-import-settings";
 
 
 export default function SettingsPage() {
@@ -419,6 +420,8 @@ export default function SettingsPage() {
           </form>
         </Form>
       </Card>
+
+      <ProtocolImportSettings />
 
       <Card>
         <CardHeader>

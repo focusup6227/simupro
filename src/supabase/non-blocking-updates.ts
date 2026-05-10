@@ -8,7 +8,13 @@ import { DatabasePermissionError } from '@/supabase/errors';
 type TableName = keyof Database['public']['Tables'];
 
 /** Tables that support `.update()` / `.delete().eq('id', …)` via PostgREST */
-type RowByIdTable = Exclude<TableName, 'firebase_uid_mappings' | 'scenario_favorites'>;
+type RowByIdTable = Exclude<
+  TableName,
+  | 'firebase_uid_mappings'
+  | 'scenario_favorites'
+  | 'protocol_workplace_members'
+  | 'protocol_import_resolution_acks'
+>;
 
 type DbOp = 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
 

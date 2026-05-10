@@ -33,7 +33,11 @@ const prompt = ai.definePrompt({
   Assessment: '{{{assessment}}}', Treatments: {{#if treatments}}'{{#each treatments}}{{{this}}}{{/each}}'{{else}}'None'{{/if}}
 {{/each}}
 
-**Protocol Source of Truth (NASEMSO V3 national baseline; matched rows for this run):**
+{{#if gradingProtocolNote}}
+**Protocol context:** {{{gradingProtocolNote}}}
+
+{{/if}}
+**Protocol Source of Truth (national baseline plus any merged agency extract; matched rows for this run, already scoped to the learner's licensure level):**
 {{#each relevantInterventions}}
 - {{{name}}} (id: {{{id}}}; {{{type}}}, minimum licensure: {{{minLevel}}}). Indications: {{#each indications}}{{{this}}}; {{/each}}Contraindications: {{#each contraindications}}{{{this}}}; {{/each}}{{#if medicationData}} Adult dose: {{{medicationData.dosages.adult}}}; Pediatric: {{{medicationData.dosages.pediatric}}}{{#if medicationData.dosages.maxDose}}; Max: {{{medicationData.dosages.maxDose}}}{{/if}}{{/if}}{{#if procedureData}} Equipment: {{#each procedureData.equipmentNeeded}}{{{this}}}; {{/each}}Parameters: {{{procedureData.parameters}}} Success criteria: {{{procedureData.successCriteria}}}{{/if}}
 {{/each}}

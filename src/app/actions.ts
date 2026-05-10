@@ -44,7 +44,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
 import { captureActionError } from "@/lib/observability";
 import { profileRowToUser, scenarioRowToScenario } from '@/lib/db-mappers';
-import { pickRelevantBaselineInterventions } from '@/lib/national-baseline';
+import {
+  BaselineInterventionSchema,
+  getNationalBaselineInterventions,
+  pickRelevantBaselineInterventions,
+  toLicensureLevel,
+} from '@/lib/national-baseline';
+import { filterInterventionsByLearnerLevel, mergeCatalog } from '@/lib/protocol-merge';
+import { effectiveSimulationRole } from '@/lib/user-permissions';
 import { z } from 'zod';
 
 async function getActionUserId(): Promise<string | null> {
@@ -211,6 +218,50 @@ export async function processSimulationResults({
   const user = profileRowToUser(profileRow);
 
   try {
+    const simRole = effectiveSimulationRole(user);
+    const learnerLevel = toLicensureLevel(simRole);
+
+    let mergedCatalog = getNationalBaselineInterventions();
+    let gradingProtocolNote: string | undefined;
+
+    const workplaceImportId = profileRow.active_workplace_protocol_import_id;
+    const personalImportId = profileRow.active_protocol_import_id;
+
+    if (user.isPremium && workplaceImportId) {
+      const { data: wpImp } = await supabase
+        .from('workplace_protocol_imports')
+        .select('status, extracted_interventions')
+        .eq('id', workplaceImportId)
+        .maybeSingle();
+
+      if (wpImp?.status === 'ready' && wpImp.extracted_interventions != null) {
+        const parsed = z.array(BaselineInterventionSchema).safeParse(wpImp.extracted_interventions);
+        if (parsed.success) {
+          mergedCatalog = mergeCatalog(getNationalBaselineInterventions(), parsed.data);
+          gradingProtocolNote =
+            "The protocol list merges the national baseline with your workplace's shared agency PDF extract. Listed interventions are already limited to the learner's simulation licensure level (scope of practice).";
+        }
+      }
+    } else if (user.isPremium && personalImportId) {
+      const { data: impRow } = await supabase
+        .from('user_protocol_imports')
+        .select('status, extracted_interventions')
+        .eq('id', personalImportId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (impRow?.status === 'ready' && impRow.extracted_interventions != null) {
+        const parsed = z.array(BaselineInterventionSchema).safeParse(impRow.extracted_interventions);
+        if (parsed.success) {
+          mergedCatalog = mergeCatalog(getNationalBaselineInterventions(), parsed.data);
+          gradingProtocolNote =
+            "The protocol list merges the national baseline with your uploaded agency PDF extract. Listed interventions are already limited to the learner's simulation licensure level (scope of practice).";
+        }
+      }
+    }
+
+    const licensureFiltered = filterInterventionsByLearnerLevel(mergedCatalog, learnerLevel);
+
     const bpMandatory = 'Obtain a blood pressure (manual or NIBP).';
     const scenarioForGrader = {
       mandatoryActions: {
@@ -224,14 +275,15 @@ export async function processSimulationResults({
     const relevantInterventions = pickRelevantBaselineInterventions(
       scenarioForGrader,
       userActions,
-      user.role,
-      { max: 30 },
+      simRole,
+      { max: 30, catalog: licensureFiltered },
     );
     const gradeResult = await gradeSimulationFlow({
       scenario: scenarioForGrader,
       userActions: userActions,
-      userRole: user.role,
+      userRole: simRole,
       relevantInterventions,
+      gradingProtocolNote,
     });
 
     const bpAdjusted = adjustScoresForBloodPressure(
@@ -241,7 +293,7 @@ export async function processSimulationResults({
     );
 
     const analysisResult = await analyzePerformanceFlow({
-      userRole: user.role,
+      userRole: simRole,
       scenarioTitle: scenario.title,
       scenarioDescription: scenario.description,
       assessmentScore: bpAdjusted.assessmentScore,
