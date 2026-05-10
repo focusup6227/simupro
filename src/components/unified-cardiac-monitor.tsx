@@ -150,7 +150,8 @@ function VitalBlockHr({ displayHr }: { displayHr?: string }) {
     isMonitorPowered &&
     (isPulseOxApplied ||
       ((isFourLeadApplied || isMonitorPadsApplied) && isEkgChannelOn));
-  const display = channelOn ? (displayHr ?? hr) || '—' : '—';
+  const raw = channelOn ? (displayHr ?? hr) || '—' : '—';
+  const display = raw === '—' ? raw : (String(parseHeartRateBpm(raw) ?? '') || '—');
 
   return (
     <div className={vitalRowClass()}>
@@ -895,7 +896,7 @@ export function UnifiedCardiacMonitor({
                   />
                 </TooltipProvider>
                 {isMonitorPowered &&
-                (onMonitorMedication || onMonitorIntervention || onAction) ? (
+                (onMonitorMedication || onMonitorIntervention) ? (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <MedicationMenu
                       onSelect={onMonitorMedication ?? undefined}
