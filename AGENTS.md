@@ -55,3 +55,6 @@ See `package.json` scripts section. Summary:
 - `next.config.ts` sets `ignoreBuildErrors: true` for TypeScript — always run `npm run typecheck` separately.
 - The `cpanel-deploy/` directory is a deployment wrapper only, not a separate service.
 - ESLint has a few pre-existing warnings (React hooks deps) that are not blocking.
+- Supabase CLI must be **v2.50+** (ideally latest). The `supabase/config.toml` uses features (oauth_server, web3, s3_protocol, etc.) that older CLI versions reject.
+- The `/demo` route is the easiest way to verify the full stack (including AI) end-to-end without creating a user account.
+- Migration `20260508140000_simulation_pk_doses.sql` was a duplicate timestamp conflict with `20260508140000_profiles_certification_attestation.sql`; the corrected version is `20260508140100_simulation_pk_doses.sql`.
