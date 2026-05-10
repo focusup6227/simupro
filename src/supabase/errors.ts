@@ -37,6 +37,3 @@ export class DatabasePermissionError extends Error {
     this.request = requestObject;
   }
 }
-
-/** @deprecated use DatabasePermissionError */
-export const FirestorePermissionError = DatabasePermissionError;

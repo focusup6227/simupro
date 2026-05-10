@@ -30,7 +30,7 @@ export type DocSpec =
     } & { id?: never })
   | ({
       __memo?: boolean;
-      table: Exclude<DbTableName, 'session_insights' | 'firebase_uid_mappings' | 'scenario_favorites'>;
+      table: Exclude<DbTableName, 'session_insights' | 'scenario_favorites'>;
       id: string;
       live?: boolean;
     } & { sessionId?: never; insightId?: never })

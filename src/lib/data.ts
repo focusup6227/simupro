@@ -2,8 +2,7 @@
 import type { Scenario, User, PerformanceData } from './types';
 
 // This file is intentionally left with empty exports.
-// The application has been refactored to use live data from Firestore.
-// Mock data is no longer used to ensure the app is fully dynamic.
+// The app uses live Supabase data; mock arrays stay empty for legacy imports.
 
 export const mockUsers: User[] = [];
 

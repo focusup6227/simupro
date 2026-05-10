@@ -10,7 +10,6 @@ type TableName = keyof Database['public']['Tables'];
 /** Tables that support `.update()` / `.delete().eq('id', …)` via PostgREST */
 type RowByIdTable = Exclude<
   TableName,
-  | 'firebase_uid_mappings'
   | 'scenario_favorites'
   | 'protocol_workplace_members'
   | 'protocol_import_resolution_acks'
@@ -26,7 +25,7 @@ function onFailure(path: string, operation: DbOp, error: PostgrestError | null, 
   );
 }
 
-/** Seed / bulk upserts (same as Firestore writeBatch/set on known ids). */
+/** Seed / bulk upserts by primary key `id`. */
 export function commitBatchUpsertNonBlocking(
   client: SupabaseClient<Database> | null,
   table: TableName,

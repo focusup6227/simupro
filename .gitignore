@@ -51,7 +51,5 @@ next-env.d.ts
 /public/fallback-*.js.map
 /public/swe-worker-*.js
 /public/swe-worker-*.js.map
-firestore-debug.log
-*firebase-adminsdk*.json
 # Sentry Config File
 .env.sentry-build-plugin

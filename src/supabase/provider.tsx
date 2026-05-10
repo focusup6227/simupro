@@ -145,11 +145,6 @@ export function useSupabaseContext() {
   return ctx;
 }
 
-/** @deprecated Prefer useSupabaseContext().client */
-export function useFirestore(): null {
-  return null;
-}
-
 export function useSupabase(): SupabaseClient<Database> | null {
   return useSupabaseContext().client;
 }
@@ -179,6 +174,3 @@ export function useMemoSupabase<T>(
   }
   return memoized as (T & { __memo?: boolean }) | null;
 }
-
-/** @deprecated use useMemoSupabase */
-export const useMemoFirebase = useMemoSupabase;

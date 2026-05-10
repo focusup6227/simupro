@@ -4,7 +4,7 @@ import { ALL_ECG_RHYTHM_KINDS, type EcgRhythmKind } from '@/lib/ecg-rhythm';
 import { ACS_PATTERN_KINDS, type AcsPatternKind } from '@/lib/ecg-acs';
 import { BaselineInterventionSchema } from '@/lib/national-baseline';
 
-/** Serialized dates from DB / legacy Firestore-shaped payloads */
+/** Serialized dates from DB or loosely typed JSON (ISO strings, epoch, `{ seconds }`, etc.) */
 export const TimestampLikeSchema = z.union([
   z.date(),
   z.string(),

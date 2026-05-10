@@ -58,14 +58,6 @@ Noteworthy additions beyond the initial schema:
 
 Regenerate **`src/lib/supabase/database.types.ts`** when your remote schema changes (`supabase gen types` or your team’s process).
 
-## Optional: legacy data import (Firebase → Supabase)
-
-To migrate historical Firebase Auth + Firestore data into Supabase:
-
-- Set `FIREBASE_SERVICE_ACCOUNT_PATH` in `.env.local`  
-- Dry run: `MIGRATE_DRY_RUN=1 npm run migrate:firebase`  
-- Real run: `npm run migrate:firebase`  
-
 ## Contact & policies
 
 - **About / mission:** `src/app/about/page.tsx` (route `/about`)  
@@ -83,4 +75,3 @@ To migrate historical Firebase Auth + Firestore data into Supabase:
 | `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
 | `npm test` | Vitest unit tests |
 | `npm run test:watch` | Vitest watch mode |
-| `npm run migrate:firebase` | One-off Firebase → Supabase migration |

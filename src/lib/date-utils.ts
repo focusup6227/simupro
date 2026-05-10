@@ -1,4 +1,4 @@
-/** Normalize Firestore-style timestamps, ISO strings, Dates, Supabase timestamps */
+/** Normalize `{ seconds }` / `{ toDate() }`-style values, ISO strings, Dates, Supabase timestamps */
 export function toDate(value: unknown): Date | null {
   if (value == null) return null;
   if (value instanceof Date) return value;

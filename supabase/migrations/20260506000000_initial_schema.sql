@@ -1,4 +1,4 @@
--- Simu-Pro: Firebase-equivalent schema for Supabase (Postgres + RLS)
+-- Simu-Pro: initial Postgres schema for Supabase (Postgres + RLS)
 
 -- ---------------------------------------------------------------------------
 -- Tables (must exist before SECURITY DEFINER helpers that reference them)
@@ -100,7 +100,7 @@ CREATE TABLE public.support_tickets (
   responses jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
--- Optional: map legacy Firebase UID → Supabase auth user id (filled by ETL)
+-- Legacy UID crosswalk (removed in 20260510200000_drop_firebase_uid_mappings.sql)
 CREATE TABLE public.firebase_uid_mappings (
   firebase_uid text PRIMARY KEY,
   auth_user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE
@@ -273,7 +273,7 @@ CREATE POLICY support_tickets_update ON public.support_tickets FOR UPDATE TO aut
 CREATE POLICY support_tickets_delete ON public.support_tickets FOR DELETE TO authenticated
   USING (public.is_admin());
 
--- ETL mapping visible only to admins (service role bypasses RLS for migration)
+-- Crosswalk table: deny authenticated direct access (service role used for one-off import)
 CREATE POLICY firebase_uid_mappings_all ON public.firebase_uid_mappings FOR ALL TO authenticated
   USING (false)
   WITH CHECK (false);

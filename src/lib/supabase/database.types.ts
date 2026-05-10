@@ -640,12 +640,6 @@ export interface Database {
         }>;
         Relationships: [];
       };
-      firebase_uid_mappings: {
-        Row: { firebase_uid: string; auth_user_id: string };
-        Insert: { firebase_uid: string; auth_user_id: string };
-        Update: never;
-        Relationships: [];
-      };
       scenario_favorites: {
         Row: {
           user_id: string;
