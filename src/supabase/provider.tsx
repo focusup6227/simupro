@@ -55,6 +55,10 @@ export function SupabaseAppProvider({ children }: { children: React.ReactNode })
       setSession(s ?? null);
       setUser(s?.user ?? null);
       setIsUserLoading(false);
+    }).catch(() => {
+      setSession(null);
+      setUser(null);
+      setIsUserLoading(false);
     });
 
     const { data: sub } = client.auth.onAuthStateChange((_event, s) => {
