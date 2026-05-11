@@ -26,7 +26,7 @@ export const PremiumDetailedFeedbackSchema = z.object({
     .describe('2-4 bullet points naming the highest-priority misses or errors, with the clinical "why this matters".'),
   protocolReferences: z
     .array(z.string())
-    .describe("Short references to the relevant standards or protocols (e.g., 'NREMT psychomotor standard for cardiac arrest', 'AHA 2020 ACLS algorithm', 'NAEMSP airway position paper'). General, not jurisdiction-specific."),
+    .describe("Short references to the relevant standards or protocols (e.g., 'NREMT psychomotor standard for cardiac arrest', 'AHA 2025 ECC — ACLS', 'NAEMSP airway position paper'). General, not jurisdiction-specific."),
   actionableTips: z
     .array(z.string())
     .describe('3-5 concrete, drillable next-action tips the user can practice immediately.'),
@@ -87,7 +87,7 @@ Place this paragraph in 'aiFeedback'.
 This learner is on the Premium tier. ALSO populate the 'premiumFeedback' object with structured deep-dive coaching:
 - 'whatWentWell': 2-4 specific bullets citing exact actions from the log that were clinically correct, in the right order, or well-timed.
 - 'criticalIssues': 2-4 bullets identifying the highest-priority misses or errors. For each one, briefly explain the clinical consequence — *why* it matters for patient outcome.
-- 'protocolReferences': 2-4 short references to relevant national standards — prefer **AHA Guidelines for CPR and ECC (2020)** for resuscitation topics (ACLS/BLS/PALS as applicable), plus others as needed (e.g., 'NREMT Psychomotor Standard — Trauma Assessment', 'NAEMSP Position Paper — Prehospital Airway Management'). Keep them generic, not state-specific.
+- 'protocolReferences': 2-4 short references to relevant national standards — prefer **AHA Guidelines for CPR and ECC (2025)** for resuscitation topics (ACLS/BLS/PALS as applicable), plus others as needed (e.g., 'NREMT Psychomotor Standard — Trauma Assessment', 'NAEMSP Position Paper — Prehospital Airway Management'). Keep them generic, not state-specific.
 - 'actionableTips': 3-5 concrete, drillable improvements ("On the next call, perform a 60-second primary survey before any treatment", "Re-check vitals every 5 minutes once transport begins", etc.).
 - 'drillSuggestions': 2-3 short practice/study suggestions tailored to the gaps you identified ("Drill 1: rapid trauma assessment under 90 seconds", "Review: AHA push-pause CPR rhythm checks").
 Be specific and reference the user's actual actions where possible. Avoid generic advice.

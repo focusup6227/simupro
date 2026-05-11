@@ -1,7 +1,8 @@
 /**
- * Concise anchors from **AHA Guidelines for CPR and Emergency Cardiovascular Care (2020)**
+ * Concise anchors aligned with **AHA Guidelines for CPR and Emergency Cardiovascular Care (2025)**
  * for EMS simulation grading when agency protocol JSON does not spell out doses.
  * Does not replace agency scope-of-practice or local protocols—verify conflicts locally.
+ * Many core ACLS doses carry forward across guideline cycles; reconcile detailed changes with AHA courseware.
  *
  * For instructor-facing wording only; not patient-care instructions.
  */
