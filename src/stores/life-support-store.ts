@@ -188,9 +188,21 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
       const now =
         typeof performance !== 'undefined' ? performance.now() : s.simulationEpochMs;
       const interval = 60000 / s.pacerRatePpm;
+      if (!v) {
+        return {
+          isPacerEnabled: false,
+          nextTcpSpikeAtMs: s.nextTcpSpikeAtMs,
+          tcpElectricalBand: 'none',
+          tcpMorphWide: false,
+          tcpMechanicalCaptureDeadlineMs: null,
+          ...(s.rhythmOverride === 'paced_ventricular'
+            ? { rhythmOverride: null }
+            : {}),
+        };
+      }
       return {
-        isPacerEnabled: v,
-        nextTcpSpikeAtMs: v ? now + interval : s.nextTcpSpikeAtMs,
+        isPacerEnabled: true,
+        nextTcpSpikeAtMs: now + interval,
       };
     }),
 
