@@ -26,6 +26,8 @@ ${AHA_ECC_GRADING_ANCHOR}
 
 **Conflict rule:** If a national-baseline or agency protocol row specifies a dose, route, or sequence that differs from the AHA anchor above, **follow the protocol row** for grading.
 
+**Prehospital / EMS context:** Grade against **field-appropriate** ACLS, BLS, and PALS teaching (e.g. timely AED/defib, high-quality CPR en route, IV/IO when applicable)—not purely inpatient-only workflows unless the scenario mandates them.
+
 **User's Role:** {{{userRole}}}
 
 **Scenario Objectives for this Role:**
