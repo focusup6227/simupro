@@ -59,6 +59,7 @@ export interface LifeSupportStore {
 
   setEnergyJoules: (j: 50 | 100 | 150 | 200) => void;
   toggleSync: () => void;
+  setSyncEnabled: (v: boolean) => void;
   setPacerEnabled: (v: boolean) => void;
   setPacerRatePpm: (ppm: number) => void;
   setPacerOutputMa: (ma: number) => void;
@@ -171,6 +172,8 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
   setEnergyJoules: (j) => set({ energyJoules: j }),
 
   toggleSync: () => set((s) => ({ isSyncEnabled: !s.isSyncEnabled })),
+
+  setSyncEnabled: (v) => set({ isSyncEnabled: v }),
 
   setPacerEnabled: (v) =>
     set((s) => {

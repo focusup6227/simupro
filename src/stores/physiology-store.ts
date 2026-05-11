@@ -253,6 +253,8 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
           ...baseHw,
           isMonitorPowered: true,
           isFourLeadApplied: true,
+          /** Enables cardioversion/TCP on the unified monitor without an extra equipment click. */
+          isMonitorPadsApplied: true,
           isEkgChannelOn: true,
           isPulseOxApplied: true,
           isBpCuffApplied: true,

@@ -997,6 +997,50 @@ export function UnifiedCardiacMonitor({
     }, 10000);
   }, [acquireTwelveLead]);
 
+  const handleMonitorProcedure = useCallback(
+    (p: Procedure) => {
+      const ls = useLifeSupportStore.getState();
+      if (p.id === 'tcp') ls.setPacerEnabled(true);
+      else if (p.id === 'cardioversion') ls.setSyncEnabled(true);
+      else if (p.id === 'defibrillation') ls.setSyncEnabled(false);
+
+      if (onMonitorIntervention) {
+        onMonitorIntervention(p);
+      } else if (onAction) {
+        onAction(
+          p.procedureData.parameters?.trim()
+            ? p.procedureData.parameters
+            : `Procedure (monitor menu): ${p.name}`,
+        );
+      }
+    },
+    [onMonitorIntervention, onAction],
+  );
+
+  const cardioAttempts = useLifeSupportStore((s) => s.cardioversionAttempts);
+  const prevCardioAttemptsRef = useRef(cardioAttempts);
+  useEffect(() => {
+    if (!onAction) return;
+    if (cardioAttempts > prevCardioAttemptsRef.current) {
+      const j = useLifeSupportStore.getState().energyJoules;
+      onAction(`Monitor: electrical shock delivered (${j} J)`);
+    }
+    prevCardioAttemptsRef.current = cardioAttempts;
+  }, [cardioAttempts, onAction]);
+
+  const tcpElectricalBand = useLifeSupportStore((s) => s.tcpElectricalBand);
+  const prevTcpBandRef = useRef(tcpElectricalBand);
+  useEffect(() => {
+    if (!onAction) return;
+    if (
+      tcpElectricalBand === 'full' &&
+      prevTcpBandRef.current !== 'full'
+    ) {
+      onAction('Monitor: transcutaneous pacing electrical capture');
+    }
+    prevTcpBandRef.current = tcpElectricalBand;
+  }, [tcpElectricalBand, onAction]);
+
   const enlarged = enlargedId
     ? acquisitions.find((a) => a.id === enlargedId) ?? null
     : null;
@@ -1151,18 +1195,7 @@ export function UnifiedCardiacMonitor({
                       disabled={!isMonitorPowered}
                     />
                     <InterventionMenu
-                      onSelect={
-                        onMonitorIntervention
-                          ? onMonitorIntervention
-                          : onAction
-                            ? (p) =>
-                                onAction(
-                                  p.procedureData.parameters?.trim()
-                                    ? p.procedureData.parameters
-                                    : `Procedure (monitor menu): ${p.name}`,
-                                )
-                            : undefined
-                      }
+                      onSelect={handleMonitorProcedure}
                       disabled={!isMonitorPowered}
                     />
                   </div>
