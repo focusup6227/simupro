@@ -91,7 +91,7 @@ export const MEDICATIONS: MedRow[] = [
     ind: ['Stable regular narrow-complex SVT', 'Regular monomorphic wide-complex tachycardia when indicated'],
     contra: ['Second- or third-degree AV block (without pacemaker)', 'Sick sinus syndrome', 'Asthmatic VT', 'Atrial flutter/fibrillation for termination', 'Polymorphic VT'],
     routes: ['IV'],
-    adult: '6 mg IV rapid push with 10 mL flush; then 12 mg per tachycardia protocol',
+    adult: '6 mg IV rapid push with NS flush (e.g. 10–20 mL); then 12 mg with flush if needed per tachycardia protocol',
     pediatric: '0.1 mg/kg IV rapid push (first dose max 6 mg); subsequent 0.2 mg/kg per protocol',
     concentration: '3 mg/mL (typical vial dilution per agency)',
   },
@@ -278,7 +278,7 @@ export const MEDICATIONS: MedRow[] = [
     ind: ['Cardiac arrest', 'Push-dose vasopressor', 'Post-resuscitation shock', 'Severe anaphylaxis IV drip after IM failures'],
     contra: ['None in cardiac arrest'],
     routes: ['IV', 'IO'],
-    adult: 'Arrest: 1 mg IV/IO q3–5min OR 0.1 mg/kg IV/IO (max 1 mg) first/second cycle per local guideline; push-dose: 1 mL of 0.1 mg/mL in 9 mL NS then 0.01 mg/kg boluses per perfusion protocol',
+    adult: 'Arrest (adult ACLS): 1 mg IV/IO as soon as IV/IO access is established, then q3–5min; push-dose: 1 mL of 0.1 mg/mL in 9 mL NS then 0.01 mg/kg boluses per perfusion protocol',
     pediatric: 'Arrest: 0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) q3–5min once access available; max per guideline',
     concentration: '0.1 mg/mL',
   },
@@ -825,7 +825,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['VF', 'Pulseless VT'],
     contra: ['None in shockable arrest'],
     equipment: ['Defibrillator', 'Pads'],
-    parameters: 'Biphasic per manufacturer; monophasic 360 J adult; pediatric manual energy **2 J/kg** initial then **4 J/kg** subsequent (pediatric attenuator or joules/kg per device); minimize compression pause surrounding shock',
+    parameters:
+      'Adult: biphasic per manufacturer (often initial 120–200 J; if unknown use maximum available); monophasic 360 J; repeat equivalent or higher as appropriate; pediatric manual energy **2 J/kg** initial then **4 J/kg** subsequent (pediatric attenuator or joules/kg per device); minimize compression pause surrounding shock',
     success: 'Rhythm no longer VF after shock; ROSC or organized rhythm',
   },
   {
@@ -869,7 +870,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['VF/pulseless VT', 'Unstable tachycardia when synchronized mode unavailable initially'],
     contra: ['Oxygen-rich env—brief pause ventilation during shock'],
     equipment: ['Manual defibrillator', 'Paddles or pads'],
-    parameters: 'Charge to manufacturer-recommended energy; pediatric arrest commonly **2 J/kg** then **4 J/kg** manual dosing per PALS',
+    parameters:
+      'Adult: manufacturer-recommended biphasic energy (if unknown, maximum available); monophasic 360 J; pediatric arrest commonly **2 J/kg** then **4 J/kg** manual dosing per PALS; minimize compression pause',
     success: 'Effective shock delivery with minimal compression pause',
   },
   {
@@ -979,7 +981,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Unstable tachydysrhythmia with pulse', 'SBP <90 with altered mental status from arrhythmia'],
     contra: ['Digitalis toxicity tachyarrhythmia (relative—lower energy)'],
     equipment: ['Manual cardioverter', 'Sedation agents', 'Pads'],
-    parameters: 'Adult: start 50–100 J biphasic often; increase per guideline; pediatric unstable tachyarrhythmia often **0.5–1 J/kg** initial synchronized cardioversion then escalate per PALS; ensure sync mode',
+    parameters:
+      'Adult: **synchronized mode**; use device-recommended energy—or **maximum biphasic output if unknown**—then escalate if refractory; sedate when feasible; **PALS:** unstable tachyarrhythmia with pulse often **0.5–1 J/kg** initial synchronized cardioversion then escalate per PALS',
     success: 'Restoration of perfusing rhythm or improved perfusion',
   },
   {
@@ -1124,7 +1127,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['DNR/termination criteria per policy'],
     equipment: ['Defibrillator/AED', 'BVM', 'CPR adjuncts', 'Epinephrine', 'Advanced airway'],
     parameters:
-      '**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min). Shock VF/pVT promptly; epinephrine 1 mg IV/IO q3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥1/3 AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; ~**10 breaths/min** with advanced airway; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).',
+      '**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min); **waveform capnography** with advanced airway. Shock VF/pVT promptly; **biphasic defibrillation per manufacturer** (often **120–200 J** initially; **if unknown use maximum available**); **monophasic 360 J**; **epinephrine 1 mg IV/IO as soon as IV/IO access is established**, then **q3–5 min**; **amiodarone 300 mg IV/IO** then **150 mg IV/IO** (or **lidocaine 1–1.5 mg/kg** then **0.5–0.75 mg/kg**) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥1/3 AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; ~**10 breaths/min** with advanced airway; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).',
     success: 'ROSC or organized termination per guideline',
   },
   {
@@ -1321,9 +1324,10 @@ export const PROCEDURES: ProcRow[] = [
     category: 'Cardiac',
     minLevel: 'PARAMEDIC',
     ind: ['ROSC after cardiac arrest'],
-    contra: ['Hyperoxia—titrate O2 to 94–98% SpO2'],
+    contra: ['Sustained hyperoxia—titrate to SpO2 90–98% (PaO2 ~60–105 mm Hg) when reliable'],
     equipment: ['Advanced airway', 'Pressors', '12-lead', 'Temperature control'],
-    parameters: '12-lead for STEMI; avoid hyperventilation; targeted temperature if indicated',
+    parameters:
+      'Maintain high FiO2 until SpO2 (or PaO2) is reliably measured, then titrate FiO2 for SpO2 90–98% (PaO2 ~60–105 mm Hg); ventilate toward PCO2 35–45 mm Hg; MAP ≥65 mm Hg; 12-lead for STEMI/ischemia; if not following commands off sedation/NMB, deliberate temperature control goal 32–37.5 °C ASAP',
     success: 'BP and oxygenation supported en route to definitive care',
   },
   {
@@ -1401,7 +1405,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['Unstable = cardioversion; avoid adenosine for irregular wide'],
     equipment: ['Adenosine', 'Cardioversion', 'Amiodarone/procainamide for stable wide'],
     parameters:
-      'Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg (adults); stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS. **PALS:** unstable SVT/V-Tach with pulse often **0.5–1 J/kg** synchronized initially; stable narrow regular → **weight-based adenosine** per PALS.',
+      'Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT); use **device-recommended energy or maximum biphasic output if unknown**. Stable regular narrow-complex → vagal maneuvers then **adenosine 6 mg rapid IV push with NS flush**, then **12 mg with flush** if needed; stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS. **PALS:** unstable SVT/V-Tach with pulse often **0.5–1 J/kg** synchronized initially; stable narrow regular → **weight-based adenosine** per PALS.',
     success: 'Rate or rhythm controlled; perfusion restored',
   },
   {
