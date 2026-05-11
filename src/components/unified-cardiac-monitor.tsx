@@ -65,6 +65,11 @@ import { useLifeSupportStore } from '@/stores/life-support-store';
 import { InterventionMenu, MedicationMenu } from '@/components/monitor-menu';
 import type { Scenario } from '@/lib/types';
 import type { Medication, Procedure } from '@/types/protocol';
+import {
+  MONITOR_PROCEDURE_CARDIOVERSION,
+  MONITOR_PROCEDURE_DEFIBRILLATION,
+  MONITOR_PROCEDURE_TCP,
+} from '@/lib/monitor-procedure-ids';
 
 function uid() {
   return `ucm-${Math.random().toString(36).slice(2, 10)}`;
@@ -495,6 +500,8 @@ function LifeSupportTherapyPanel(props: {
     setPacerOutputMa,
     pacerMode,
     setPacerMode,
+    learnerHint,
+    clearLearnerHint,
   } = useLifeSupportStore(
     useShallow((s) => ({
       energyJoules: s.energyJoules,
@@ -514,6 +521,8 @@ function LifeSupportTherapyPanel(props: {
       setPacerOutputMa: s.setPacerOutputMa,
       pacerMode: s.pacerMode,
       setPacerMode: s.setPacerMode,
+      learnerHint: s.learnerHint,
+      clearLearnerHint: s.clearLearnerHint,
     })),
   );
 
@@ -651,6 +660,21 @@ function LifeSupportTherapyPanel(props: {
           <option value="DEMAND">Demand</option>
         </select>
       </div>
+      {learnerHint ? (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded border border-amber-700/60 bg-amber-950/50 px-2 py-1.5 text-[9px] leading-snug text-amber-100"
+        >
+          <span className="min-w-0 flex-1">{learnerHint}</span>
+          <button
+            type="button"
+            className="shrink-0 font-semibold underline underline-offset-2"
+            onClick={() => clearLearnerHint()}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1010,9 +1034,11 @@ export function UnifiedCardiacMonitor({
   const handleMonitorProcedure = useCallback(
     (p: Procedure) => {
       const ls = useLifeSupportStore.getState();
-      if (p.id === 'tcp') ls.setPacerEnabled(true);
-      else if (p.id === 'cardioversion') ls.setSyncEnabled(true);
-      else if (p.id === 'defibrillation') ls.setSyncEnabled(false);
+      if (p.id === MONITOR_PROCEDURE_TCP) ls.setPacerEnabled(true);
+      else if (p.id === MONITOR_PROCEDURE_CARDIOVERSION)
+        ls.setSyncEnabled(true);
+      else if (p.id === MONITOR_PROCEDURE_DEFIBRILLATION)
+        ls.setSyncEnabled(false);
 
       if (onMonitorIntervention) {
         onMonitorIntervention(p);

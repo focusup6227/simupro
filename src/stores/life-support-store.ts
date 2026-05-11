@@ -3,6 +3,7 @@ import type { EcgRhythmKind } from '@/lib/ecg-rhythm';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import {
   cardioversionSuccessProbability,
+  isNonShockablePulselessArrest,
   isOrganizedTachyForCardioversion,
   isShockableArrestRhythm,
   tcpCaptureBand,
@@ -57,6 +58,9 @@ export interface LifeSupportStore {
 
   tcpMechanicalCaptureDeadlineMs: number | null;
 
+  /** Training feedback after an inappropriate defibrillation attempt (e.g. asystole/PEA). */
+  learnerHint: string | null;
+
   setEnergyJoules: (j: 50 | 100 | 150 | 200) => void;
   toggleSync: () => void;
   setSyncEnabled: (v: boolean) => void;
@@ -85,6 +89,8 @@ export interface LifeSupportStore {
   deliverAsyncShock: (intrinsicKind: EcgRhythmKind) => void;
 
   notifyIntrinsicRPeak: (nowMs: number) => void;
+
+  clearLearnerHint: () => void;
 }
 
 let chargeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -125,6 +131,7 @@ function emptyHardware(): Pick<
   | 'tcpMorphWide'
   | 'tcpMechanicalCaptureDeadlineMs'
   | 'intrinsicRhythmSnapshot'
+  | 'learnerHint'
 > {
   return {
     energyJoules: 100,
@@ -148,6 +155,7 @@ function emptyHardware(): Pick<
     tcpMorphWide: false,
     tcpMechanicalCaptureDeadlineMs: null,
     intrinsicRhythmSnapshot: 'sinus',
+    learnerHint: null,
   };
 }
 
@@ -202,7 +210,7 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
     clearChargeTimer();
     const s = get();
     if (s.isCharged || s.isCharging) return;
-    set({ isCharging: true, isCharged: false });
+    set({ isCharging: true, isCharged: false, learnerHint: null });
     chargeTimer = setTimeout(() => {
       set({ isCharging: false, isCharged: true });
       chargeTimer = null;
@@ -213,6 +221,8 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
     clearChargeTimer();
     set({ isCharging: false });
   },
+
+  clearLearnerHint: () => set({ learnerHint: null }),
 
   pressShock: () => set({ isShockButtonHeld: true }),
 
@@ -411,6 +421,18 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
         usePhysiologyStore.getState().updateVitals({ isPulseless: true });
         return;
       }
+    }
+
+    if (isNonShockablePulselessArrest(intrinsicKind)) {
+      set({
+        isCharged: false,
+        isCharging: false,
+        isSyncEnabled: false,
+        cardioversionAttempts: s.cardioversionAttempts + 1,
+        learnerHint:
+          'Defibrillation does not treat asystole, PEA, or agonal rhythm — continue CPR and ACLS medications (e.g. epinephrine).',
+      });
+      return;
     }
 
     if (isShockableArrestRhythm(intrinsicKind)) {

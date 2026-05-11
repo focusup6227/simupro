@@ -10,14 +10,14 @@ export function isOrganizedTachyForCardioversion(kind: EcgRhythmKind): boolean {
   return false;
 }
 
-/** VF / pulseless rhythms — unsynchronized shock is appropriate; no R-on-T penalty. */
+/** VF or pulseless VT — unsynchronized defibrillation may terminate the rhythm (training model). */
 export function isShockableArrestRhythm(kind: EcgRhythmKind): boolean {
-  return (
-    kind === 'vfib' ||
-    kind === 'pulseless_vt' ||
-    kind === 'asystole' ||
-    kind === 'pea'
-  );
+  return kind === 'vfib' || kind === 'pulseless_vt';
+}
+
+/** Asystole, PEA, agonal — no defibrillation benefit in ACLS-style teaching flows. */
+export function isNonShockablePulselessArrest(kind: EcgRhythmKind): boolean {
+  return kind === 'asystole' || kind === 'pea' || kind === 'agonal';
 }
 
 function cardioversionBaseRate(kind: EcgRhythmKind): number {
