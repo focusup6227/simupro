@@ -604,7 +604,7 @@
       ],
       "dosages": {
         "adult": "Arrest: 1 mg IV/IO q3–5min OR 0.1 mg/kg IV/IO (max 1 mg) first/second cycle per local guideline; push-dose: 1 mL of 0.1 mg/mL in 9 mL NS then 0.01 mg/kg boluses per perfusion protocol",
-        "pediatric": "0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) per arrest/perfusion protocol; max per guideline"
+        "pediatric": "Arrest: 0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) q3–5min once access available; max per guideline"
       },
       "concentration": "0.1 mg/mL"
     }
@@ -1715,7 +1715,7 @@
         "AED",
         "Defibrillator pads"
       ],
-      "parameters": "Follow device audio prompts; shock when indicated",
+      "parameters": "Follow device audio prompts; shock promptly when indicated; minimize pre- and peri-shock pause in compressions; resume CPR immediately",
       "successCriteria": "VF/VT terminated or device advises no shock; CPR resumed immediately"
     }
   },
@@ -1739,7 +1739,7 @@
         "Oxygen supply",
         "OPA/NPA appropriate size"
       ],
-      "parameters": "Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline",
+      "parameters": "Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline; avoid excessive ventilation",
       "successCriteria": "Visible chest rise; SpO2 improves or CO2 trace when monitored"
     }
   },
@@ -1880,7 +1880,7 @@
         "Defibrillator",
         "Pads"
       ],
-      "parameters": "Biphasic per manufacturer; monophasic 360 J adult",
+      "parameters": "Biphasic per manufacturer; monophasic 360 J adult; minimize compression pause surrounding shock",
       "successCriteria": "Rhythm no longer VF after shock; ROSC or organized rhythm"
     }
   },
@@ -2117,7 +2117,7 @@
         "Pacing pads",
         "Dopamine/epinephrine infusion"
       ],
-      "parameters": "Symptomatic bradycardia: atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective (ACLS). Treat underlying causes.",
+      "parameters": "Adults (ACLS): atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective. **PALS:** oxygen/ventilation first; atropine **0.02 mg/kg IV/IO** (min 0.1 mg, max 0.5 mg per pediatric dose) per protocol; TCP if unstable with poor perfusion; infusion if pacing delayed. Treat underlying causes.",
       "successCriteria": "HR and perfusion improved"
     }
   },
@@ -2210,7 +2210,7 @@
         "Epinephrine",
         "Advanced airway"
       ],
-      "parameters": "High-quality CPR (100–120/min); 30:2 compressions:ventilations without advanced airway; with advanced airway give continuous compressions with 1 breath every 6 seconds (~10/min). Shock VF/pulseless VT immediately; epinephrine 1 mg IV/IO every 3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine alternative) for refractory VF/pVT per ACLS. Do not defibrillate asystole/PEA—CPR, epinephrine, and treat causes.",
+      "parameters": "High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min). Shock VF/pulseless VT promptly; epinephrine 1 mg IV/IO every 3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine alternative) for refractory VF/pVT per ACLS. Do not defibrillate asystole/PEA—CPR, epinephrine, and treat causes.",
       "successCriteria": "ROSC or organized termination per guideline"
     }
   },
@@ -2351,7 +2351,7 @@
         "BVM",
         "Warm blankets"
       ],
-      "parameters": "Spinal precautions if mechanism; oxygen; targeted temperature if ROSC",
+      "parameters": "Spinal precautions if mechanism; standard BLS/CPR when pulseless—prioritize oxygenation/ventilation after submersion; oxygen; targeted temperature if ROSC",
       "successCriteria": "Spontaneous breathing or ventilatory support adequate"
     }
   },
@@ -2719,7 +2719,7 @@
         "Bulb suction",
         "BVM neonatal"
       ],
-      "parameters": "Dry-stimulate-suction; CPAP if breathing effort poor; 3:1 compressions if <60 HR",
+      "parameters": "Dry/warm/stimulate; suction if airway obstructed; **effective ventilation first**; CPAP if breathing effort poor—if HR remains <60 after adequate ventilation, **3:1** compressions:breaths per NRP-style neonatal CPR",
       "successCriteria": "HR >100 with effective ventilation"
     }
   },
@@ -3091,7 +3091,7 @@
         "Cardioversion",
         "Amiodarone/procainamide for stable wide"
       ],
-      "parameters": "Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg; stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS.",
+      "parameters": "Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg (adults); stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS. **PALS:** unstable SVT/V-Tach with pulse often **0.5–1 J/kg** synchronized initially; stable narrow regular → **weight-based adenosine** per PALS.",
       "successCriteria": "Rate or rhythm controlled; perfusion restored"
     }
   },
@@ -3182,7 +3182,7 @@
         "Thoracotomy center transport",
         "Blood products if available"
       ],
-      "parameters": "Bilateral decompress if indicated; hypovolemia resuscitation",
+      "parameters": "CPR with high-quality breathing/circulation support while addressing reversible causes; bilateral decompress if indicated; hypovolemia resuscitation",
       "successCriteria": "ROSC or transport for definitive surgical rescue"
     }
   },
@@ -3303,7 +3303,7 @@
         "Manual defibrillator",
         "Paddles or pads"
       ],
-      "parameters": "Charge to manufacturer-recommended energy",
+      "parameters": "Charge to manufacturer-recommended energy; pediatric arrest commonly **2 J/kg** then **4 J/kg** manual dosing per PALS",
       "successCriteria": "Effective shock delivery with minimal compression pause"
     }
   },
@@ -3537,7 +3537,7 @@
         "Sedation agents",
         "Pads"
       ],
-      "parameters": "Start 50–100 J biphasic often; increase per guideline; ensure sync mode",
+      "parameters": "Adult: start 50–100 J biphasic often; increase per guideline; pediatric unstable tachyarrhythmia often **0.5–1 J/kg** initial synchronized cardioversion then escalate per PALS; ensure sync mode",
       "successCriteria": "Restoration of perfusing rhythm or improved perfusion"
     }
   },
@@ -3579,7 +3579,7 @@
         "Defibrillator with pacing mode",
         "Pads"
       ],
-      "parameters": "Start 80 mA typical; increase until capture; mA above capture for margin",
+      "parameters": "Start ~80 mA typical adult; titrate from lower output in pediatrics per capture; increase until capture; mA above capture for margin",
       "successCriteria": "Electrical and mechanical capture; improved perfusion"
     }
   }

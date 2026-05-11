@@ -279,7 +279,7 @@ export const MEDICATIONS: MedRow[] = [
     contra: ['None in cardiac arrest'],
     routes: ['IV', 'IO'],
     adult: 'Arrest: 1 mg IV/IO q3–5min OR 0.1 mg/kg IV/IO (max 1 mg) first/second cycle per local guideline; push-dose: 1 mL of 0.1 mg/mL in 9 mL NS then 0.01 mg/kg boluses per perfusion protocol',
-    pediatric: '0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) per arrest/perfusion protocol; max per guideline',
+    pediatric: 'Arrest: 0.01 mg/kg IV/IO (0.1 mL/kg of 0.1 mg/mL) q3–5min once access available; max per guideline',
     concentration: '0.1 mg/mL',
   },
   {
@@ -746,7 +746,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Cardiac arrest', 'Unwitnessed collapse with no pulse'],
     contra: ['Wet chest—dry before pads'],
     equipment: ['AED', 'Defibrillator pads'],
-    parameters: 'Follow device audio prompts; shock when indicated',
+    parameters:
+      'Follow device audio prompts; shock promptly when indicated; minimize pre- and peri-shock pause in compressions; resume CPR immediately',
     success: 'VF/VT terminated or device advises no shock; CPR resumed immediately',
   },
   {
@@ -757,7 +758,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Respiratory failure', 'Apnea', 'Preoxygenation prior to airway placement'],
     contra: ['None when alternative ventilation required'],
     equipment: ['BVM', 'Oxygen supply', 'OPA/NPA appropriate size'],
-    parameters: 'Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline',
+    parameters:
+      'Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline; avoid excessive ventilation',
     success: 'Visible chest rise; SpO2 improves or CO2 trace when monitored',
   },
   {
@@ -823,7 +825,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['VF', 'Pulseless VT'],
     contra: ['None in shockable arrest'],
     equipment: ['Defibrillator', 'Pads'],
-    parameters: 'Biphasic per manufacturer; monophasic 360 J adult',
+    parameters: 'Biphasic per manufacturer; monophasic 360 J adult; pediatric manual energy **2 J/kg** initial then **4 J/kg** subsequent (pediatric attenuator or joules/kg per device); minimize compression pause surrounding shock',
     success: 'Rhythm no longer VF after shock; ROSC or organized rhythm',
   },
   {
@@ -867,7 +869,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['VF/pulseless VT', 'Unstable tachycardia when synchronized mode unavailable initially'],
     contra: ['Oxygen-rich env—brief pause ventilation during shock'],
     equipment: ['Manual defibrillator', 'Paddles or pads'],
-    parameters: 'Charge to manufacturer-recommended energy',
+    parameters: 'Charge to manufacturer-recommended energy; pediatric arrest commonly **2 J/kg** then **4 J/kg** manual dosing per PALS',
     success: 'Effective shock delivery with minimal compression pause',
   },
   {
@@ -977,7 +979,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Unstable tachydysrhythmia with pulse', 'SBP <90 with altered mental status from arrhythmia'],
     contra: ['Digitalis toxicity tachyarrhythmia (relative—lower energy)'],
     equipment: ['Manual cardioverter', 'Sedation agents', 'Pads'],
-    parameters: 'Start 50–100 J biphasic often; increase per guideline; ensure sync mode',
+    parameters: 'Adult: start 50–100 J biphasic often; increase per guideline; pediatric unstable tachyarrhythmia often **0.5–1 J/kg** initial synchronized cardioversion then escalate per PALS; ensure sync mode',
     success: 'Restoration of perfusing rhythm or improved perfusion',
   },
   {
@@ -1010,7 +1012,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Hemodynamically unstable bradycardia unresponsive to atropine'],
     contra: ['Asystole (ineffective)—treat underlying cause'],
     equipment: ['Defibrillator with pacing mode', 'Pads'],
-    parameters: 'Start 80 mA typical; increase until capture; mA above capture for margin',
+    parameters: 'Start ~80 mA typical adult; titrate from lower output in pediatrics per capture; increase until capture; mA above capture for margin',
     success: 'Electrical and mechanical capture; improved perfusion',
   },
   {
@@ -1099,7 +1101,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['None when unstable and pacing indicated'],
     equipment: ['Atropine', 'Pacing pads', 'Dopamine/epinephrine infusion'],
     parameters:
-      'Symptomatic bradycardia: atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective (ACLS). Treat underlying causes.',
+      'Adults (ACLS): atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective. **PALS:** oxygen/ventilation first; atropine **0.02 mg/kg IV/IO** (min 0.1 mg, max 0.5 mg per pediatric dose) per protocol; TCP if unstable with poor perfusion; infusion if pacing delayed. Treat underlying causes.',
     success: 'HR and perfusion improved',
   },
   {
@@ -1122,7 +1124,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['DNR/termination criteria per policy'],
     equipment: ['Defibrillator/AED', 'BVM', 'CPR adjuncts', 'Epinephrine', 'Advanced airway'],
     parameters:
-      'High-quality CPR (100–120/min); 30:2 compressions:ventilations without advanced airway; with advanced airway give continuous compressions with 1 breath every 6 seconds (~10/min). Shock VF/pulseless VT immediately; epinephrine 1 mg IV/IO every 3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine alternative) for refractory VF/pVT per ACLS. Do not defibrillate asystole/PEA—CPR, epinephrine, and treat causes.',
+      '**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min). Shock VF/pVT promptly; epinephrine 1 mg IV/IO q3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥⅓ AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; ~**10 breaths/min** with advanced airway; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).',
     success: 'ROSC or organized termination per guideline',
   },
   {
@@ -1155,7 +1157,8 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Submersion with respiratory arrest', 'Hypoxia after rescue'],
     contra: ['None—prioritize oxygenation'],
     equipment: ['Suction', 'BVM', 'Warm blankets'],
-    parameters: 'Spinal precautions if mechanism; oxygen; targeted temperature if ROSC',
+    parameters:
+      'Spinal precautions if mechanism; standard BLS/CPR when pulseless—prioritize oxygenation/ventilation after submersion; oxygen; targeted temperature if ROSC',
     success: 'Spontaneous breathing or ventilatory support adequate',
   },
   {
@@ -1276,7 +1279,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Newborn apneic or bradycardic after delivery'],
     contra: ['Delayed drying/stimulation'],
     equipment: ['Warm radiant environment', 'Bulb suction', 'BVM neonatal'],
-    parameters: 'Dry-stimulate-suction; CPAP if breathing effort poor; 3:1 compressions if <60 HR',
+    parameters: 'Dry/warm/stimulate; suction if airway obstructed; **effective ventilation first**; CPAP if breathing effort poor—if HR remains <60 after adequate ventilation, **3:1** compressions:breaths per NRP-style neonatal CPR',
     success: 'HR >100 with effective ventilation',
   },
   {
@@ -1398,7 +1401,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['Unstable = cardioversion; avoid adenosine for irregular wide'],
     equipment: ['Adenosine', 'Cardioversion', 'Amiodarone/procainamide for stable wide'],
     parameters:
-      'Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg; stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS.',
+      'Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg (adults); stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS. **PALS:** unstable SVT/V-Tach with pulse often **0.5–1 J/kg** synchronized initially; stable narrow regular → **weight-based adenosine** per PALS.',
     success: 'Rate or rhythm controlled; perfusion restored',
   },
   {
@@ -1420,7 +1423,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Traumatic PEA', 'Tension pneumo suspected in trauma arrest'],
     contra: ['Medical arrest algorithms alone without addressing trauma reversible causes'],
     equipment: ['MTP activation if policy', 'Thoracotomy center transport', 'Blood products if available'],
-    parameters: 'Bilateral decompress if indicated; hypovolemia resuscitation',
+    parameters: 'CPR with high-quality breathing/circulation support while addressing reversible causes; bilateral decompress if indicated; hypovolemia resuscitation',
     success: 'ROSC or transport for definitive surgical rescue',
   },
   {
