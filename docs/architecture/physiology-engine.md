@@ -46,9 +46,10 @@ The simulation currently uses these physiology layers:
 
 4. **Metabolic engine**
    - A deterministic teaching-grade acid-base/lactate integrator exists.
-   - It models lactate, bicarbonate, and pH from perfusion stress, bleed rate,
+   - The integrator models lactate, bicarbonate, and pH from perfusion stress, bleed rate,
      decompensation phase, inflammatory axis, RR, and pediatric scaling.
-   - It is currently guarded by `ENABLE_METABOLIC_ENGINE = false`.
+   - `ENABLE_METABOLIC_ENGINE = false` currently keeps that path off in the display
+     stack by default.
    - When enabled, display-time metabolic coupling can add a bounded RR boost
      from high lactate or low pH.
 
