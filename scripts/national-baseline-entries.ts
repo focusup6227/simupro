@@ -92,7 +92,7 @@ export const MEDICATIONS: MedRow[] = [
     contra: ['Second- or third-degree AV block (without pacemaker)', 'Sick sinus syndrome', 'Asthmatic VT', 'Atrial flutter/fibrillation for termination', 'Polymorphic VT'],
     routes: ['IV'],
     adult: '6 mg IV rapid push with NS flush (e.g. 10–20 mL); then 12 mg with flush if needed per tachycardia protocol',
-    pediatric: '0.1 mg/kg IV rapid push (first dose max 6 mg); subsequent 0.2 mg/kg per protocol',
+    pediatric: '0.1 mg/kg IV rapid push with NS flush (first dose max 6 mg); subsequent 0.2 mg/kg with flush per protocol (max per guideline)',
     concentration: '3 mg/mL (typical vial dilution per agency)',
   },
   {
@@ -759,7 +759,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['None when alternative ventilation required'],
     equipment: ['BVM', 'Oxygen supply', 'OPA/NPA appropriate size'],
     parameters:
-      'Adult ~10/min with advanced airway; 30:2 if no advanced airway per CPR guideline; avoid excessive ventilation',
+      'Adults (ACLS): ~**10 breaths/min** (1 breath q **6 s**) with **advanced airway** during CPR; **30:2** without. **Pediatrics (PALS):** with advanced airway use **continuous compressions** and **~1 breath every 2–3 s**; **30:2** or **15:2** without advanced airway per agency BLS. **Avoid excessive ventilation.**',
     success: 'Visible chest rise; SpO2 improves or CO2 trace when monitored',
   },
   {
@@ -1070,7 +1070,7 @@ export const PROCEDURES: ProcRow[] = [
     ind: ['Airway compromise', 'Ventilation failure'],
     contra: ['Apnea without immediate BVM—act'],
     equipment: ['Suction', 'OPA/NPA', 'BVM', 'Advanced airway as level permits'],
-    parameters: 'Head position; suction; escalate per difficulty',
+    parameters: 'Head position; suction; **continuous waveform capnography when an advanced airway is placed**; escalate per difficulty',
     success: 'Adequate oxygenation and ventilation',
   },
   {
@@ -1104,7 +1104,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['None when unstable and pacing indicated'],
     equipment: ['Atropine', 'Pacing pads', 'Dopamine/epinephrine infusion'],
     parameters:
-      'Adults (ACLS): atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective. **PALS:** oxygen/ventilation first; atropine **0.02 mg/kg IV/IO** (min 0.1 mg, max 0.5 mg per pediatric dose) per protocol; TCP if unstable with poor perfusion; infusion if pacing delayed. Treat underlying causes.',
+      'Adults (ACLS): atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective. **PALS:** oxygen/ventilation first for symptomatic bradycardia; atropine **0.02 mg/kg IV/IO** (min 0.1 mg, max 0.5 mg) **may repeat once** in ≈5 min; TCP if unstable with poor perfusion; infusion if pacing delayed. Treat underlying causes.',
     success: 'HR and perfusion improved',
   },
   {
@@ -1127,7 +1127,7 @@ export const PROCEDURES: ProcRow[] = [
     contra: ['DNR/termination criteria per policy'],
     equipment: ['Defibrillator/AED', 'BVM', 'CPR adjuncts', 'Epinephrine', 'Advanced airway'],
     parameters:
-      '**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min); **waveform capnography** with advanced airway. Shock VF/pVT promptly; **biphasic defibrillation per manufacturer** (often **120–200 J** initially; **if unknown use maximum available**); **monophasic 360 J**; **epinephrine 1 mg IV/IO as soon as IV/IO access is established**, then **q3–5 min**; **amiodarone 300 mg IV/IO** then **150 mg IV/IO** (or **lidocaine 1–1.5 mg/kg** then **0.5–0.75 mg/kg**) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥1/3 AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; ~**10 breaths/min** with advanced airway; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).',
+      '**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min); **waveform capnography** with advanced airway. Shock VF/pVT promptly; **biphasic defibrillation per manufacturer** (often **120–200 J** initially; **if unknown use maximum available**); **monophasic 360 J**; **epinephrine 1 mg IV/IO as soon as IV/IO access is established**, then **q3–5 min**; **amiodarone 300 mg IV/IO** then **150 mg IV/IO** (or **lidocaine 1–1.5 mg/kg** then **0.5–0.75 mg/kg**) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥1/3 AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; with advanced airway **continuous compressions + ~1 breath every 2–3 s** (~20–30/min)—**avoid hyperventilation**; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).',
     success: 'ROSC or organized termination per guideline',
   },
   {
