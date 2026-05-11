@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "baseline:build": "tsx scripts/build-national-baseline.ts",
+    "seed:test-users": "tsx scripts/seed-cursor-test-users.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "supabase db push --yes --linked",

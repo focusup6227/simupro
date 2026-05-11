@@ -33,6 +33,21 @@ See `package.json` scripts section. Summary:
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key from supabase status>`
   - `SUPABASE_SERVICE_ROLE_KEY=<secret key from supabase status>`
 
+### Test accounts (Cursor Cloud / local E2E)
+
+After `supabase start` (or `supabase db reset`), run **`npm run seed:test-users`** once credentials are in `.env.local`. This uses the **Auth Admin API** to create idempotent users with **email already confirmed** (no Inbucket flow needed).
+
+| Email | Purpose |
+|-------|---------|
+| `cursor.agent.learner@local.test` | Paramedic learner, tutorial + disclaimer pre-accepted |
+| `cursor.agent.admin@local.test` | `is_admin` dashboard |
+| `cursor.agent.tester@local.test` | Tester / QA role (`test_role` paramedic) |
+| `cursor.agent.premium@local.test` | `is_premium` without Stripe |
+
+**Password** defaults to `CursorAgent_LocalDev_1!` unless you set `CURSOR_AGENT_TEST_PASSWORD`.
+
+Safety: the script **refuses non-local** URLs unless you set `ALLOW_SEED_TEST_USERS=1` (for a staging project you control—not production).
+
 ### Hosted Supabase (production / shared project)
 
 - When you add or change `supabase/migrations/*.sql`, run `npm run db:push` after `supabase link` so the remote database stays in sync (or rely on GitLab CI below).
