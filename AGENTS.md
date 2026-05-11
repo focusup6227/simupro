@@ -20,6 +20,7 @@ See `package.json` scripts section. Summary:
 - **Lint:** `npm run lint`
 - **Typecheck:** `npm run typecheck`
 - **Build:** `npm run build`
+- **E2E (Playwright):** `npm run test:e2e` — first run `npx playwright install chromium`
 - **Push DB migrations (remote, linked project):** `npm run db:push` (non-interactive; applies anything not yet on the hosted DB)
 
 ### Local Supabase

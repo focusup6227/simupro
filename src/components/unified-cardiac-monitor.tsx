@@ -524,14 +524,20 @@ function LifeSupportTherapyPanel(props: {
 
   if (!props.enabled) {
     return (
-      <div className="rounded-md border border-zinc-700/60 bg-black/40 px-2 py-1.5 text-[9px] text-zinc-500">
+      <div
+        data-testid="life-support-panel-off"
+        className="rounded-md border border-zinc-700/60 bg-black/40 px-2 py-1.5 text-[9px] text-zinc-500"
+      >
         Apply defib/monitor pads and enable ECG to use cardioversion / TCP.
       </div>
     );
   }
 
   return (
-    <div className="space-y-1.5 rounded-md border border-amber-800/50 bg-black/50 p-2">
+    <div
+      data-testid="life-support-panel"
+      className="space-y-1.5 rounded-md border border-amber-800/50 bg-black/50 p-2"
+    >
       <div className="text-[9px] font-semibold uppercase tracking-wider text-amber-200/90">
         Defibrillator
       </div>
@@ -552,6 +558,7 @@ function LifeSupportTherapyPanel(props: {
         <button
           type="button"
           className={cn(btn, isSyncEnabled && btnLit)}
+          data-testid="life-support-sync"
           onClick={() => {
             const wasOn = isSyncEnabled;
             toggleSync();
@@ -564,6 +571,7 @@ function LifeSupportTherapyPanel(props: {
           type="button"
           className={cn(btn, (isCharging || isCharged) && btnLit)}
           disabled={isCharged}
+          data-testid="life-support-charge"
           onClick={() => {
             beginCharge();
             props.onAction?.('Charging defibrillator');
@@ -578,6 +586,7 @@ function LifeSupportTherapyPanel(props: {
             'min-w-[4.5rem] border-rose-700/80 bg-gradient-to-b from-rose-950/80 to-zinc-950 text-rose-100',
           )}
           disabled={!isCharged}
+          data-testid="life-support-shock"
           onPointerDown={(e) => {
             e.preventDefault();
             pressShock();
@@ -595,6 +604,7 @@ function LifeSupportTherapyPanel(props: {
         <button
           type="button"
           className={cn(btn, isPacerEnabled && btnLit)}
+          data-testid="life-support-pace"
           onClick={() => {
             const wasOn = isPacerEnabled;
             setPacerEnabled(!isPacerEnabled);
