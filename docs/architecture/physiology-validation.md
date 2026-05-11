@@ -40,9 +40,9 @@ Current tests cover targeted behavior across the shipped layers:
   metabolic RR boost helper behavior, and the full display composition pipeline.
 
 This evidence supports the current layer-by-layer implementation. It does not
-yet constitute full closed-loop feedback validation because the planned
-`PhysiologyFeedbackSnapshot` and `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` flag are not
-implemented.
+yet constitute full closed-loop feedback validation because many roadmap feedback
+drives that `PhysiologyFeedbackSnapshot` is meant to carry (beyond the current
+bounded fields) are not fully implemented or golden-pathed.
 
 ## Clamps And Plausibility Bounds
 
@@ -140,8 +140,9 @@ Use the current flags as explicit validation boundaries:
   autonomic deltas and decompensation phase effects.
 - With `ENABLE_METABOLIC_ENGINE = false`, user-facing metabolic RR coupling is
   off by default even though engine tests exist.
-- When the planned `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` flag is added, tests
-  should verify both the enabled feedback path and the disabled rollback path.
+- With `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`, monitor-time PK/tick paths may
+  consume a bounded feedback snapshot; tests should cover both enabled and disabled
+  rollback paths once the matrix is stable.
 
 ## Acceptance Checklist For Feedback Work
 

@@ -25,7 +25,7 @@ Landing copy summarizes the product (**AI-powered EMS training**, demo, Premium)
 
 ### Developer note: simulation layers
 
-Runtime behavior is controlled by compile-time flags in **`src/lib/feature-flags.ts`** (e.g. PK/autonomic on by default; metabolic MVP off until you enable it). Vitals on the monitor merge **physiology-store baseline → PK deltas → autonomic deltas** (and metabolic when enabled). The **grade-session** Supabase Edge function can replay **PK** and **autonomic** (and **metabolic** when wired) for attribution at user-action timestamps.
+Runtime behavior is controlled by compile-time flags in **`src/lib/feature-flags.ts`** (e.g. PK/autonomic on by default; metabolic MVP off until you enable it). Vitals on the monitor merge **physiology-store baseline → PK deltas → autonomic deltas** (and metabolic when enabled). The **`grade-session`** Supabase Edge function replays **PK** and **autonomic** attribution at user-action timestamps and **currently always integrates the metabolic replay helper** alongside them (even when the client metabolic display flag is off), mostly for attribution / future scoring — align any learner-facing wording with whichever surfaces actually consume those fields.
 
 ## Technical stack
 

@@ -12,8 +12,11 @@ The shipped stack is mostly layered and deterministic:
 - `ENABLE_AUTONOMIC_ENGINE = true`: the autonomic/volume layer is active.
 - `ENABLE_METABOLIC_ENGINE = false`: the acid-base integrator exists, but is not
   enabled in the user-facing display path by default.
-- `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` is not present yet. The roadmap calls for
-  this rollback flag when the planned closed-loop feedback layer is implemented.
+- `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`: a transient
+  `PhysiologyFeedbackSnapshot` is built from current vitals/metabolic fields and
+  passed into PK/tick integrations for bounded modulation. This is narrower than the
+  full closed-loop roadmap (dynamic clearance, fuller interaction matrix): those
+  items remain planned work guarded by continued testing and clamps.
 
 Today, scenario inputs and logs drive pure replay functions. Display composition
 then merges the AI baseline, PK deltas, autonomic deltas, optional metabolic RR
@@ -128,8 +131,9 @@ effectiveKel = baseKel * clearance * (0.7 + 0.3 * hemodynamicReserve)
 
 The planned feedback layer should add optional, bounded dynamic modifiers such as
 perfusion-dependent clearance, non-IV absorption reduction in shock, and selected
-volume-of-distribution shifts. These are not shipped yet and should be protected
-by the planned `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` flag when implemented.
+volume-of-distribution shifts. These are not shipped yet. When they land, keep them
+behind the existing `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` flag (or a successor) so
+operators can roll back.
 
 ## Autonomic Equations And Clamps
 
@@ -201,13 +205,14 @@ When implemented, the feedback layer should:
 - Preserve deterministic replay from logs, scenario inputs, and timestamps.
 - Remain bounded so extreme scenarios cannot produce NaN, Infinity, or runaway
   monitor values.
-- Be controlled by the planned `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` rollback flag.
+- Respect the existing `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` rollback flag.
 
 ## Limitations
 
 - Current PK feedback is static-axis based, not live closed-loop perfusion based.
-- Current autonomic feedback uses observed merged vitals, but there is no shared
-  feedback snapshot object yet.
+- A bounded `PhysiologyFeedbackSnapshot` is built for ticks when the feedback flag
+  is on; fuller roadmap drives (hypoxia/hypercarbia loops, richer interactions) are
+  not completely represented yet.
 - The metabolic engine is implemented but disabled by default.
 - Drug interaction behavior is currently mostly additive Emax plus antagonist
   scaling; the planned post-Emax interaction pass is not shipped.
