@@ -5,7 +5,41 @@
 #   SUPABASE_DB_PASSWORD   — Project Settings → Database → Database password
 
 stages:
+  - test
   - database
+
+variables:
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+.node_test:
+  stage: test
+  image: node:20-bookworm-slim
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - npm ci --prefer-offline --no-audit
+
+nextjs_lint:
+  extends: .node_test
+  script:
+    - npm run lint
+
+nextjs_typecheck:
+  extends: .node_test
+  script:
+    - npm run typecheck
+
+vitest_unit:
+  extends: .node_test
+  script:
+    - npm run test
 
 supabase_migrations:
   stage: database
