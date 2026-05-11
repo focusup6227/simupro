@@ -4,8 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 import { CURRENT_DISCLAIMER_VERSION } from '@/lib/disclaimer';
 import type { Database } from '@/lib/supabase/database.types';
 
-loadEnv({ path: resolve(process.cwd(), '.env.local') });
-loadEnv({ path: resolve(process.cwd(), '.env') });
+// Prefer file values over inherited process env (CI/agents often inject hosted URLs).
+loadEnv({ path: resolve(process.cwd(), '.env'), override: true });
+loadEnv({ path: resolve(process.cwd(), '.env.local'), override: true });
 
 /**
  * Idempotent test users for local Supabase and Cursor Cloud agents.
@@ -15,7 +16,11 @@ loadEnv({ path: resolve(process.cwd(), '.env') });
  * - SUPABASE_SERVICE_ROLE_KEY
  *
  * By default only runs against localhost / 127.0.0.1. For hosted projects set
- * ALLOW_SEED_TEST_USERS=1 (use only on non-production databases you control).
+ * ALLOW_SEED_TEST_USERS=1 (required for any non-local Supabase).
+ *
+ * Email domain: `CURSOR_AGENT_TEST_EMAIL_DOMAIN` overrides. Otherwise localhost
+ * Supabase uses `@local.test`; any other Supabase URL uses `@simupro.io` so the
+ * same accounts sign in on the deployed app's `/login` route.
  */
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,25 +37,37 @@ type SeedSpec = {
   profile: ProfilePatch;
 };
 
+function isLocalSupabaseUrl(urlStr: string): boolean {
+  try {
+    const host = new URL(urlStr).hostname;
+    return host === '127.0.0.1' || host === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
+/** Public site uses these addresses at simupro.io; local dev keeps @local.test unless overridden. */
+function resolvedTestEmailDomain(supabaseUrl: string): string {
+  const override = process.env.CURSOR_AGENT_TEST_EMAIL_DOMAIN?.trim();
+  if (override) return override;
+  return isLocalSupabaseUrl(supabaseUrl) ? 'local.test' : 'simupro.io';
+}
+
 function assertLocalOrExplicitAllow(urlStr: string): void {
   const allow = process.env.ALLOW_SEED_TEST_USERS === '1';
   if (allow) return;
-  try {
-    const host = new URL(urlStr).hostname;
-    if (host === '127.0.0.1' || host === 'localhost') return;
-  } catch {
-    /* fall through */
-  }
+  if (isLocalSupabaseUrl(urlStr)) return;
   console.error(
     'Refusing to seed test users: URL is not local. Set ALLOW_SEED_TEST_USERS=1 to allow.',
   );
   process.exit(1);
 }
 
-function specs(nowIso: string): SeedSpec[] {
+function specs(nowIso: string, emailDomain: string): SeedSpec[] {
+  const e = (localPart: string) => `${localPart}@${emailDomain}`;
   return [
     {
-      email: 'cursor.agent.learner@local.test',
+      email: e('cursor.agent.learner'),
       displayName: 'Cursor Agent Learner',
       profile: {
         role: 'paramedic',
@@ -60,7 +77,7 @@ function specs(nowIso: string): SeedSpec[] {
       },
     },
     {
-      email: 'cursor.agent.admin@local.test',
+      email: e('cursor.agent.admin'),
       displayName: 'Cursor Agent Admin',
       profile: {
         role: 'admin',
@@ -71,7 +88,7 @@ function specs(nowIso: string): SeedSpec[] {
       },
     },
     {
-      email: 'cursor.agent.tester@local.test',
+      email: e('cursor.agent.tester'),
       displayName: 'Cursor Agent Tester',
       profile: {
         role: 'tester',
@@ -82,7 +99,7 @@ function specs(nowIso: string): SeedSpec[] {
       },
     },
     {
-      email: 'cursor.agent.premium@local.test',
+      email: e('cursor.agent.premium'),
       displayName: 'Cursor Agent Premium',
       profile: {
         role: 'paramedic',
@@ -106,12 +123,15 @@ async function main(): Promise<void> {
 
   assertLocalOrExplicitAllow(url);
 
+  const emailDomain = resolvedTestEmailDomain(url);
+  console.log(`Using test email domain: @${emailDomain}`);
+
   const supabase = createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
   const nowIso = new Date().toISOString();
-  const seedSpecs = specs(nowIso);
+  const seedSpecs = specs(nowIso, emailDomain);
 
   const { data: listData, error: listErr } =
     await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
