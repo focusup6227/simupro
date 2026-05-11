@@ -54,6 +54,8 @@ function specs(nowIso: string): SeedSpec[] {
       displayName: 'Cursor Agent Learner',
       profile: {
         role: 'paramedic',
+        emt_program_completed_on: '2020-01-01',
+        aemt_program_completed_on: '2021-01-01',
         has_completed_tutorial: true,
         disclaimer_accepted_at: nowIso,
         disclaimer_accepted_version: CURRENT_DISCLAIMER_VERSION,
@@ -76,6 +78,8 @@ function specs(nowIso: string): SeedSpec[] {
       profile: {
         role: 'tester',
         test_role: 'paramedic',
+        emt_program_completed_on: '2020-01-01',
+        aemt_program_completed_on: '2021-01-01',
         has_completed_tutorial: true,
         disclaimer_accepted_at: nowIso,
         disclaimer_accepted_version: CURRENT_DISCLAIMER_VERSION,
@@ -86,6 +90,8 @@ function specs(nowIso: string): SeedSpec[] {
       displayName: 'Cursor Agent Premium',
       profile: {
         role: 'paramedic',
+        emt_program_completed_on: '2020-01-01',
+        aemt_program_completed_on: '2021-01-01',
         is_premium: true,
         premium_status: 'active',
         has_completed_tutorial: true,
