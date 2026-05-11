@@ -34,6 +34,13 @@ import { EquipmentDrawer } from "@/components/equipment-drawer";
 import { usePhysiologyStore, scenarioVitalsFromStore } from "@/stores/physiology-store";
 import { usePkStore } from "@/stores/pk-store";
 
+/**
+ * Client-side demo page that runs a limited-turn patient simulation and provides a UI to submit assessments and treatments.
+ *
+ * Initializes a seeded scenario, maintains the simulation log and physiology state, sends user actions to the demo API to receive simulated patient responses, and enforces demo limits by prompting account signup when the demo ends or the patient dies.
+ *
+ * @returns The React element that renders the demo UI (scenario info, monitor/equipment when ready, simulation log, inputs for assessment and treatment, and the signup CTA dialog).
+ */
 export default function DemoPage() {
   const { toast } = useToast();
   const scenario = seedScenarios.find((s) => s.id === DEMO_SCENARIO_ID)!;

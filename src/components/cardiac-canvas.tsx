@@ -109,7 +109,26 @@ function drawEcgGrid(
   }
 }
 
-/** Sweep viewport maps onto logical LIVE_STRIP_VIEWPORT_PX (same as SVG strips). */
+/**
+ * Renders an animated, live ECG strip onto a canvas and manages sampling, drawing, and lifecycle.
+ *
+ * The component samples a polyline representing an ECG strip (via worker when available, falling back
+ * to synchronous sampling), animates a sweeping playback across a logical viewport, caches and draws
+ * the background grid, responds to resize/visibility/reduced-motion, and optionally overlays training
+ * markers (R-peak sync markers and TCP pacing spikes).
+ *
+ * @param ctx - ECG scenario/context used for sampling the strip waveform
+ * @param tileW - Width of a single ECG tile in logical pixels (used for sampling and overlay alignment)
+ * @param leadIdx - 1-based lead index to sample (defaults to 1)
+ * @param leadLabel - Label drawn in the canvas corner (defaults to "II")
+ * @param height - Canvas visible height in CSS pixels (defaults to 168)
+ * @param paused - When true, animation phase does not advance
+ * @param leadsOff - When true, the sampled waveform is replaced with a flat baseline
+ * @param lifeSupportShowSyncMarkers - When true, draw phase-aligned R-peak sync markers across the viewport
+ * @param lifeSupportTcpEnabled - When true, draw transcutaneous pacing spike overlay
+ * @param lifeSupportTcpRatePpm - Configured pacing rate in pulses per minute (clamped to 40–120; default 80)
+ * @returns The rendered wrapper <div> containing the canvas and lead label
+ */
 function CardiacCanvasImpl({
   ctx,
   tileW,
