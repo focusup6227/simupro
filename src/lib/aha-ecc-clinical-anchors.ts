@@ -1,0 +1,20 @@
+/**
+ * Concise anchors aligned with **AHA Guidelines for CPR and Emergency Cardiovascular Care (2025)**
+ * for EMS simulation grading when agency protocol JSON does not spell out doses.
+ * **Clinical review (prehospital):** Bullets checked against current AHA ECC web summaries
+ * for **adult ACLS**, **BLS**, and **PALS** on [cpr.heart.org](https://cpr.heart.org)—not every
+ * recommendation in the full guideline compendium.
+ * **Agency protocol PDF / JSON remains law** for grading when it conflicts (`grade-simulation-performance` conflict rule).
+ *
+ * Instructor-facing grading aid only; not patient-care instructions.
+ */
+export const AHA_ECC_GRADING_ANCHOR = `
+**Adult BLS (healthcare providers):** High-quality CPR—compress **≥2 in (≈5 cm)** at **100–120/min**, **full chest recoil**, **minimize pauses** (sustained compressions improve myocardial blood flow), target **chest compression fraction >80%** when measured, **no excessive ventilation**; **30:2** compressions:ventilations without an advanced airway and **1 breath every 6 s (~10/min)** with an advanced airway; use **AED/defibrillator without delay** when available.
+**Adult cardiac arrest (VF/pulseless VT):** Immediate CPR + defibrillation; **epinephrine 1 mg IV/IO as soon as IV/IO access is available**, then **every 3–5 minutes**; **waveform capnography** to confirm/monitor an advanced airway; **defibrillation:** biphasic per manufacturer (often initial **120–200 J**); if dose unknown use **maximum available**; monophasic **360 J**; subsequent shocks equivalent or higher as appropriate; after unsuccessful shocks/CPR consider **amiodarone 300 mg IV/IO**, then **150 mg IV/IO** if needed, or **lidocaine** (bolus **1–1.5 mg/kg IV/IO**, then **0.5–0.75 mg/kg**) per ACLS alternatives; **do not defibrillate asystole or PEA**—CPR, epinephrine, and treat causes.
+**Adult cardiac arrest (PEA/asystole):** CPR and epinephrine **1 mg IV/IO every 3–5 minutes**; rhythm/pulse checks brief; identify/treat causes (Hs and Ts).
+**Adult symptomatic bradycardia:** **Atropine 1 mg IV**, repeat **every 3–5 minutes** to a **maximum of 3 mg total**; transcutaneous pacing if unstable/drug-refractory; consider **epinephrine or dopamine infusion** when pacing delayed or ineffective.
+**Adult tachycardia with pulse:** **Unstable** with serious signs → **immediate synchronized cardioversion** when rhythm permits—use **device-recommended energy**, or **maximum biphasic output if unknown**; **stable** narrow regular → vagal + **adenosine 6 mg rapid IV with NS flush**, then **12 mg with flush** if needed; **stable wide-complex** → IV antiarrhythmic per ACLS branch (avoid adenosine for irregular wide); polymorphic VT often unstable—**defibrillate (unsynchronized)** per ACLS.
+**Post–ROSC (adult):** Titrate oxygen to **SpO2 90–98%** (PaO2 about **60–105 mm Hg**) once measurable; ventilate toward **PCO2 35–45 mm Hg**; **MAP ≥65 mm Hg**; **12-lead ECG**; if not following commands off sedation/neuromuscular blockade, **temperature control goal 32–37.5 °C** as soon as feasible.
+**Pediatric cardiac arrest (PALS arrest dosing):** Epinephrine **0.01 mg/kg IV/IO** (0.1 mL/kg of 1:10,000) **every 3–5 minutes** once vascular access is available; first defibrillation **2 J/kg**, subsequent **4 J/kg**; compress **≥1/3 the AP chest dimension**; **15:2** (two rescuers) or **30:2** (single rescuer) without advanced airway per pediatric BLS—follow agency policy; **with advanced airway** use **continuous compressions** with **about 1 breath every 2–3 s** (~20–30/min) per PALS teaching—**avoid excessive ventilation**; **refractory VF/pVT** → **amiodarone 5 mg/kg IV/IO** or **lidocaine** per PALS drug therapy.
+**Pediatric symptomatic bradycardia with pulse:** Support airway/breathing, oxygen; **atropine 0.02 mg/kg IV/IO** (single dose min **0.1 mg**, max **0.5 mg**); **may repeat once** in ≈**5 minutes** per PALS; if persists and still symptomatic—**pacing** or **epinephrine infusion** per protocol (follow emergency cardiovascular care teaching).
+`.trim();

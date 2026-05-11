@@ -5,6 +5,7 @@ import {
   ECG_LARGE_SQ_MS,
   ECG_MS_PER_PIXEL,
   ECG_SMALL_SQ_MS,
+  ECG_QRS_R_PEAK_PHASE,
 } from '@/lib/ecg-waveform';
 import {
   LIVE_STRIP_VIEWPORT_PX,
@@ -52,6 +53,11 @@ interface CardiacCanvasProps {
   paused?: boolean;
   /** Flat baseline strip — leads not applied or waveform channel off. */
   leadsOff?: boolean;
+  /** Sync markers at inferred R peaks (life-support cardioversion mode). */
+  lifeSupportShowSyncMarkers?: boolean;
+  /** Transcutaneous pacing spike overlay (training aid). */
+  lifeSupportTcpEnabled?: boolean;
+  lifeSupportTcpRatePpm?: number;
 }
 
 type StripDeps = {
@@ -112,6 +118,9 @@ function CardiacCanvasImpl({
   height = 168,
   paused = false,
   leadsOff = false,
+  lifeSupportShowSyncMarkers = false,
+  lifeSupportTcpEnabled = false,
+  lifeSupportTcpRatePpm = 80,
 }: CardiacCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -131,6 +140,13 @@ function CardiacCanvasImpl({
   const midY = height * 0.5;
   const vScale = 0.55;
 
+  const lifeSupportRef = useRef({
+    showSync: false,
+    tcp: false,
+    tcpRate: 80,
+    leadsOff: true,
+  });
+
   const stripDepsRef = useRef<StripDeps>({
     ctx,
     tileW,
@@ -140,6 +156,13 @@ function CardiacCanvasImpl({
     viewWLogical,
     leadsOff,
   });
+
+  lifeSupportRef.current = {
+    showSync: Boolean(lifeSupportShowSyncMarkers),
+    tcp: Boolean(lifeSupportTcpEnabled),
+    tcpRate: lifeSupportTcpRatePpm,
+    leadsOff,
+  };
   stripDepsRef.current = {
     ctx,
     tileW,
@@ -493,6 +516,45 @@ function CardiacCanvasImpl({
       c.moveTo(sweepX + 0.5, 0);
       c.lineTo(sweepX + 0.5, height);
       c.stroke();
+
+      const lsOv = lifeSupportRef.current;
+      if (!lsOv.leadsOff) {
+        const d = stripDepsRef.current;
+        const tw = d.tileW;
+        const viewWL = d.viewWLogical;
+        const sxMap = vwDevice / viewWL;
+
+        if (lsOv.showSync) {
+          const rPx = ECG_QRS_R_PEAK_PHASE * tw;
+          c.fillStyle = 'rgba(34,211,238,0.92)';
+          for (let xl = rPx % tw; xl < viewWL; xl += tw) {
+            const x = xl * sxMap;
+            c.beginPath();
+            c.moveTo(x, 11);
+            c.lineTo(x - 5, 3);
+            c.lineTo(x + 5, 3);
+            c.closePath();
+            c.fill();
+          }
+        }
+
+        if (lsOv.tcp) {
+          const ppm = Math.max(40, Math.min(120, lsOv.tcpRate));
+          const intervalMs = 60000 / ppm;
+          const spacingPx = intervalMs / ECG_MS_PER_PIXEL;
+          const phasePx =
+            ((performance.now() % intervalMs) / intervalMs) * spacingPx;
+          c.strokeStyle = 'rgba(250,204,21,0.88)';
+          c.lineWidth = 1.15 * (vwDevice / viewWLogical);
+          for (let xl = phasePx % spacingPx; xl < viewWL; xl += spacingPx) {
+            const x = xl * sxMap + 0.5;
+            c.beginPath();
+            c.moveTo(x, 0);
+            c.lineTo(x, height);
+            c.stroke();
+          }
+        }
+      }
 
       scheduleFrame();
     };
