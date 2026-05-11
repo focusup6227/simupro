@@ -1,6 +1,7 @@
 import type { VitalDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
 import type { AutonomicProfile } from '@/lib/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 export type { AutonomicProfile };
 
@@ -86,6 +87,7 @@ export type AutonomicReplayContext = {
     gcs: string;
   };
   getPkDeltasAt: (simSec: number) => VitalDeltas;
+  feedback?: PhysiologyFeedbackSnapshot | null;
 };
 
 /** Supabase row — snake_case (matches simulation_pk_doses pattern). */

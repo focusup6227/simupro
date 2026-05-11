@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from '@/lib/feature-flags';
 import { mergeVitalsForDisplay } from '@/lib/physiology/pk-engine';
 import type { VitalDeltas } from '@/lib/physiology/pk-types';
+import {
+  defaultLungMechanics,
+  type LungMechanicsState,
+} from '@/lib/physiology/types';
 import type { Scenario, MonitorMenuMedication, MonitorMenuIntervention } from '@/lib/types';
 import { parseBpString } from '@/lib/vitals-parse';
 import { usePkStore } from '@/stores/pk-store';
@@ -72,6 +76,14 @@ type PhysiologySlice = {
   ventilationMode: VentilationMode;
   /** Bag-valve-mask rate in breaths/min when `ventilationMode === 'bvm'`. */
   assistedRateBpm: number | null;
+
+  /**
+   * Real-units lung-mechanics baseline used by the tau-based capnography
+   * engine. Resolved from comorbidities at scenario load and mutated by the
+   * AI's `obstruction` updates and explicit pathology events (e.g. ROSC).
+   * PK drug deltas are layered on top at display time, not stored here.
+   */
+  lungMechanics: LungMechanicsState;
 };
 
 let nibpInflateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -134,6 +146,7 @@ const emptySlice = (): PhysiologySlice => ({
   gcs: '',
   isPulseless: false,
   capnoObstructionFactor: 0,
+  lungMechanics: defaultLungMechanics(),
   ...hardwareDefaults(),
 });
 
@@ -149,6 +162,8 @@ export type PhysiologyStore = PhysiologySlice & {
       weightKg?: number;
       scenarioMedications?: MonitorMenuMedication[];
       scenarioInterventions?: MonitorMenuIntervention[];
+      /** One atomic set: monitor on, 4-lead + ECG channel, SpO₂, NIBP cuff + cycle (landing / marketing preview). */
+      warmStartMarketingMonitor?: boolean;
     },
   ) => void;
   reset: () => void;
@@ -187,6 +202,20 @@ export type PhysiologyStore = PhysiologySlice & {
   /** Mark the patient as on CPAP. Mutually exclusive with BVM. */
   applyCpap: () => void;
   clearCpap: () => void;
+
+  /**
+   * Replace the lung-mechanics baseline. Used by the comorbidity resolver at
+   * scenario load and by tools that need to set Ra/Cs explicitly.
+   */
+  setLungMechanics: (next: LungMechanicsState) => void;
+  /** Patch a subset of lung-mechanics fields without re-creating the whole record. */
+  patchLungMechanics: (partial: Partial<LungMechanicsState>) => void;
+  /**
+   * Apply a textbook ROSC step to PaCO2: jump up to a perfused-circulation
+   * value (default 45 mmHg) so the capnogram amplitude jumps in real time.
+   * No-op if PaCO2 is already at or above the target.
+   */
+  applyROSC: (opts?: { targetPaCO2MmHg?: number }) => void;
 };
 
 export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
@@ -215,6 +244,17 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     const kg = opts?.weightKg ?? get().weightKg ?? 75;
     /** Prefer scenario's own `initialVitals.etco2`; fall back to caller-provided opts; default null. */
     const seededEtco2 = vitals.etco2 ?? opts?.etco2 ?? null;
+    const baseHw = hardwareDefaults();
+    const hw = opts?.warmStartMarketingMonitor
+      ? {
+          ...baseHw,
+          isMonitorPowered: true,
+          isFourLeadApplied: true,
+          isEkgChannelOn: true,
+          isPulseOxApplied: true,
+          isBpCuffApplied: true,
+        }
+      : baseHw;
     set({
       hr: vitals.hr,
       bpSys,
@@ -225,11 +265,15 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
       etco2: seededEtco2,
       isPulseless: false,
       capnoObstructionFactor: 0,
+      lungMechanics: defaultLungMechanics(),
       weightKg: Number.isFinite(kg) && kg > 0 ? kg : 75,
-      ...hardwareDefaults(),
+      ...hw,
       availableMedications: opts?.scenarioMedications ?? [],
       availableInterventions: opts?.scenarioInterventions ?? [],
     });
+    if (opts?.warmStartMarketingMonitor) {
+      get().requestNibpCycle();
+    }
   },
   pushAvailableMedication: (m) =>
     set((s) =>
@@ -385,6 +429,19 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
         ? { ventilationMode: 'spontaneous', assistedRateBpm: null }
         : {},
     ),
+
+  setLungMechanics: (next) => set({ lungMechanics: next }),
+  patchLungMechanics: (partial) =>
+    set((st) => ({ lungMechanics: { ...st.lungMechanics, ...partial } })),
+  applyROSC: (opts) =>
+    set((st) => {
+      const target = opts?.targetPaCO2MmHg ?? 45;
+      if (!Number.isFinite(target)) return {};
+      if (st.lungMechanics.paCO2MmHg >= target) return {};
+      return {
+        lungMechanics: { ...st.lungMechanics, paCO2MmHg: target },
+      };
+    }),
 }));
 
 function baselineVitalsBaselineFromPhysiologySlice(

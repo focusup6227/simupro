@@ -143,6 +143,7 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
         },
         initialRhythm: defaultValues?.initialRhythm,
         acsPattern: defaultValues?.acsPattern,
+        interventionsEnabled: defaultValues?.interventionsEnabled ?? true,
     },
   });
 
@@ -211,6 +212,29 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
                       </div>
                       <FormDescription>
                         If enabled, learners must be subscribed to Premium to start this scenario.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="interventionsEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col pt-2">
+                      <FormLabel>Treatment interventions</FormLabel>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Switch
+                          id="interventions-enabled-switch"
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                        />
+                        <Label htmlFor="interventions-enabled-switch" className="capitalize">
+                          {field.value !== false ? "Enabled" : "Disabled"}
+                        </Label>
+                      </div>
+                      <FormDescription>
+                        When enabled, learners can select medications and procedures from the Treatment tab during the scenario. When disabled, structured interventions are hidden (assessment and other tabs still apply).
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

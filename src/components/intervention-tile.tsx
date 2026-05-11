@@ -1,9 +1,11 @@
 'use client';
 
 import type { LegacySupabaseIntervention } from '@/lib/types';
+import { isTypedDoseSubOptionLabel } from '@/lib/intervention-dose-ui';
 import type { Intervention as ProtocolIntervention } from '@/types/protocol';
 import { isMedication } from '@/types/protocol';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -41,11 +43,13 @@ export function InterventionTile({
 }: InterventionTileProps) {
   const isOn = Boolean(selected?.selected);
   const subs = isLegacyTileIntervention(intervention) ? intervention.subOptions ?? [] : [];
-  const showSubs = isOn && subs.length > 0;
+  const protocolMed =
+    !isLegacyTileIntervention(intervention) && isMedication(intervention);
+  const showSubs = isOn && (protocolMed || subs.length > 0);
 
   const subtitle = !isLegacyTileIntervention(intervention)
     ? isMedication(intervention)
-      ? intervention.medicationData.dosages.adult
+      ? null
       : intervention.procedureData.parameters ?? intervention.procedureData.successCriteria
     : null;
 
@@ -92,32 +96,60 @@ export function InterventionTile({
               onKeyDown={(e) => e.stopPropagation()}
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {subs.map((so) => (
-                  <div key={so.label} className="space-y-1.5">
+                {protocolMed ? (
+                  <div className="space-y-1.5 sm:col-span-2">
                     <Label className="text-xs text-muted-foreground">
-                      {so.label}
+                      Dose & route
                     </Label>
-                    <Select
-                      onValueChange={(value) =>
-                        onSubOptionChange(so.label, value)
-                      }
-                      value={
-                        selected?.subOptions?.[so.label] ?? so.options[0]
-                      }
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder={`Select ${so.label}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {so.options.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      className="h-9"
+                      placeholder="Type dose, route, and any details"
+                      value={selected?.subOptions?.Dosage ?? ''}
+                      onChange={(e) => onSubOptionChange('Dosage', e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Graded against protocol dosing for this patient context.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  subs.map((so) => (
+                    <div key={so.label} className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {so.label}
+                      </Label>
+                      {isTypedDoseSubOptionLabel(so.label) ? (
+                        <Input
+                          className="h-9"
+                          placeholder={`Enter ${so.label.toLowerCase()}`}
+                          value={selected?.subOptions?.[so.label] ?? ''}
+                          onChange={(e) =>
+                            onSubOptionChange(so.label, e.target.value)
+                          }
+                        />
+                      ) : (
+                        <Select
+                          onValueChange={(value) =>
+                            onSubOptionChange(so.label, value)
+                          }
+                          value={
+                            selected?.subOptions?.[so.label] ?? so.options[0]
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder={`Select ${so.label}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {so.options.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ) : null}

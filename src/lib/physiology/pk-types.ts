@@ -104,7 +104,7 @@ export type DoseRecord = {
 /** Input form (no id / administeredAt yet) used by the parser before persistence. */
 export type DoseInput = Omit<DoseRecord, 'id' | 'administeredAt'>;
 
-export type VitalAxis = 'hr' | 'sBp' | 'dBp' | 'rr' | 'spo2';
+export type VitalAxis = 'hr' | 'sBp' | 'dBp' | 'rr' | 'spo2' | 'gcs';
 
 export const VITAL_AXES = [
   'hr',
@@ -112,12 +112,15 @@ export const VITAL_AXES = [
   'dBp',
   'rr',
   'spo2',
+  'gcs',
 ] as const satisfies readonly VitalAxis[];
 
-export type VitalDeltas = Record<VitalAxis, number>;
+export type VitalDeltas = Record<Exclude<VitalAxis, 'gcs'>, number> & {
+  gcs?: number;
+};
 
 export function zeroDeltas(): VitalDeltas {
-  return { hr: 0, sBp: 0, dBp: 0, rr: 0, spo2: 0 };
+  return { hr: 0, sBp: 0, dBp: 0, rr: 0, spo2: 0, gcs: 0 };
 }
 
 /** Modulator names that an `Effect` can scale by from `PathophysiologyAxes`. */

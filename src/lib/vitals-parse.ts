@@ -19,6 +19,19 @@ export function parseHeartRateBpm(hr: string | null | undefined): number | null 
   return m ? Number.parseInt(m[1], 10) : null;
 }
 
+/**
+ * Parse a respiratory-rate string ("16", "16 bpm", "16 /min") to a clamped
+ * bpm value. Falls back to 16 (adult eupneic mid-range) when the input is
+ * empty or unparseable so consumers can render a sane waveform during boot.
+ */
+export function parseRrBpm(rr: string | null | undefined, fallback = 16): number {
+  const m = rr ? String(rr).match(/(\d{1,3})/) : null;
+  if (!m) return fallback;
+  const n = Number.parseInt(m[1], 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(4, Math.min(60, n));
+}
+
 /** Monitor display: numeric SpO₂ only (strip “on room air”, etc.). */
 export function formatSpo2ForMonitor(raw: string | null | undefined): string {
   if (!raw) return '';

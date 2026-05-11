@@ -1,142 +1,174 @@
 /**
- * Physiology-style capnography waveform (teaching / simulation).
- * One breath cycle is phase ∈ [0, 1).
+ * "CapnoSyn" tau-based capnography engine.
+ *
+ * Replaces the previous piecewise sigmoid+exponential model with a single
+ * physiology-driven sampler. Each breath is split into:
+ *
+ *   t in [0, T_i)  inspiration  →  exponential decay from end-expiratory CO2
+ *                                  back to the inspired baseline
+ *   t in [T_i, T)  expiration   →  exponential wash-in from baseline up to
+ *                                  alveolar CO2, plus a linear V/Q slope
+ *                                  (covers classical Phases II + III)
+ *
+ * The same time constant tau = Ra * Cs governs both halves (inspiration and
+ * expiration share airway resistance and lung compliance).
+ *
+ * Layered on top:
+ *   - Cardiogenic oscillation: small sinusoidal ripple synced to the R wave
+ *     via {@link getCardiacBeatPhase01}, gated to the late plateau only.
+ *   - Sensor fuzz: 1D Perlin noise (high-frequency stochastic) so the trace
+ *     reads as a real infrared sensor signal rather than a math drawing.
+ *
+ * Pathology drives the look of the wave entirely through the inputs:
+ *   - Bronchospasm / COPD: large tau → slow upstroke ("shark fin").
+ *   - Hypovolemia / arrest: low paCO2 → low amplitude.
+ *   - ROSC: paCO2 step → instant amplitude jump.
+ *   - Rebreathing: baselineCO2 > 0 → wave never returns to zero.
+ *   - Hypoventilation: low rrBpm + high paCO2 → wide tall waves.
+ *   - PE: low paCO2 + steep slopeVQ → small amplitude, climbing plateau.
  */
 
-const P1 = 0.06; // end Phase I (baseline)
-const P2 = 0.38; // end Phase II (expiratory upstroke)
-const P3 = 0.76; // end Phase III (plateau)
+import { getCardiacBeatPhase01 } from '@/lib/ecg-waveform';
+import { perlin1d } from '@/lib/noise/perlin1d';
 
-/** Mid-angle for Phase III tilt (2–5°). */
-const PLATEAU_TILT_RAD = ((2 + 5) / 2) * (Math.PI / 180);
+/** Default expiration:inspiration ratio (1:2 = E twice as long as I). */
+export const DEFAULT_EXP_TO_INSP_RATIO = 2;
 
-/** Normalized plateau amplitude contribution from tilt across Phase III. */
-const PLATEAU_TILT_DELTA = 0.06;
-
-export function plateauEndNormalized(): number {
-  return 1 + Math.tan(PLATEAU_TILT_RAD) * PLATEAU_TILT_DELTA;
-}
-
-/**
- * Logistic sigmoid mapped so Phase II rises ~0 → ~1.
- * Higher `k` = steeper upstroke; lower `k` = “shark fin”.
- */
-function sigmoidPhase2(u: number, k: number): number {
-  const t = k * (u - 0.5);
-  const lo = 1 / (1 + Math.exp(k * 0.5));
-  const hi = 1 / (1 + Math.exp(-k * 0.5));
-  const sig = 1 / (1 + Math.exp(-t));
-  return (sig - lo) / (hi - lo + 1e-9);
-}
-
-/** Effective logistic steepness from obstruction (shark fin when > 0.5). */
-export function capnoSigmoidK(obstructionFactor: number): number {
-  const baseK = 18;
-  if (obstructionFactor <= 0.5) return baseK;
-  const shark = (obstructionFactor - 0.5) / 0.5;
-  return baseK * (1 - shark * 0.72);
-}
-
-/**
- * Normalized EtCO₂ waveform value [0, ~1+] before scaling to mmHg.
- * Phase I: 0; Phase II: logistic; Phase III: slight linear tilt; Phase IV: exponential decay to ~0.
- */
+/** Sensor-style affects only sensor-fuzz amplitude and minor jitter. */
 export type CapnoWaveStyle = 'legacy' | 'nasal' | 'inline';
 
-export function capnoNormalizedSample(
-  phase01: number,
-  obstructionFactor: number,
-  waveVariant: 'standard' | 'inline' = 'standard',
+/** Inputs that fully determine one capnography sample at simulation time `t`. */
+export type CapnoSampleParams = {
+  rrBpm: number;
+  /** Expiration:inspiration ratio. Defaults to 2 (1:2 normal). */
+  expToInspRatio?: number;
+  paCO2MmHg: number;
+  baselineCO2MmHg: number;
+  tauSec: number;
+  slopeVqMmHgPerSec: number;
+  cardiogenicAmpMmHg: number;
+  hrBpm: number;
+  perlinAmpMmHg: number;
+};
+
+const MIN_TAU_SEC = 0.05;
+const MIN_RR_BPM = 4;
+const MAX_RR_BPM = 60;
+
+function clamp(v: number, lo: number, hi: number): number {
+  if (!Number.isFinite(v)) return lo;
+  return Math.min(hi, Math.max(lo, v));
+}
+
+/** Quick sentinel: fall back gracefully when the engine is fed garbage. */
+function safeRrBpm(rr: number): number {
+  return clamp(rr, MIN_RR_BPM, MAX_RR_BPM);
+}
+
+function safeTauSec(tau: number): number {
+  return Math.max(MIN_TAU_SEC, Number.isFinite(tau) ? tau : 0.2);
+}
+
+/**
+ * Single capnography sample at simulation time `simSec`. Returns mmHg
+ * (>= 0). The function is pure — same inputs always produce the same value
+ * — which keeps it cheap to call in a tight render loop.
+ */
+export function capnoSampleMmHg(
+  simSec: number,
+  p: CapnoSampleParams,
 ): number {
-  const p = ((phase01 % 1) + 1) % 1;
+  const rr = safeRrBpm(p.rrBpm);
+  const tau = safeTauSec(p.tauSec);
+  const ie = p.expToInspRatio && p.expToInspRatio > 0
+    ? p.expToInspRatio
+    : DEFAULT_EXP_TO_INSP_RATIO;
 
-  if (p < P1) {
-    return 0;
+  const periodSec = 60 / rr;
+  const inspTime = periodSec / (1 + ie);
+  const expTime = periodSec - inspTime;
+
+  const baseline = Math.max(0, p.baselineCO2MmHg);
+  const paCO2 = Math.max(baseline, p.paCO2MmHg);
+  const slope = Math.max(0, p.slopeVqMmHgPerSec);
+
+  /**
+   * End-of-expiration value (the "ceiling" hit just before the next
+   * inspiration begins). Starting point of the inspiratory decay arm.
+   */
+  const pEndExp =
+    baseline + (paCO2 - baseline) * (1 - Math.exp(-expTime / tau)) + slope * expTime;
+
+  const t = ((simSec % periodSec) + periodSec) % periodSec;
+
+  let y: number;
+  let inPlateau = false;
+
+  if (t < inspTime) {
+    /** Inspiration — exponential decay back to baseline. */
+    y = baseline + (pEndExp - baseline) * Math.exp(-t / tau);
+  } else {
+    /** Expiration — wash-in to PaCO2 plus V/Q slope. */
+    const tE = t - inspTime;
+    y = baseline + (paCO2 - baseline) * (1 - Math.exp(-tE / tau)) + slope * tE;
+    /**
+     * Cardiogenic oscillations only show on the plateau, after wash-in is
+     * effectively complete (~2 tau) and not in the very last sliver of
+     * expiration where the next inspiration is already starting to bleed
+     * through downstream of the sensor.
+     */
+    inPlateau = tE > 2 * tau && tE < expTime - 0.05;
   }
 
-  if (p < P2) {
-    const u = (p - P1) / (P2 - P1);
-    const k =
-      waveVariant === 'inline'
-        ? 22
-        : capnoSigmoidK(obstructionFactor);
-    return sigmoidPhase2(u, k);
+  if (inPlateau && p.cardiogenicAmpMmHg > 0 && p.hrBpm > 0) {
+    const beat = getCardiacBeatPhase01(simSec * 1000, p.hrBpm);
+    if (Number.isFinite(beat)) {
+      y += p.cardiogenicAmpMmHg * Math.sin(2 * Math.PI * beat);
+    }
   }
 
-  if (p < P3) {
-    const u = (p - P2) / (P3 - P2);
-    const plateauStart = 1;
-    const tilt = Math.tan(PLATEAU_TILT_RAD) * PLATEAU_TILT_DELTA * u;
-    return plateauStart + tilt;
+  if (p.perlinAmpMmHg > 0) {
+    y += perlin1d(simSec * 60) * p.perlinAmpMmHg;
   }
 
-  const u = (p - P3) / (1 - P3);
-  const yStart = plateauEndNormalized();
-  const gamma = 16;
-  const y = yStart * Math.exp(-gamma * u);
   return Math.max(0, y);
 }
 
-export function capnoMmHgAtPhase(
-  phase01: number,
-  obstructionFactor: number,
-  etco2TargetMmHg: number,
-): number {
-  const n = capnoNormalizedSample(phase01, obstructionFactor, 'standard');
-  return Math.max(0, Math.min(n * etco2TargetMmHg, etco2TargetMmHg * 1.25));
-}
-
-export function capnoMmHgAtPhaseInline(
-  phase01: number,
-  etco2TargetMmHg: number,
-): number {
-  const n = capnoNormalizedSample(phase01, 0, 'inline');
-  return Math.max(0, Math.min(n * etco2TargetMmHg, etco2TargetMmHg * 1.25));
-}
-
-/** Fill ys[i] = mmHg for horizontal positions scrolling through the breath cycle. */
+/**
+ * Fill `out[i]` (mmHg) with capnography samples spanning a scrolling
+ * window. The right edge of the strip is the most recent simulation time;
+ * older samples sit further left. Cardiogenic oscillations and Perlin
+ * sensor fuzz advance with absolute simulation time, so the cardiogenic
+ * ripple stays phase-locked to the ECG even as the breath cycle scrolls.
+ */
 export function buildCapnoStripMmHg(opts: {
   sampleCount: number;
-  phaseOffset: number;
-  /** How many full breath cycles span the strip width. */
+  /** Simulation time (seconds) at the right edge of the strip. */
+  simSecAtRightEdge: number;
+  /** How many full breath cycles the strip should span horizontally. */
   cyclesVisible: number;
-  obstructionFactor: number;
-  etco2MmHg: number;
   out: Float32Array;
+  params: CapnoSampleParams;
   waveStyle?: CapnoWaveStyle;
-  /** Advances each physics tick for deterministic nasal jitter. */
-  breathTick?: number;
 }): void {
-  const {
-    sampleCount,
-    phaseOffset,
-    cyclesVisible,
-    obstructionFactor,
-    etco2MmHg,
-    out,
-    waveStyle = 'legacy',
-    breathTick = 0,
-  } = opts;
+  const { sampleCount, simSecAtRightEdge, cyclesVisible, out, params, waveStyle = 'legacy' } = opts;
+  const rr = safeRrBpm(params.rrBpm);
+  const periodSec = 60 / rr;
+  const stripDurationSec = Math.max(0.001, cyclesVisible * periodSec);
+
+  /** Per-sensor noise scaling — nasal sensors are noisiest, mainstream cleanest. */
+  const styleNoiseScale =
+    waveStyle === 'nasal' ? 1.6 : waveStyle === 'inline' ? 0.6 : 1.0;
+  const effectiveParams: CapnoSampleParams = {
+    ...params,
+    perlinAmpMmHg: params.perlinAmpMmHg * styleNoiseScale,
+  };
+
   const n = Math.max(2, sampleCount);
   for (let i = 0; i < n; i++) {
     const xFrac = i / (n - 1);
-    let adj =
-      (phaseOffset + xFrac * cyclesVisible) % 1;
-    adj = adj < 0 ? adj + 1 : adj >= 1 ? adj - 1 : adj;
-
-    let mmHg: number;
-    if (waveStyle === 'inline') {
-      mmHg = capnoMmHgAtPhaseInline(adj, etco2MmHg);
-    } else if (waveStyle === 'nasal') {
-      let jitterPhase =
-        adj + Math.sin(breathTick * 0.019 + phaseOffset * 2.7) * 0.05;
-      jitterPhase = ((jitterPhase % 1) + 1) % 1;
-      mmHg = capnoMmHgAtPhase(jitterPhase, obstructionFactor, etco2MmHg);
-      mmHg *= 1 + Math.sin(i * 0.51 + breathTick * 0.11) * 0.12;
-    } else {
-      mmHg = capnoMmHgAtPhase(adj, obstructionFactor, etco2MmHg);
-    }
-
-    out[i] = mmHg;
+    const tOffsetFromRight = (1 - xFrac) * stripDurationSec;
+    const sampleSimSec = simSecAtRightEdge - tOffsetFromRight;
+    out[i] = capnoSampleMmHg(sampleSimSec, effectiveParams);
   }
 }

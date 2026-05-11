@@ -8,6 +8,7 @@ import type {
 } from '@/lib/physiology/pk-types';
 import { DOSE_KINDS, ROUTES } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 /**
  * Server-side replay surface used by the grading edge function. Pure functions
@@ -18,6 +19,7 @@ import type { PathophysiologyAxes } from '@/lib/physiology/types';
 export type ReplayContext = {
   axes: PathophysiologyAxes;
   weightKg: number;
+  feedback?: PhysiologyFeedbackSnapshot | null;
 };
 
 export type ReplayPoint = {
@@ -32,7 +34,7 @@ export function deltasAtSimSeconds(
   simSeconds: number,
   ctx: ReplayContext,
 ): VitalDeltas {
-  return effectDeltasAt(doses, simSeconds, ctx.axes, ctx.weightKg);
+  return effectDeltasAt(doses, simSeconds, ctx.axes, ctx.weightKg, ctx.feedback);
 }
 
 /** Alias for grading edge — same pure math as `effectDeltasAt`. */
@@ -41,8 +43,9 @@ export function replayPkEffectDeltasAt(
   atSimSeconds: number,
   axes: PathophysiologyAxes,
   weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): VitalDeltas {
-  return effectDeltasAt(doses, atSimSeconds, axes, weightKg);
+  return effectDeltasAt(doses, atSimSeconds, axes, weightKg, feedback);
 }
 
 /**

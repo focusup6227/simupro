@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img" aria-label="PK PD engine math flow">
+  <defs>
+    <style><![CDATA[
+      .title { font-family: system-ui, sans-serif; font-size: 26px; font-weight: 700; fill: #111; }
+      .eq { font-family: ui-monospace, Consolas, monospace; font-size: 14px; fill: #1a1a1a; }
+      .note { font-family: system-ui, sans-serif; font-size: 13px; fill: #444; }
+      .box { stroke-width: 2; rx: 6; }
+      .h { font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; fill: #111; }
+    ]]></style>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="720" fill="#fafafa"/>
+  <text x="640" y="44" text-anchor="middle" class="title">PK / PD engine - what the code computes</text>
+
+  <rect x="48" y="80" width="1184" height="128" class="box" fill="#fff" stroke="#2d8f5f"/>
+  <text x="72" y="108" class="h">Clearance (patient-specific)</text>
+  <text x="72" y="134" class="eq">kel_eff = kel_catalog * [ hep_w*metabolicClearance + ren_w*renalClearance ]</text>
+  <text x="72" y="154" class="eq">          * (0.7 + 0.3*hemodynamicReserve)</text>
+  <text x="72" y="182" class="note">IV bolus: C(t) = (D/Vd)*exp(-kel_eff*t_min)</text>
+  <text x="72" y="198" class="note">Non-IV: ka absorption (two exponentials). Infusion: analytic segments for dC/dt = R/Vd - kel*C.</text>
+
+  <rect x="48" y="224" width="580" height="196" class="box" fill="#fff" stroke="#2b7cb8"/>
+  <text x="72" y="254" class="h">Concentration aggregation</text>
+  <text x="72" y="284" class="note">For each drug id at simulation time T:</text>
+  <text x="72" y="308" class="eq">C_total = sum(bolus contributions) + infusion segments</text>
+  <text x="72" y="334" class="note">Vd = Vd_L_per_kg * weightKg. Only doses with simSeconds &lt;= T count.</text>
+
+  <rect x="652" y="224" width="580" height="196" class="box" fill="#fff" stroke="#6b4dc9"/>
+  <text x="676" y="254" class="h">Pharmacodynamics (per catalog effect)</text>
+  <text x="676" y="286" class="eq">effect = Emax * C / (EC50 + C)</text>
+  <text x="676" y="314" class="note">Multiply by adrenergicReserve or baroreceptorSensitivity when modulatedBy applies.</text>
+  <text x="676" y="338" class="note">Antagonist: scale target deltas by max(0, 1 - min(1, C_ant/EC50_ant)).</text>
+  <text x="676" y="366" class="note">Sum dHR, dSBP, dDBP, dRR, dSpO2 into VitalDeltas.</text>
+
+  <rect x="48" y="442" width="1184" height="236" class="box" fill="#f5f0ff" stroke="#6b4dc9"/>
+  <text x="72" y="476" class="h">Merge into displayed vitals</text>
+  <text x="72" y="504" class="eq">mergeVitalsForDisplay(AI_baseline, PK_deltas + autonomic_deltas)</text>
+  <text x="72" y="532" class="note">Numeric HR/BP/RR/SpO2: add deltas and clamp. Non-numeric HR (e.g. arrest rhythm text) unchanged.</text>
+  <text x="72" y="558" class="note">Wired meds: epi, atropine, adenosine, amiodarone, lidocaine, dopamine infusion,</text>
+  <text x="72" y="578" class="note">nitroglycerin, fentanyl, midazolam, ketamine, naloxone, albuterol, dextrose IV,</text>
+  <text x="72" y="598" class="note">glucagon IM; protocol MED_* ids alias into the same catalog.</text>
+
+  <line x1="640" y1="420" x2="640" y2="442" stroke="#333" stroke-width="2" marker-end="url(#arr)"/>
+
+  <text x="1240" y="706" text-anchor="end" class="note" fill="#999">src/lib/physiology/pk-engine.ts</text>
+</svg>

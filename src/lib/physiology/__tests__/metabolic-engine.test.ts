@@ -4,6 +4,7 @@ import {
   tickMetabolic,
 } from '@/lib/physiology/metabolic-engine';
 import { defaultPathophysiologyAxes } from '@/lib/physiology/comorbidity-resolve';
+import { buildPhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 describe('tickMetabolic', () => {
   it('accumulates lactate under sustained perfusion stress', () => {
@@ -61,5 +62,35 @@ describe('tickMetabolic', () => {
     }
 
     expect(b.lactateMmol).toBeGreaterThan(a.lactateMmol);
+  });
+
+  it('hypoxia and low perfusion feedback increase lactate generation', () => {
+    const axes = defaultPathophysiologyAxes();
+    const feedback = buildPhysiologyFeedbackSnapshot({
+      hr: '128',
+      bp: '66/38',
+      rr: '30',
+      spo2: '82%',
+      etco2: '24 mmHg',
+      ph: 7.18,
+      lactateMmol: 5,
+      axes,
+    });
+    const input = {
+      axes,
+      mapMmHg: 58,
+      rrPerMin: 24,
+      bleedRateMlPerMin: 20,
+      decompensationPhase: 'decompensating' as const,
+      lactateBump: 0,
+      pediatricScale: 1,
+    };
+
+    const base = tickMetabolic(defaultMetabolicState(), 1, input);
+    const coupled = tickMetabolic(defaultMetabolicState(), 1, {
+      ...input,
+      feedback,
+    });
+    expect(coupled.lactateMmol).toBeGreaterThan(base.lactateMmol);
   });
 });

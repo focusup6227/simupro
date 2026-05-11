@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import AppLogo from "@/components/app-logo";
 import { Button } from "@/components/ui/button";
@@ -54,27 +54,20 @@ export default function DemoPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [patientDeceased, setPatientDeceased] = useState(false);
   const [ctaOpen, setCtaOpen] = useState(false);
+  const [cockpitHardwareReady, setCockpitHardwareReady] = useState(false);
 
   const turnsRemaining = DEMO_MAX_AI_TURNS - userActions.length;
   const atTurnLimit = userActions.length >= DEMO_MAX_AI_TURNS;
 
   const openCta = useCallback(() => setCtaOpen(true), []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setCockpitHardwareReady(false);
     usePkStore.getState().reset();
-    usePhysiologyStore.getState().loadScenario(scenario.initialVitals);
-    const s = usePhysiologyStore.getState();
-    if (!s.isMonitorPowered) s.togglePowerMonitor();
-    s.applyFourLead();
-    if (!s.isEkgChannelOn) s.toggleEkgChannel();
-    s.applyPulseOx();
-    s.applyBpCuff();
-    s.requestNibpCycle();
-
-    return () => {
-      usePhysiologyStore.getState().reset();
-      usePkStore.getState().reset();
-    };
+    usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
+      warmStartMarketingMonitor: true,
+    });
+    setCockpitHardwareReady(true);
   }, [scenario.id, scenario.initialVitals]);
 
   const submitAction = async () => {
@@ -216,8 +209,21 @@ export default function DemoPage() {
                 <p>{scenario.patientProfile}</p>
               </CardContent>
             </Card>
-            <UnifiedCardiacMonitor scenario={scenario} />
-            <EquipmentDrawer />
+            {cockpitHardwareReady ? (
+              <>
+                <UnifiedCardiacMonitor scenario={scenario} />
+                <EquipmentDrawer />
+              </>
+            ) : (
+              <div
+                className="space-y-4"
+                aria-busy="true"
+                aria-label="Loading monitor"
+              >
+                <div className="min-h-[280px] rounded-lg border bg-muted/30 animate-pulse" />
+                <div className="h-11 rounded-md border bg-muted/30 animate-pulse" />
+              </div>
+            )}
           </div>
 
           <div className="min-h-0 xl:col-span-3">

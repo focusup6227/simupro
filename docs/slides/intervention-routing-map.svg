@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img" aria-label="Where learner actions go">
+  <defs>
+    <style><![CDATA[
+      .title { font-family: system-ui, sans-serif; font-size: 26px; font-weight: 700; fill: #111; }
+      .colh { font-family: system-ui, sans-serif; font-size: 15px; font-weight: 700; fill: #fff; }
+      .cell { font-family: system-ui, sans-serif; font-size: 12px; fill: #222; }
+      .cellw { font-family: system-ui, sans-serif; font-size: 12px; fill: #eee; }
+      .box { stroke-width: 2; rx: 6; }
+    ]]></style>
+  </defs>
+  <rect width="1280" height="720" fill="#fafafa"/>
+  <text x="640" y="42" text-anchor="middle" class="title">Which engine handles each learner action?</text>
+
+  <rect x="40" y="70" width="580" height="36" class="box" fill="#2d8f5f" stroke="#1a6b47"/>
+  <text x="330" y="94" text-anchor="middle" class="colh">PK / PD (med catalog + dose-parser)</text>
+  <rect x="40" y="106" width="580" height="260" class="box" fill="#e8faf0" stroke="#2d8f5f"/>
+  <text x="56" y="132" class="cell">Epinephrine (cardiac / brady infusion), atropine, adenosine, amiodarone, lidocaine,</text>
+  <text x="56" y="152" class="cell">dopamine infusion, nitroglycerin, fentanyl, midazolam, ketamine, naloxone,</text>
+  <text x="56" y="172" class="cell">albuterol, dextrose IV, glucagon IM plus NASEMSO MED_* aliases mapped to same drugs.</text>
+  <text x="56" y="210" class="cell" font-weight="700">Effect:</text>
+  <text x="56" y="232" class="cell">Append dose row, concentrations replay each tick, vital deltas merged onto AI baseline.</text>
+  <text x="56" y="268" class="cell" font-weight="700">Not PK-driven:</text>
+  <text x="56" y="288" class="cell">CPR quality buttons, shock/defib clicks alone: rhythm/EtCO2 clamp mostly AI + monitor UX;</text>
+  <text x="56" y="308" class="cell">no PK concentration row from chest compressions (by design).</text>
+
+  <rect x="660" y="70" width="580" height="36" class="box" fill="#2b7cb8" stroke="#1a5f90"/>
+  <text x="950" y="94" text-anchor="middle" class="colh">Autonomic events (parseTreatmentSelectionsToStressors)</text>
+  <rect x="660" y="106" width="580" height="260" class="box" fill="#e8f4fc" stroke="#2b7cb8"/>
+  <text x="676" y="132" class="cell">fluid-bolus to fluid_bolus (volume mL)</text>
+  <text x="676" y="154" class="cell">bleeding-control to bleed_rate_set / bleed_rate_change (tourniquet / packing / pressure)</text>
+  <text x="676" y="176" class="cell">oxygen to oxygen_change (L/min + delivery)</text>
+  <text x="676" y="198" class="cell">intubation / supraglottic-airway / PROC_* to airway_secured</text>
+  <text x="676" y="220" class="cell">cpap / PROC_CPAP to cpap_started (PEEP)</text>
+  <text x="676" y="242" class="cell">needle-decompression to tension_pneumo_resolve</text>
+  <text x="676" y="268" class="cell" font-weight="700">AI-emitted stressors:</text>
+  <text x="676" y="288" class="cell">Normalized rows: known kinds apply directly; unknown kinds wrap as ai_stressor payload.</text>
+
+  <rect x="40" y="390" width="1200" height="280" class="box" fill="#fff8e6" stroke="#c9a227"/>
+  <text x="56" y="424" class="cell" font-weight="700" font-size="14">Also touches monitor display without full autonomic row</text>
+  <text x="56" y="450" class="cell">BVM / CPAP mode in physiology-store shifts EtCO2 / obstruction resolution (etco2-display + capno waveform).</text>
+  <text x="56" y="476" class="cell">NIBP cycle copies merged truth after measurement completes.</text>
+  <text x="56" y="506" class="cell" font-weight="700" font-size="14">Files</text>
+  <text x="56" y="530" class="cell">dose-parser.ts | pk-engine.ts | intervention-stressor-parser.ts | autonomic-engine.ts | ai-output-stressors.ts</text>
+
+  <text x="1240" y="706" text-anchor="end" class="cell" fill="#999">docs/slides/intervention-routing-map.svg</text>
+</svg>

@@ -2,25 +2,23 @@
 
 import {
   buildCapnoStripMmHg,
+  type CapnoSampleParams,
   type CapnoWaveStyle,
 } from '@/lib/capno-engine';
-import { parseEtco2MmHg } from '@/lib/vitals-parse';
+import {
+  defaultLungMechanics,
+  lungTimeConstantSec,
+  type LungMechanicsState,
+} from '@/lib/physiology';
+import { parseHeartRateBpm, parseRrBpm } from '@/lib/vitals-parse';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import type { CapnoSensor } from '@/stores/physiology-store';
 import { memo, useEffect, useRef } from 'react';
 
-/**
- * Override props let the parent pass deterministic-engine values (e.g. autonomic
- * phase override during arrest / shock) without round-tripping through the
- * physiology store. When omitted, we fall back to the AI baseline in the store.
- */
-
 const CAPNO_GLOW = '#FFFF00';
 
-function parseRrBpm(s: string): number {
-  const m = String(s).match(/\d{1,3}/);
-  return m ? Math.max(4, Math.min(60, Number.parseInt(m[1], 10))) : 16;
-}
+/** Sensor-fuzz amplitude (mmHg) baked into the engine input. */
+const PERLIN_AMP_MMHG = 0.35;
 
 function mmHgToY(mmHg: number, h: number, maxMmHg: number): number {
   const baseline = h * 0.78;
@@ -92,38 +90,43 @@ const CYCLES_VISIBLE = 2.25;
 export function CapnoWaveCanvasImpl({
   height = 52,
   enabled = true,
-  etco2MmHg,
-  obstructionFactor,
+  lungMechanics,
   rrOverrideBpm,
+  hrOverrideBpm,
 }: {
   height?: number;
   /** Waveform active only when sensor applied and EtCO₂ bezel channel on. */
   enabled?: boolean;
-  /** Optional override (e.g. autonomic-phase clamped value). When omitted, store EtCO₂ is used. */
-  etco2MmHg?: number;
-  /** Optional override for capnogram obstruction (0–1). Falls back to store value. */
-  obstructionFactor?: number;
   /**
-   * Optional override for the breath rate (bpm) used by the waveform timing.
-   * Used when the patient is being assisted (BVM) — the rescuer dictates the
-   * rate, not the patient's spontaneous RR.
+   * Tau-based engine inputs in real units (Ra, Cs, PaCO2, V/Q slope,
+   * baseline CO2, cardiogenic amplitude). Pass the merged value from
+   * `useMergedPkDisplay({ scenario })`. Falls back to healthy defaults.
+   */
+  lungMechanics?: LungMechanicsState;
+  /**
+   * Override the breath rate (bpm) for the waveform timing. Used during
+   * BVM assistance — the rescuer dictates the rate, not the patient.
    */
   rrOverrideBpm?: number;
+  /**
+   * Override the heart rate (bpm) used to phase-lock cardiogenic
+   * oscillations. Falls back to the parsed store HR.
+   */
+  hrOverrideBpm?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const maxMmHgRef = useRef(48);
-  const phaseRef = useRef(0);
-  const breathTickRef = useRef(0);
+  const stripStartMsRef = useRef<number | null>(null);
   /** Latest props snapshot read inside the rAF loop so we don't tear down the loop on prop changes. */
   const overridesRef = useRef<{
-    etco2MmHg: number | undefined;
-    obstructionFactor: number | undefined;
+    lungMechanics: LungMechanicsState | undefined;
     rrOverrideBpm: number | undefined;
-  }>({ etco2MmHg, obstructionFactor, rrOverrideBpm });
-  overridesRef.current.etco2MmHg = etco2MmHg;
-  overridesRef.current.obstructionFactor = obstructionFactor;
+    hrOverrideBpm: number | undefined;
+  }>({ lungMechanics, rrOverrideBpm, hrOverrideBpm });
+  overridesRef.current.lungMechanics = lungMechanics;
   overridesRef.current.rrOverrideBpm = rrOverrideBpm;
+  overridesRef.current.hrOverrideBpm = hrOverrideBpm;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -191,8 +194,6 @@ export function CapnoWaveCanvasImpl({
       };
     }
 
-    const dt = 1000 / 60;
-
     const resizeCanvas = () => {
       const dpr = window.devicePixelRatio || 1;
       const w = wrap.clientWidth;
@@ -207,6 +208,9 @@ export function CapnoWaveCanvasImpl({
     ro.observe(wrap);
 
     let rafHandle = 0;
+    if (stripStartMsRef.current == null) {
+      stripStartMsRef.current = performance.now();
+    }
 
     const tick = () => {
       rafHandle = 0;
@@ -233,32 +237,40 @@ export function CapnoWaveCanvasImpl({
         rateOverride != null && Number.isFinite(rateOverride) && rateOverride > 0
           ? Math.max(4, Math.min(60, rateOverride))
           : parseRrBpm(s.rr);
-      const et =
-        overridesRef.current.etco2MmHg != null
-          ? overridesRef.current.etco2MmHg
-          : parseEtco2MmHg(s.etco2);
-      const obs =
-        overridesRef.current.obstructionFactor != null
-          ? Math.min(1, Math.max(0, overridesRef.current.obstructionFactor))
-          : s.capnoObstructionFactor;
-      const ws = sensorToWaveStyle(s.capnoSensor);
-      maxMmHgRef.current = Math.max(50, et * 1.35);
 
-      const periodMs = (60 / rr) * 1000;
-      phaseRef.current += dt / periodMs;
-      while (phaseRef.current >= 1) phaseRef.current -= 1;
-      breathTickRef.current += 1;
+      const hrOverride = overridesRef.current.hrOverrideBpm;
+      const hr =
+        hrOverride != null && Number.isFinite(hrOverride) && hrOverride > 0
+          ? hrOverride
+          : parseHeartRateBpm(s.hr) ?? 75;
+
+      const lung = overridesRef.current.lungMechanics ?? s.lungMechanics ?? defaultLungMechanics();
+      const ws = sensorToWaveStyle(s.capnoSensor);
+
+      maxMmHgRef.current = Math.max(50, lung.paCO2MmHg * 1.35);
+
+      const params: CapnoSampleParams = {
+        rrBpm: rr,
+        paCO2MmHg: lung.paCO2MmHg,
+        baselineCO2MmHg: lung.baselineCO2MmHg,
+        tauSec: lungTimeConstantSec(lung),
+        slopeVqMmHgPerSec: lung.vqMismatchSlopeMmHgPerSec,
+        cardiogenicAmpMmHg: lung.cardiogenicOscAmplitudeMmHg,
+        hrBpm: hr,
+        perlinAmpMmHg: PERLIN_AMP_MMHG,
+      };
+
+      const simSecAtRightEdge =
+        (performance.now() - (stripStartMsRef.current ?? performance.now())) / 1000;
 
       const buf = new Float32Array(SAMPLE_COUNT);
       buildCapnoStripMmHg({
         sampleCount: SAMPLE_COUNT,
-        phaseOffset: phaseRef.current,
+        simSecAtRightEdge,
         cyclesVisible: CYCLES_VISIBLE,
-        obstructionFactor: obs,
-        etco2MmHg: et,
         out: buf,
+        params,
         waveStyle: ws,
-        breathTick: breathTickRef.current,
       });
 
       c.setTransform(dpr, 0, 0, dpr, 0, 0);

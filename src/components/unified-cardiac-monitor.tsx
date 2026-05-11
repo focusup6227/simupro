@@ -624,6 +624,8 @@ export interface UnifiedCardiacMonitorProps {
   onMonitorMedication?: (item: Medication) => void;
   /** Monitor “Proc” menu */
   onMonitorIntervention?: (item: Procedure) => void;
+  /** When false, hides Meds/Proc quick picks (e.g. scenario disables structured interventions). */
+  showProtocolQuickMenus?: boolean;
 }
 
 export function UnifiedCardiacMonitor({
@@ -635,8 +637,9 @@ export function UnifiedCardiacMonitor({
   onAction,
   onMonitorMedication,
   onMonitorIntervention,
+  showProtocolQuickMenus = true,
 }: UnifiedCardiacMonitorProps) {
-  const { merged } = useMergedPkDisplay();
+  const { merged } = useMergedPkDisplay({ scenario: scenario ?? null });
 
   const vitalsForDerive = useMemo(
     () => ({
@@ -881,8 +884,7 @@ export function UnifiedCardiacMonitor({
                 <CapnoWaveCanvas
                   height={52}
                   enabled={capnoLive && isMonitorPowered}
-                  etco2MmHg={merged.etco2MmHg}
-                  obstructionFactor={merged.obstruction}
+                  lungMechanics={merged.lungMechanics}
                   rrOverrideBpm={
                     merged.ventilationMode === 'bvm' && merged.assistedRateBpm != null
                       ? merged.assistedRateBpm
@@ -896,7 +898,8 @@ export function UnifiedCardiacMonitor({
                   />
                 </TooltipProvider>
                 {isMonitorPowered &&
-                (onMonitorMedication || onMonitorIntervention) ? (
+                showProtocolQuickMenus &&
+                (onMonitorMedication || onMonitorIntervention || onAction) ? (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <MedicationMenu
                       onSelect={onMonitorMedication ?? undefined}

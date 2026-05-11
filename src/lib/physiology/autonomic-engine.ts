@@ -2,6 +2,7 @@ import { mergeVitalsForDisplay } from '@/lib/physiology/pk-engine';
 import type { VitalDeltas } from '@/lib/physiology/pk-types';
 import { VITAL_AXES, zeroDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 import type {
   AutonomicEvent,
   AutonomicProfile,
@@ -233,6 +234,7 @@ export function tickAutonomic(
   eventsAtSecond: readonly AutonomicEvent[],
   simSec: number,
   cumulativeBefore: VitalDeltas,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): TickAutonomicResult {
   let st: AutonomicState = applyAutonomicEventsToState(
     state,
@@ -261,7 +263,15 @@ export function tickAutonomic(
   st.baroreflexErrorIntegral += err * dtSec * 0.08;
   const integralGain =
     0.06 * Math.max(0.15, axes.baroreceptorSensitivity);
-  const symTargetRaw = err * 1.25 + st.baroreflexErrorIntegral * integralGain;
+  const feedbackSympathetic =
+    feedback && axes.adrenergicReserve > 0.15
+      ? feedback.hypoxicDrive * 0.16 +
+        feedback.hypercarbicDrive * 0.1 +
+        feedback.acidemiaDrive * 0.08
+      : 0;
+  const symTargetRaw =
+    (err * 1.25 + st.baroreflexErrorIntegral * integralGain + feedbackSympathetic) *
+    (feedback?.sympatheticAmplifier ?? 1);
   const symTarget = Math.max(
     -0.35,
     Math.min(1.15, symTargetRaw * axes.baroreceptorSensitivity),
@@ -276,8 +286,9 @@ export function tickAutonomic(
     st.sympatheticDrive * emaxHr * clamp01(axes.adrenergicReserve);
 
   const emaxBp = 28;
+  const effectiveVascularTone = clamp01(axes.vascularTone) * (1 - (feedback?.vasoplegiaPenalty ?? 0));
   const dBpSys =
-    st.sympatheticDrive * emaxBp * clamp01(axes.vascularTone);
+    st.sympatheticDrive * emaxBp * Math.max(0.1, effectiveVascularTone);
   const dBpDia = dBpSys * 0.55;
 
   let spo2ForChem = SpO2_obs ?? 94;
@@ -292,9 +303,16 @@ export function tickAutonomic(
     st.oxygenationDriveDeficit *= 0.65;
   }
 
-  let dRr = st.oxygenationDriveDeficit * 7;
+  let dRr =
+    st.oxygenationDriveDeficit * 7 +
+    (feedback?.hypercarbicDrive ?? 0) * 5 +
+    (feedback?.acidemiaDrive ?? 0) * 6;
   st.workOfBreathing +=
-    Math.abs(st.oxygenationDriveDeficit) * 0.018 * dtSec;
+    (Math.abs(st.oxygenationDriveDeficit) +
+      (feedback?.hypercarbicDrive ?? 0) * 0.6 +
+      (feedback?.acidemiaDrive ?? 0) * 0.4) *
+    0.018 *
+    dtSec;
   if (st.cpapActive) {
     st.workOfBreathing = Math.max(0, st.workOfBreathing - 0.012 * dtSec);
     dRr -= 1.5;
@@ -398,6 +416,7 @@ export function replayAutonomicAt(
     gcs: string;
   },
   getPkDeltasAt: (simSec: number) => VitalDeltas,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): ReplayAutonomicAtResult {
   let state = defaultAutonomicState(profile, weightKg);
   let cumulative = zeroDeltas();
@@ -423,6 +442,7 @@ export function replayAutonomicAt(
       evs,
       sec,
       cumulative,
+      feedback,
     );
     state = res.state;
     cumulative = res.cumulativeDeltas;

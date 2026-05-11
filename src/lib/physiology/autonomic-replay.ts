@@ -10,6 +10,7 @@ import type {
 import { AUTONOMIC_EVENT_KINDS } from '@/lib/physiology/autonomic-types';
 import type { VitalDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 export { replayAutonomicAt, type ReplayAutonomicAtResult };
 
@@ -78,6 +79,7 @@ export function autonomicCumulativeDeltasAt(
   profile: AutonomicProfile | undefined,
   baselineVitals: BaselineVitalsShape,
   getPkDeltasAt: (simSec: number) => VitalDeltas,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): VitalDeltas {
   return replayAutonomicAt(
     events,
@@ -87,5 +89,6 @@ export function autonomicCumulativeDeltasAt(
     profile,
     baselineVitals,
     getPkDeltasAt,
+    feedback,
   ).cumulativeDeltas;
 }

@@ -49,6 +49,35 @@ export {
 const PEA_PERIOD_MS = 920;
 const CPR_COMPRESSION_PERIOD_MS = 545; // ~110/min
 
+/**
+ * Position of the QRS peak (R wave) within a single normalized beat phase
+ * `[0, 1)`. Matches the `qrsCenter` default used by {@link qrsEnvelopes}.
+ *
+ * Exported so capno / pleth / SpO2 modules can phase-lock cardiogenic
+ * artifacts to the same R-wave reference without coupling through the
+ * canvas renderer.
+ */
+export const ECG_QRS_R_PEAK_PHASE = 0.195;
+
+/**
+ * Pure helper: returns the position within a single sinus beat at simulation
+ * time `simMs`, with `0` placed at the R peak (so a sine `sin(2π * phase)`
+ * peaks one quarter-beat after R, matching the small expiratory bump pattern
+ * of cardiogenic CO2 oscillations).
+ *
+ * No React, no canvas state, no rhythm awareness — assumes a regular sinus
+ * beat at the given heart rate. Returns NaN when `hrBpm <= 0`.
+ */
+export function getCardiacBeatPhase01(simMs: number, hrBpm: number): number {
+  if (!Number.isFinite(hrBpm) || hrBpm <= 0) return Number.NaN;
+  if (!Number.isFinite(simMs)) return 0;
+  const beatPeriodMs = 60000 / hrBpm;
+  const raw = (simMs / beatPeriodMs) % 1;
+  const norm = raw < 0 ? raw + 1 : raw;
+  const shifted = norm - ECG_QRS_R_PEAK_PHASE;
+  return shifted < 0 ? shifted + 1 : shifted;
+}
+
 // ---------------------------------------------------------------------------
 // Dipole vector morphology
 // ---------------------------------------------------------------------------

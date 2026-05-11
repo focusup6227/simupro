@@ -124,6 +124,7 @@ export function scenarioRowToScenario(r: ScenarioRow): Scenario {
     defaultWeightKg: r.patient_weight_kg ?? undefined,
     ageBand: (r.age_band as Scenario['ageBand']) ?? undefined,
     icpMmHg: r.icp_mm_hg ?? undefined,
+    interventionsEnabled: r.interventions_enabled ?? true,
   };
 }
 
@@ -179,6 +180,7 @@ export function scenarioToDbUpsert(values: Omit<Scenario, 'id'> & { id: string }
     patient_weight_kg: values.defaultWeightKg ?? null,
     age_band: values.ageBand ?? null,
     icp_mm_hg: values.icpMmHg ?? null,
+    interventions_enabled: values.interventionsEnabled ?? true,
   };
   return row;
 }

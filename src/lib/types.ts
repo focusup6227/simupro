@@ -191,6 +191,11 @@ export const ScenarioSchema = z.object({
   /** Optional catalog for on-monitor quick menus; also push at runtime via the physiology store. */
   monitorMenuMedications: z.array(MonitorMenuMedicationSchema).optional(),
   monitorMenuInterventions: z.array(MonitorMenuInterventionSchema).optional(),
+  /**
+   * When false, structured Treatment tab interventions are disabled for this scenario
+   * (assessment / narrative paths remain available).
+   */
+  interventionsEnabled: z.boolean().optional(),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 export type ScenarioData = Omit<Scenario, 'id'>;

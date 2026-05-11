@@ -59,6 +59,67 @@ export type PathophysiologyAxes = {
   inflammatoryDrive: number;
 };
 
+/**
+ * Lung mechanics state in real units, used by the tau-based ("CapnoSyn")
+ * capnography engine. Populated by the comorbidity resolver at scenario load,
+ * mutated by AI/`obstruction` updates and pathology events (ROSC step), and
+ * further modulated by PK drug deltas at display time.
+ *
+ * Time constant tau = airwayResistance * lungCompliance (seconds).
+ * Healthy adult ~ 2.0 cmH2O/L/s * 0.1 L/cmH2O = 0.20 s (steep upstroke,
+ * flat plateau). Severe bronchospasm pushes tau toward 1.0–2.5 s, producing
+ * the textbook "shark fin" morphology.
+ */
+export type LungMechanicsState = {
+  /** Airway resistance in cmH2O / (L/s). Healthy ~2; status asthmaticus 8–20. */
+  airwayResistanceCmH2OPerLPerSec: number;
+  /** Static lung compliance in L / cmH2O. Healthy ~0.1; ARDS ~0.03. */
+  lungComplianceLPerCmH2O: number;
+  /** Theoretical alveolar CO2 tension (the exponential ceiling), mmHg. */
+  paCO2MmHg: number;
+  /** Phase III V/Q-mismatch slope, mmHg per second of expiration. */
+  vqMismatchSlopeMmHgPerSec: number;
+  /** Physiologic dead space fraction (Vd/Vt). 0.3 normal; ≥0.5 in PE. */
+  deadSpaceFraction: number;
+  /** Inspired/baseline CO2, mmHg. >0 indicates rebreathing (stuck valve, etc.). */
+  baselineCO2MmHg: number;
+  /** Cardiogenic oscillation ripple amplitude on the plateau, mmHg. */
+  cardiogenicOscAmplitudeMmHg: number;
+};
+
+/** Healthy-adult defaults (roughly textbook values). */
+export function defaultLungMechanics(): LungMechanicsState {
+  return {
+    airwayResistanceCmH2OPerLPerSec: 2,
+    lungComplianceLPerCmH2O: 0.1,
+    paCO2MmHg: 40,
+    vqMismatchSlopeMmHgPerSec: 0.5,
+    deadSpaceFraction: 0.3,
+    baselineCO2MmHg: 0,
+    cardiogenicOscAmplitudeMmHg: 0,
+  };
+}
+
+/**
+ * Per-condition modifiers that compose into a `LungMechanicsState`.
+ *
+ * Composition rules (see `resolveLungMechanics`):
+ * - `raMultiplier`, `csMultiplier`, `slopeVQMultiplier`: multiplicative (1 = no-op).
+ * - `paCO2DeltaMmHg`, `deadSpaceFractionDelta`, `baselineCO2MmHg`,
+ *   `cardiogenicOscAmpMmHg`: additive (0 = no-op).
+ *
+ * All values are clamped post-composition to physiologically plausible ranges.
+ */
+export type LungMechanicsModifier = {
+  raMultiplier?: number;
+  csMultiplier?: number;
+  paCO2DeltaMmHg?: number;
+  slopeVQMultiplier?: number;
+  deadSpaceFractionDelta?: number;
+  baselineCO2MmHg?: number;
+  cardiogenicOscAmpMmHg?: number;
+};
+
 declare const conditionIdBrand: unique symbol;
 /** Scenario / matrix condition identifier (string at runtime). */
 export type ConditionId = string & { readonly [conditionIdBrand]: typeof conditionIdBrand };
@@ -74,6 +135,12 @@ export type ComorbidityModifier = {
   nature: ConditionNature;
   /** Per-axis multipliers; omit axes that this condition does not perturb. */
   axes: Partial<PathophysiologyAxes>;
+  /**
+   * Optional lung-mechanics deltas consumed by the tau-based capnography
+   * engine. Conditions that don't directly perturb the airway/alveolus
+   * (e.g. diabetes) leave this undefined.
+   */
+  lungMechanics?: LungMechanicsModifier;
   charlsonWeight: number | null;
   elixhauserAhrqWeight: number | null;
   icd10Prefix?: string;

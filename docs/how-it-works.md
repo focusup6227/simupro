@@ -38,6 +38,16 @@ This is where the action happens. The screen is divided into two main columns.
     - **Destination**: Choose the appropriate hospital and transport mode (Routine vs. Emergency).
     - **Comms**: Generate an AI-assisted SBAR radio report or request medical direction.
 
+### How The Physiology Model Works
+The monitor is not just a static vitals card. Simu-Pro combines the scenario's starting condition, your logged treatments, and a deterministic physiology model so the same actions at the same simulation times can be replayed consistently for review and grading.
+
+Several physiology layers are active today:
+- **Medication effects**: The pharmacokinetics/pharmacodynamics engine is enabled. Doses, routes, infusion rates, patient weight, and comorbidity-derived physiology traits influence drug concentrations and vital-sign changes.
+- **Autonomic and volume response**: The autonomic engine is enabled. Bleeding, fluids, oxygen, airway support, shock physiology, and stress events can change the patient's compensation and decompensation trend.
+- **Capnography and lung mechanics**: EtCO2 and the waveform respond to ventilation mode, perfusion state, airway obstruction, comorbidities, and selected medication effects. For example, bronchospasm can create a shark-fin waveform, CPR/arrest can keep EtCO2 low, and ROSC can produce a sharp EtCO2 rise.
+
+Some deeper physiology is still being validated. A simplified metabolic acid-base engine exists behind a feature flag and is not enabled by default yet, so public simulations should not be interpreted as full lab-grade acid-base modeling. A planned feedback layer will make perfusion, hypoxia, hypercarbia, acidemia, and drug interactions influence each other more directly while remaining bounded and replayable; until that work ships, those details should be treated as roadmap behavior rather than current product behavior.
+
 ### Special Case: Cardiac Arrest
 For scenarios identified as a cardiac arrest, the interface changes to improve realism:
 1.  **Initial State**: The patient is pulseless. The standard action tabs are visible.

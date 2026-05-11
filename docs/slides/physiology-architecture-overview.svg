@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" role="img" aria-label="Simu-Pro physiology architecture overview">
+  <defs>
+    <style><![CDATA[
+      .title { font-family: system-ui, Segoe UI, sans-serif; font-size: 28px; font-weight: 700; fill: #111; }
+      .subtitle { font-family: system-ui, sans-serif; font-size: 14px; fill: #444; }
+      .box { stroke-width: 2; rx: 8; }
+      .lbl { font-family: system-ui, sans-serif; font-size: 13px; fill: #111; font-weight: 600; }
+      .small { font-family: system-ui, sans-serif; font-size: 11px; fill: #333; }
+      .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#m); }
+    ]]></style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="720" fill="#fafafa"/>
+  <text x="640" y="48" text-anchor="middle" class="title">Simu-Pro physiology - layered architecture</text>
+  <text x="640" y="74" text-anchor="middle" class="subtitle">Shared clock simSeconds @ 1 Hz | deterministic engines + AI baseline | merged for monitor</text>
+
+  <rect x="40" y="110" width="200" height="90" class="box" fill="#e8f4fc" stroke="#2b7cb8"/>
+  <text x="140" y="142" text-anchor="middle" class="lbl">Scenario</text>
+  <text x="140" y="162" text-anchor="middle" class="small">profile, comorbidities</text>
+  <text x="140" y="180" text-anchor="middle" class="small">initial vitals / rhythm</text>
+
+  <rect x="280" y="110" width="200" height="90" class="box" fill="#e8f4fc" stroke="#2b7cb8"/>
+  <text x="380" y="142" text-anchor="middle" class="lbl">Learner actions</text>
+  <text x="380" y="162" text-anchor="middle" class="small">meds, fluids, O2, airway</text>
+  <text x="380" y="180" text-anchor="middle" class="small">CPAP, needle, CPR UI</text>
+
+  <rect x="520" y="110" width="200" height="90" class="box" fill="#fff8e6" stroke="#c9a227"/>
+  <text x="620" y="142" text-anchor="middle" class="lbl">10 physiology axes</text>
+  <text x="620" y="162" text-anchor="middle" class="small">reserve, tone, clearance</text>
+  <text x="620" y="180" text-anchor="middle" class="small">from comorbidity matrix</text>
+
+  <rect x="120" y="260" width="240" height="110" class="box" fill="#e8faf0" stroke="#2d8f5f"/>
+  <text x="240" y="295" text-anchor="middle" class="lbl">PK / PD engine</text>
+  <text x="240" y="318" text-anchor="middle" class="small">dose log to concentration</text>
+  <text x="240" y="336" text-anchor="middle" class="small">Emax/EC50 to dHR, dBP</text>
+  <text x="240" y="354" text-anchor="middle" class="small">antagonists scale targets</text>
+
+  <rect x="400" y="260" width="240" height="110" class="box" fill="#e8faf0" stroke="#2d8f5f"/>
+  <text x="520" y="295" text-anchor="middle" class="lbl">Autonomic / volume</text>
+  <text x="520" y="318" text-anchor="middle" class="small">bleed, bolus, tone, baroreflex</text>
+  <text x="520" y="336" text-anchor="middle" class="small">decomp phase to arrest latch</text>
+  <text x="520" y="354" text-anchor="middle" class="small">AI stressors as events</text>
+
+  <rect x="680" y="260" width="200" height="110" class="box" fill="#f0f0f0" stroke="#888"/>
+  <text x="780" y="298" text-anchor="middle" class="lbl">Metabolic</text>
+  <text x="780" y="320" text-anchor="middle" class="small">optional flag</text>
+  <text x="780" y="338" text-anchor="middle" class="small">lactate / HCO3 / pH</text>
+
+  <rect x="920" y="260" width="320" height="110" class="box" fill="#fff0e8" stroke="#c96b2b"/>
+  <text x="1080" y="295" text-anchor="middle" class="lbl">AI (Gemini / Genkit)</text>
+  <text x="1080" y="318" text-anchor="middle" class="small">baseline vitals + narrative + stressors</text>
+  <text x="1080" y="336" text-anchor="middle" class="small">prompt grounded with engine summary</text>
+
+  <rect x="380" y="430" width="520" height="100" class="box" fill="#f5f0ff" stroke="#6b4dc9"/>
+  <text x="640" y="468" text-anchor="middle" class="lbl">Merge + display layer</text>
+  <text x="640" y="492" text-anchor="middle" class="small">mergeVitalsForDisplay(baseline + PK deltas + autonomic deltas)</text>
+  <text x="640" y="510" text-anchor="middle" class="small">EtCO2 resolver | ECG synth | capno waveform</text>
+
+  <rect x="440" y="580" width="400" height="72" class="box" fill="#111" stroke="#333"/>
+  <text x="640" y="612" text-anchor="middle" class="lbl" fill="#fff">Unified cardiac monitor + patient voice</text>
+  <text x="640" y="634" text-anchor="middle" class="small" fill="#ccc">numeric rails | strips | guards on impossible states</text>
+
+  <path d="M 140 200 V 230 H 240 V 260" class="arrow"/>
+  <path d="M 380 200 V 230 H 520 V 260" class="arrow"/>
+  <path d="M 620 200 V 240 H 780 V 260" class="arrow"/>
+  <path d="M 620 110 V 90 H 1080 V 260" class="arrow"/>
+  <path d="M 780 370 V 400 H 640 V 430" class="arrow"/>
+  <path d="M 240 370 V 400 H 520 V 430" class="arrow"/>
+  <path d="M 520 370 V 400 H 520 V 430" class="arrow"/>
+  <path d="M 1080 370 V 400 H 760 V 430" class="arrow"/>
+  <path d="M 640 530 V 560 H 640 V 580" class="arrow"/>
+
+  <text x="1240" y="706" text-anchor="end" class="small" fill="#999">Simu-Pro | docs/slides</text>
+</svg>

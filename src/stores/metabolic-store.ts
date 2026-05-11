@@ -9,6 +9,7 @@ import {
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
 import type { AutonomicEvent, DecompensationPhase } from '@/lib/physiology/autonomic-types';
 import type { Scenario } from '@/lib/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 export type MetabolicTickCtx = {
   axes: PathophysiologyAxes;
@@ -18,6 +19,7 @@ export type MetabolicTickCtx = {
   decompensationPhase: DecompensationPhase;
   pediatricScale: number;
   allAutonomicEvents: readonly AutonomicEvent[];
+  feedback?: PhysiologyFeedbackSnapshot | null;
 };
 
 function lactateBumpFromEvents(evs: readonly AutonomicEvent[]): number {
@@ -79,6 +81,7 @@ export const useMetabolicStore = create<MetabolicStore>((set, get) => ({
         decompensationPhase: ctx.decompensationPhase,
         lactateBump,
         pediatricScale: ctx.pediatricScale,
+        feedback: ctx.feedback,
       });
     }
 

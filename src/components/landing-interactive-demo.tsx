@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { DEMO_SCENARIO_ID, DEMO_MAX_AI_TURNS } from "@/lib/demo-config";
 import { seedScenarios } from "@/lib/scenarios-data";
 import { seedInterventions } from "@/lib/interventions-data";
+import { isTypedDoseSubOptionLabel } from "@/lib/intervention-dose-ui";
 import type { Message, UserAction, ArrestRhythmKind } from "@/lib/types";
 import { interventionCertifications } from "@/lib/types";
 import { hospitals } from "@/lib/hospitals-data";
@@ -74,6 +76,8 @@ function formatMissionTime(seconds: number) {
 export function LandingInteractiveDemo() {
   const { toast } = useToast();
   const scenario = useMemo(() => seedScenarios.find((s) => s.id === DEMO_SCENARIO_ID)!, []);
+  /** Defer mounting monitor hardware until after parent seeds Zustand (child layout effects run before parent). */
+  const [cockpitHardwareReady, setCockpitHardwareReady] = useState(false);
 
   const [role, setRole] = useState<LandingRole>("paramedic");
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -117,22 +121,14 @@ export function LandingInteractiveDemo() {
     return () => window.clearInterval(id);
   }, []);
 
-  /** Seed the physiology store the same way the logged-in scenario page does so the UnifiedCardiacMonitor renders with vitals + applied equipment. */
-  useEffect(() => {
+  /** Seed stores first; only then mount `UnifiedCardiacMonitor` (its layout effects must not run on an empty store). */
+  useLayoutEffect(() => {
+    setCockpitHardwareReady(false);
     usePkStore.getState().reset();
-    usePhysiologyStore.getState().loadScenario(scenario.initialVitals);
-    const s = usePhysiologyStore.getState();
-    if (!s.isMonitorPowered) s.togglePowerMonitor();
-    s.applyFourLead();
-    if (!s.isEkgChannelOn) s.toggleEkgChannel();
-    s.applyPulseOx();
-    s.applyBpCuff();
-    s.requestNibpCycle();
-
-    return () => {
-      usePhysiologyStore.getState().reset();
-      usePkStore.getState().reset();
-    };
+    usePhysiologyStore.getState().loadScenario(scenario.initialVitals, {
+      warmStartMarketingMonitor: true,
+    });
+    setCockpitHardwareReady(true);
   }, [scenario.id, scenario.initialVitals]);
 
   const filteredHospitals = useMemo(() => {
@@ -144,7 +140,7 @@ export function LandingInteractiveDemo() {
     const intervention = seedInterventions.find((i) => i.id === id);
     const initialSubOptions =
       intervention?.subOptions?.reduce((acc, so) => {
-        acc[so.label] = so.options[0]!;
+        acc[so.label] = isTypedDoseSubOptionLabel(so.label) ? "" : so.options[0]!;
         return acc;
       }, {} as Record<string, string>) ?? {};
 
@@ -524,36 +520,53 @@ export function LandingInteractiveDemo() {
               </CardContent>
             </Card>
 
-            <UnifiedCardiacMonitor
-              scenario={scenario}
-              cprActive={false}
-              forcedRhythm={null}
-              pulseless={false}
-              onAction={(label) => appendEcgLog(label)}
-              onRhythmChange={() => {}}
-            />
-            <EquipmentDrawer />
-
-            <Card className="border-emerald-800/40 bg-muted/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  AED + post-shock ALS (sandbox)
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Preview only—rhythm differs from this medical scenario but matches the cardiac-arrest tooling in full
-                  simulations.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <AedPanel
-                  role={aedBridgeRole}
-                  currentArrestRhythm={AED_PREVIEW_RHYTHM}
-                  hasROSC={false}
-                  onLogAction={(label) => appendAedLog(label)}
-                  disabled={isLoading || atTurnLimit}
+            {cockpitHardwareReady ? (
+              <>
+                <UnifiedCardiacMonitor
+                  scenario={scenario}
+                  cprActive={false}
+                  forcedRhythm={null}
+                  pulseless={false}
+                  onAction={(label) => appendEcgLog(label)}
+                  onRhythmChange={() => {}}
+                  onMonitorMedication={(med) =>
+                    appendEcgLog(`Medication (monitor menu): ${med.name}`)
+                  }
                 />
-              </CardContent>
-            </Card>
+                <EquipmentDrawer />
+
+                <Card className="border-emerald-800/40 bg-muted/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      AED + post-shock ALS (sandbox)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Preview only—rhythm differs from this medical scenario but matches the cardiac-arrest tooling in full
+                      simulations.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <AedPanel
+                      role={aedBridgeRole}
+                      currentArrestRhythm={AED_PREVIEW_RHYTHM}
+                      hasROSC={false}
+                      onLogAction={(label) => appendAedLog(label)}
+                      disabled={isLoading || atTurnLimit}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div
+                className="space-y-4"
+                aria-busy="true"
+                aria-label="Loading cockpit hardware"
+              >
+                <div className="min-h-[300px] rounded-lg border border-zinc-700/60 bg-zinc-950/50 animate-pulse" />
+                <div className="h-11 rounded-md border bg-muted/40 animate-pulse" />
+                <div className="min-h-[140px] rounded-lg border bg-muted/30 animate-pulse" />
+              </div>
+            )}
           </div>
 
           {/* Right rail — workflow */}
@@ -688,6 +701,17 @@ export function LandingInteractiveDemo() {
                                 {t.subOptions!.map((so) => (
                                   <div key={so.label} className="space-y-1">
                                     <Label className="text-xs text-muted-foreground">{so.label}</Label>
+                                    {isTypedDoseSubOptionLabel(so.label) ? (
+                                      <Input
+                                        className="h-9"
+                                        placeholder={`Enter ${so.label.toLowerCase()}`}
+                                        value={selectedTreatments[t.id]?.subOptions?.[so.label] ?? ""}
+                                        onChange={(e) =>
+                                          handleSubOptionChange(t.id, so.label, e.target.value)
+                                        }
+                                        disabled={isLoading || atTurnLimit || patientDeceased}
+                                      />
+                                    ) : (
                                     <Select
                                       onValueChange={(v) => handleSubOptionChange(t.id, so.label, v)}
                                       value={
@@ -705,6 +729,7 @@ export function LandingInteractiveDemo() {
                                         ))}
                                       </SelectContent>
                                     </Select>
+                                    )}
                                   </div>
                                 ))}
                               </div>

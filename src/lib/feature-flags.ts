@@ -17,6 +17,12 @@ export const ENABLE_PHARMACOKINETICS_ENGINE = true;
 export const ENABLE_AUTONOMIC_ENGINE = true;
 
 /**
+ * Bounded closed-loop physiology feedback overlay. Transient only: scenario
+ * axes stay immutable and replay callers opt in by passing a snapshot.
+ */
+export const ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true;
+
+/**
  * Phase IV: metabolic / simplified acid–base integrator (1 Hz, teaching labs).
  * Off by default — enable after validating tutor UX + AI prompt coupling.
  */

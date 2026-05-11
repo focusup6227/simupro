@@ -19,6 +19,7 @@ import {
   simulationAutonomicSnakeRowToEvent,
 } from '@/lib/physiology/autonomic-replay';
 import type { DoseRecord } from '@/lib/physiology/pk-types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 export type AutonomicStoreState = {
   events: AutonomicEvent[];
@@ -33,6 +34,7 @@ export type AutonomicTickCtx = {
   profile: AutonomicProfile | undefined;
   baselineVitals: Scenario['initialVitals'];
   doses: readonly DoseRecord[];
+  feedback?: PhysiologyFeedbackSnapshot | null;
 };
 
 export type AutonomicStoreActions = {
@@ -97,7 +99,7 @@ export const useAutonomicStore = create<AutonomicStore>((set, get) => ({
     if (simSec === st.lastIntegratedSimSec) return;
 
     const getPkAt = (sec: number) =>
-      effectDeltasAt(ctx.doses, sec, ctx.axes, ctx.weightKg);
+      effectDeltasAt(ctx.doses, sec, ctx.axes, ctx.weightKg, ctx.feedback);
 
     if (
       st.lastIntegratedSimSec === -1 ||
@@ -111,6 +113,7 @@ export const useAutonomicStore = create<AutonomicStore>((set, get) => ({
         ctx.profile,
         ctx.baselineVitals,
         getPkAt,
+        ctx.feedback,
       );
       set({
         state: r.state,
@@ -132,6 +135,7 @@ export const useAutonomicStore = create<AutonomicStore>((set, get) => ({
         evs,
         simSec,
         st.cumulativeDeltas,
+        ctx.feedback,
       );
       set({
         state: res.state,

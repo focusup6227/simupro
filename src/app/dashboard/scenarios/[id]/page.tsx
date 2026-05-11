@@ -24,8 +24,8 @@ import {
   partnerCanPerform,
 } from "@/lib/partner";
 import type { Json } from "@/lib/supabase/database.types";
-import type { Intervention } from "@/types/protocol";
-import { toLicensureLevel } from "@/types/protocol";
+import { type Intervention, isMedication, toLicensureLevel } from "@/types/protocol";
+import { isTypedDoseSubOptionLabel } from "@/lib/intervention-dose-ui";
 import { seedInterventions } from "@/lib/interventions-data";
 import { useProtocolStore, monitorMenuRowsToScenarioOverlay } from "@/stores/protocol-store";
 import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerInstruction, runHospitalHandover } from "@/app/actions";
@@ -407,6 +407,12 @@ export default function SimulationPage() {
     // Zustand `getState()` hides reactive deps; `protocolMergeDeps` (useShallow) is the real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [protocolMergeDeps],
+  );
+
+  const treatmentsMenuEnabled = scenario?.interventionsEnabled !== false;
+  const interventionsForTiles = useMemo(
+    () => (treatmentsMenuEnabled ? availableInterventions : []),
+    [availableInterventions, treatmentsMenuEnabled],
   );
 
   const reportForm = useForm<ReportIssueFormValues>({
@@ -1567,12 +1573,44 @@ export default function SimulationPage() {
   handleSubmitAssessmentRef.current = handleSubmitAssessment;
 
   const handleSubmitTreatments = async (actionType: 'treatment' | 'cardiacArrest' = 'treatment') => {
+    const resolveIntervention = (iid: string) =>
+      availableInterventions.find((i) => i.id === iid) ??
+      seedInterventions.find((i) => i.id === iid);
+
+    for (const [id, details] of Object.entries(selectedTreatments)) {
+      if (!details.selected) continue;
+      const intervention = resolveIntervention(id);
+      if (!intervention) continue;
+      if ("type" in intervention && isMedication(intervention)) {
+        if (!details.subOptions.Dosage?.trim()) {
+          toast({
+            title: "Dose required",
+            description: `Enter dose and route for ${intervention.name}.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        continue;
+      }
+      if ("subOptions" in intervention && intervention.subOptions?.length) {
+        for (const so of intervention.subOptions) {
+          if (!isTypedDoseSubOptionLabel(so.label)) continue;
+          if (!details.subOptions[so.label]?.trim()) {
+            toast({
+              title: "Dose required",
+              description: `Enter ${so.label} for ${intervention.name}.`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      }
+    }
+
     const treatmentsArray = Object.entries(selectedTreatments)
       .filter(([, details]) => details.selected)
       .map(([id, details]) => {
-        const intervention =
-          availableInterventions.find((i) => i.id === id) ??
-          seedInterventions.find((i) => i.id === id);
+        const intervention = resolveIntervention(id);
         if (!intervention) return '';
         const subOptionsStr = Object.entries(details.subOptions).map(([label, value]) => `${label}: ${value}`).join(', ');
         return `${intervention.name}${subOptionsStr ? ` (${subOptionsStr})` : ''}`;
@@ -1827,17 +1865,31 @@ export default function SimulationPage() {
 
   const handleTreatmentSelection = (id: string, checked: boolean | 'indeterminate') => {
     const legacyInt = seedInterventions.find((i) => i.id === id);
-    const initialSubOptions = legacyInt?.subOptions?.reduce((acc, so) => {
-        acc[so.label] = so.options[0]; // Default to the first option
-        return acc;
-    }, {} as {[key: string]: string}) || {};
+    const merged = useProtocolStore
+      .getState()
+      .activeInterventions()
+      .find((i) => i.id === id);
+    let initialSubOptions: Record<string, string> = {};
+    if (merged && isMedication(merged)) {
+      initialSubOptions = { Dosage: "" };
+    } else if (legacyInt?.subOptions?.length) {
+      initialSubOptions = legacyInt.subOptions.reduce(
+        (acc, so) => {
+          acc[so.label] = isTypedDoseSubOptionLabel(so.label)
+            ? ""
+            : so.options[0]!;
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
+    }
 
-    setSelectedTreatments(prev => ({
+    setSelectedTreatments((prev) => ({
       ...prev,
       [id]: {
         selected: !!checked,
-        subOptions: checked ? (prev[id]?.subOptions || initialSubOptions) : {}
-      }
+        subOptions: checked ? prev[id]?.subOptions || initialSubOptions : {},
+      },
     }));
   };
 
@@ -2042,7 +2094,7 @@ export default function SimulationPage() {
     // Non-shockable: hide defib + antiarrhythmic-only meds.
     return !['PROC_DEFIBRILLATION', 'MED_AMIODARONE', 'MED_LIDOCAINE'].includes(id);
   });
-  const cardiacArrestInterventions = availableInterventions.filter((i) =>
+  const cardiacArrestInterventions = interventionsForTiles.filter((i) =>
     filteredCardiacIds.includes(i.id),
   );
 
@@ -2080,6 +2132,7 @@ export default function SimulationPage() {
                 pulseless={Boolean(currentArrestRhythm)}
                 onRhythmChange={(kind) => setObservedRhythm(kind)}
                 onAction={handleEcgAction}
+                showProtocolQuickMenus={treatmentsMenuEnabled}
                 onMonitorMedication={(med) =>
                   handleEcgAction(`Medication (monitor menu): ${med.name}`)
                 }
@@ -2596,6 +2649,12 @@ export default function SimulationPage() {
                     <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
                         <div className="space-y-4 pr-4">
                             <Label>Select cardiac arrest interventions</Label>
+                            {!treatmentsMenuEnabled ? (
+                              <p className="text-muted-foreground text-sm">
+                                Structured protocol interventions are disabled for this scenario.
+                              </p>
+                            ) : (
+                              <>
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {cardiacArrestInterventions.map((t) => (
                               <InterventionTile
@@ -2609,9 +2668,16 @@ export default function SimulationPage() {
                               />
                             ))}
                             </div>
+                            {cardiacArrestInterventions.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                No arrest interventions in scope for your level and rhythm.
+                              </p>
+                            ) : null}
+                              </>
+                            )}
                         </div>
                     </ScrollArea>
-                    <Button onClick={() => handleSubmitTreatments('cardiacArrest')} disabled={isLoading || simulationEnded || hasROSC || isAnalyzingAED} className="w-full mt-4">
+                    <Button onClick={() => handleSubmitTreatments('cardiacArrest')} disabled={isLoading || simulationEnded || hasROSC || isAnalyzingAED || !treatmentsMenuEnabled} className="w-full mt-4">
                         {isLoading ? 'Processing...' : 'Perform Actions'} <ArrowRight className="ml-2" />
                     </Button>
                     {hasROSC && <p className="text-center text-green-500 font-bold mt-2">Return of Spontaneous Circulation (ROSC) achieved! Proceed with post-arrest care using the other tabs.</p>}
@@ -2659,12 +2725,17 @@ export default function SimulationPage() {
                <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
                 <div className="space-y-4 pr-4">
                   <Label>Select treatments to administer</Label>
-                  {availableInterventions.length === 0 && (
+                  {!treatmentsMenuEnabled && (
+                    <p className="text-muted-foreground text-sm">
+                      Structured protocol interventions are disabled for this scenario. Use Assessment and other tabs to document care.
+                    </p>
+                  )}
+                  {treatmentsMenuEnabled && availableInterventions.length === 0 && (
                     <p className="text-muted-foreground text-sm">No interventions available for your certification level.</p>
                   )}
-                  {availableInterventions.length > 0 && (
+                  {treatmentsMenuEnabled && availableInterventions.length > 0 && (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {availableInterventions.map((t) => (
+                  {interventionsForTiles.map((t) => (
                     <InterventionTile
                       key={t.id}
                       intervention={t}
@@ -2679,7 +2750,7 @@ export default function SimulationPage() {
                   )}
                 </div>
                </ScrollArea>
-                <Button onClick={() => handleSubmitTreatments('treatment')} disabled={isLoading || simulationEnded || showCardiacArrestTab} className="w-full mt-4">
+                <Button onClick={() => handleSubmitTreatments('treatment')} disabled={isLoading || simulationEnded || showCardiacArrestTab || !treatmentsMenuEnabled} className="w-full mt-4">
                     {isLoading ? 'Processing...' : 'Submit Treatments'} <ArrowRight className="ml-2" />
                 </Button>
             </TabsContent>

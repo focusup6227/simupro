@@ -16,6 +16,10 @@ import {
   type ParseDoseContext,
 } from '@/lib/physiology/dose-parser';
 import {
+  buildPhysiologyFeedbackSnapshot,
+  type PhysiologyFeedbackSnapshot,
+} from '@/lib/physiology/feedback';
+import {
   defaultPathophysiologyAxes,
   resolveComorbidityAxes,
 } from '@/lib/physiology/comorbidity-resolve';
@@ -78,6 +82,17 @@ const ctx: ParseDoseContext = {
   simSeconds: 60,
 };
 
+const shockFeedback: PhysiologyFeedbackSnapshot = buildPhysiologyFeedbackSnapshot({
+  hr: '130',
+  bp: '70/40',
+  rr: '30',
+  spo2: '86%',
+  etco2: '22 mmHg',
+  ph: 7.15,
+  lactateMmol: 7,
+  axes: defaultPathophysiologyAxes(),
+});
+
 describe('IV bolus single-compartment kinetics', () => {
   it('matches C(0) = D / Vd at the dose timestamp', () => {
     const dose = bolus('epinephrine-cardiac', 1, 0);
@@ -113,6 +128,29 @@ describe('CKD-modulated elimination', () => {
     const ckdAxes = resolveComorbidityAxes(['RENAL_MODERATE']);
     const ckd = effectiveKelPerMin(params, ckdAxes);
     expect(healthy / ckd).toBeGreaterThanOrEqual(1.5);
+  });
+});
+
+describe('dynamic feedback PK modifiers', () => {
+  it('low perfusion slows clearance beyond static axes', () => {
+    const params = DRUG_PK_CATALOG.fentanyl;
+    const axes = defaultPathophysiologyAxes();
+    const healthyKel = effectiveKelPerMin(params, axes);
+    const shockKel = effectiveKelPerMin(params, axes, shockFeedback);
+    expect(shockKel).toBeLessThan(healthyKel);
+    expect(shockKel).toBeGreaterThan(healthyKel * 0.35);
+  });
+
+  it('low perfusion delays non-IV absorption without changing deterministic replay', () => {
+    const dose = bolus('midazolam', 5, 0, 'im');
+    const params = DRUG_PK_CATALOG.midazolam;
+    const axes = defaultPathophysiologyAxes();
+    const healthy = concentrationAt(dose, 5 * 60, params, axes, WEIGHT);
+    const shocked = concentrationAt(dose, 5 * 60, params, axes, WEIGHT, shockFeedback);
+    expect(shocked).toBeLessThan(healthy);
+    expect(
+      concentrationAt(dose, 5 * 60, params, axes, WEIGHT, shockFeedback),
+    ).toBe(shocked);
   });
 });
 
@@ -252,6 +290,49 @@ describe('Naloxone antagonism of fentanyl', () => {
   });
 });
 
+describe('post-Emax drug interactions', () => {
+  it('opioid plus benzodiazepine causes supra-additive RR and GCS depression', () => {
+    const fent = bolus('fentanyl', 0.1, 0);
+    const midaz = bolus('midazolam', 5, 0);
+    const axes = defaultPathophysiologyAxes();
+    const fentOnly = effectDeltasAt([fent], 60, axes, WEIGHT);
+    const midazOnly = effectDeltasAt([midaz], 60, axes, WEIGHT);
+    const combined = effectDeltasAt([fent, midaz], 60, axes, WEIGHT);
+    expect(combined.rr).toBeLessThan(fentOnly.rr + midazOnly.rr);
+    expect(combined.gcs ?? 0).toBeLessThan(midazOnly.gcs ?? 0);
+  });
+
+  it('naloxone reverses opioid synergy but leaves sedative depression', () => {
+    const fent = bolus('fentanyl', 0.1, 0);
+    const midaz = bolus('midazolam', 5, 0);
+    const nlx = bolus('naloxone', 0.4, 30);
+    const axes = defaultPathophysiologyAxes();
+    const before = effectDeltasAt([fent, midaz], 60, axes, WEIGHT);
+    const after = effectDeltasAt([fent, midaz, nlx], 60, axes, WEIGHT);
+    expect(after.rr).toBeGreaterThan(before.rr);
+    expect(after.gcs ?? 0).toBeLessThan(0);
+  });
+
+  it('shock feedback exaggerates nitroglycerin hypotension', () => {
+    const nitro = bolus('nitroglycerin', 0.4, 0, 'sl');
+    const axes = defaultPathophysiologyAxes();
+    const baseline = effectDeltasAt([nitro], 60, axes, WEIGHT);
+    const shocked = effectDeltasAt([nitro], 60, axes, WEIGHT, shockFeedback);
+    expect(shocked.sBp).toBeLessThan(baseline.sBp);
+    expect(shocked.dBp).toBeLessThan(baseline.dBp);
+  });
+
+  it('albuterol amplifies catecholamine tachycardia within a bound', () => {
+    const alb = bolus('albuterol', 2.5, 0, 'neb');
+    const epi = bolus('epinephrine-cardiac', 1, 0);
+    const axes = defaultPathophysiologyAxes();
+    const epiOnly = effectDeltasAt([epi], 60, axes, WEIGHT);
+    const combined = effectDeltasAt([epi, alb], 60, axes, WEIGHT);
+    expect(combined.hr).toBeGreaterThan(epiOnly.hr);
+    expect(combined.hr - epiOnly.hr).toBeLessThanOrEqual(8.01);
+  });
+});
+
 describe('mergeVitalsForDisplay', () => {
   it('rounds, clamps, and preserves baseline labels', () => {
     const merged = mergeVitalsForDisplay(
@@ -285,7 +366,7 @@ describe('mergeVitalsForDisplay', () => {
 
 describe('emptyDeltas', () => {
   it('returns all zero axes', () => {
-    expect(emptyDeltas()).toEqual({ hr: 0, sBp: 0, dBp: 0, rr: 0, spo2: 0 });
+    expect(emptyDeltas()).toEqual({ hr: 0, sBp: 0, dBp: 0, rr: 0, spo2: 0, gcs: 0 });
   });
 });
 

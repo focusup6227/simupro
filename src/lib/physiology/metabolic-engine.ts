@@ -1,5 +1,6 @@
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
 import type { DecompensationPhase } from '@/lib/physiology/autonomic-types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 const clamp = (x: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, x));
@@ -22,6 +23,7 @@ export type MetabolicTickInput = {
   lactateBump: number;
   /** From scenario.ageBand — scales anaerobic drift */
   pediatricScale: number;
+  feedback?: PhysiologyFeedbackSnapshot | null;
 };
 
 export function defaultMetabolicState(): MetabolicState {
@@ -66,10 +68,15 @@ export function tickMetabolic(
     0,
     2.2,
   );
+  const feedbackPerfusionStress = input.feedback
+    ? (1 - input.feedback.perfusionFactor) * 0.9 +
+      input.feedback.hypoxicDrive * 0.65 +
+      input.feedback.shockDrive * 0.75
+    : 0;
 
   let dLactate =
     0.012 *
-    perfusionStress *
+    clamp(perfusionStress + feedbackPerfusionStress, 0, 2.8) *
     (0.35 + infl * 0.65) *
     decompBoost *
     input.pediatricScale;
@@ -88,11 +95,15 @@ export function tickMetabolic(
     input.rrPerMin != null && input.rrPerMin > 22
       ? Math.min(0.04, (input.rrPerMin - 22) * 0.0015)
       : 0;
+  const feedbackVentilatoryCompensation = input.feedback
+    ? Math.min(0.035, input.feedback.acidemiaDrive * 0.02 + input.feedback.hypercarbicDrive * 0.015)
+    : 0;
 
   let ph =
     7.4 +
     (bicarbMeqL - 24) * 0.012 +
     rrAlk -
+    feedbackVentilatoryCompensation -
     (lactateMmol - 1) * 0.018;
   ph = clamp(ph, 6.75, 7.55);
 

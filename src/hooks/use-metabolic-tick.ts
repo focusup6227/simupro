@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo } from 'react';
 import { ENABLE_AUTONOMIC_ENGINE } from '@/lib/feature-flags';
-import { ENABLE_METABOLIC_ENGINE } from '@/lib/feature-flags';
+import {
+  ENABLE_METABOLIC_ENGINE,
+  ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE,
+} from '@/lib/feature-flags';
 import {
   conditionIdsForScenario,
   resolveComorbidityAxes,
@@ -10,6 +13,7 @@ import {
 import {
   metabolicPediatricScale,
 } from '@/lib/physiology/scenario-physiology-defaults';
+import { buildPhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 import type { Scenario } from '@/lib/types';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import { useAutonomicStore } from '@/stores/autonomic-store';
@@ -49,6 +53,9 @@ export function useMetabolicTick(opts: {
   const bpSys = usePhysiologyStore((s) => s.bpSys);
   const bpDia = usePhysiologyStore((s) => s.bpDia);
   const rrStr = usePhysiologyStore((s) => s.rr);
+  const hr = usePhysiologyStore((s) => s.hr);
+  const spo2 = usePhysiologyStore((s) => s.spo2);
+  const etco2 = usePhysiologyStore((s) => s.etco2);
 
   useEffect(() => {
     if (!ENABLE_METABOLIC_ENGINE || !opts.scenario) return;
@@ -58,6 +65,21 @@ export function useMetabolicTick(opts: {
 
     const mapMmHg =
       bpSys != null && bpDia != null ? mapFromBp(bpSys, bpDia) : null;
+    const bp =
+      bpSys != null && bpDia != null ? `${bpSys}/${bpDia}` : opts.scenario.initialVitals.bp;
+    const currentMetabolic = useMetabolicStore.getState().state;
+    const feedback = ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE
+      ? buildPhysiologyFeedbackSnapshot({
+          hr,
+          bp,
+          rr: rrStr,
+          spo2,
+          etco2,
+          ph: currentMetabolic.ph,
+          lactateMmol: currentMetabolic.lactateMmol,
+          axes,
+        })
+      : null;
 
     useMetabolicStore.getState().tickTo(opts.simSeconds, {
       axes,
@@ -74,6 +96,7 @@ export function useMetabolicTick(opts: {
       pediatricScale,
       allAutonomicEvents:
         ENABLE_AUTONOMIC_ENGINE && auto ? auto.events : [],
+      feedback,
     });
   }, [
     opts.scenario,
@@ -83,5 +106,8 @@ export function useMetabolicTick(opts: {
     bpSys,
     bpDia,
     rrStr,
+    hr,
+    spo2,
+    etco2,
   ]);
 }

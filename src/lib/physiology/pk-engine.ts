@@ -3,12 +3,14 @@ import type {
   DrugId,
   DrugPkParams,
   Effect,
+  Route,
   VitalAxis,
   VitalDeltas,
 } from '@/lib/physiology/pk-types';
 import { VITAL_AXES, zeroDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
 import { DRUG_PK_CATALOG } from '@/lib/physiology/drug-pk-catalog';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 /** Hemodynamic perfusion coupling factor — low CO blunts every clearance route. */
 function hemodynamicCouplingFactor(axes: PathophysiologyAxes): number {
@@ -28,13 +30,61 @@ function clamp01(x: number): number {
 export function effectiveKelPerMin(
   params: DrugPkParams,
   axes: PathophysiologyAxes,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): number {
   const clearance =
     params.hepaticWeight * clamp01(axes.metabolicClearance) +
     params.renalWeight * clamp01(axes.renalClearance);
-  const coupled = clearance * hemodynamicCouplingFactor(axes);
+  const dynamicPerfusion = feedback
+    ? Math.max(0.35, Math.min(1.08, 0.55 + 0.45 * feedback.perfusionFactor))
+    : 1;
+  const coupled = clearance * hemodynamicCouplingFactor(axes) * dynamicPerfusion;
   if (coupled <= 0) return params.kel_per_min * 0.05;
   return params.kel_per_min * coupled;
+}
+
+const PERFUSION_SENSITIVE_ROUTES = new Set<Route>([
+  'im',
+  'in',
+  'neb',
+  'inh',
+  'po',
+  'sl',
+]);
+
+function effectiveAbsorptionRate(
+  route: Route,
+  ka: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
+): number {
+  if (!feedback || !PERFUSION_SENSITIVE_ROUTES.has(route)) return ka;
+  return ka * Math.max(0.45, Math.min(1.05, 0.45 + 0.55 * feedback.perfusionFactor));
+}
+
+function apparentVdLiters(
+  params: DrugPkParams,
+  weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
+): number {
+  const base = params.Vd_L_per_kg * weightKg;
+  if (!feedback || feedback.shockDrive <= 0) return base;
+
+  if (
+    params.drugId === 'fentanyl' ||
+    params.drugId === 'midazolam' ||
+    params.drugId === 'ketamine'
+  ) {
+    return base * (1 + 0.15 * feedback.shockDrive);
+  }
+  if (
+    params.drugId === 'epinephrine-cardiac' ||
+    params.drugId === 'epinephrine-brady' ||
+    params.drugId === 'dopamine' ||
+    params.drugId === 'nitroglycerin'
+  ) {
+    return base * (1 - 0.1 * feedback.shockDrive);
+  }
+  return base;
 }
 
 /** mg/L plasma concentration contributed by a single discrete dose at `atSimSeconds`. */
@@ -44,6 +94,7 @@ export function concentrationAt(
   params: DrugPkParams,
   axes: PathophysiologyAxes,
   weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): number {
   if (dose.kind !== 'bolus') return 0;
   if (dose.doseMg == null || dose.doseMg <= 0) return 0;
@@ -51,9 +102,9 @@ export function concentrationAt(
   if (weightKg <= 0) return 0;
 
   const tMin = (atSimSeconds - dose.simSeconds) / 60;
-  const Vd = params.Vd_L_per_kg * weightKg;
+  const Vd = apparentVdLiters(params, weightKg, feedback);
   if (Vd <= 0) return 0;
-  const kel = effectiveKelPerMin(params, axes);
+  const kel = effectiveKelPerMin(params, axes, feedback);
   const D = dose.doseMg;
 
   const isIv = dose.route === 'iv' || dose.route === 'io';
@@ -61,7 +112,7 @@ export function concentrationAt(
     return (D / Vd) * Math.exp(-kel * tMin);
   }
 
-  const ka = params.ka_per_min;
+  const ka = effectiveAbsorptionRate(dose.route, params.ka_per_min, feedback);
   const F = params.bioavailability;
   if (Math.abs(ka - kel) < 1e-9) {
     return ((F * D * ka * tMin) / Vd) * Math.exp(-kel * tMin);
@@ -85,6 +136,7 @@ export function infusionConcentrationAt(
   params: DrugPkParams,
   axes: PathophysiologyAxes,
   weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): number {
   if (weightKg <= 0) return 0;
   const events = history
@@ -100,9 +152,9 @@ export function infusionConcentrationAt(
     .sort((a, b) => a.simSeconds - b.simSeconds);
   if (events.length === 0) return 0;
 
-  const Vd = params.Vd_L_per_kg * weightKg;
+  const Vd = apparentVdLiters(params, weightKg, feedback);
   if (Vd <= 0) return 0;
-  const kel = effectiveKelPerMin(params, axes);
+  const kel = effectiveKelPerMin(params, axes, feedback);
 
   let C = 0;
   let lastT = events[0]!.simSeconds;
@@ -155,6 +207,71 @@ function antagonistEc50(params: DrugPkParams): number {
   return 0.001;
 }
 
+function saturationFor(concs: Record<DrugId, number>, drugId: DrugId): number {
+  const params = DRUG_PK_CATALOG[drugId];
+  if (!params) return 0;
+  const ec50 = antagonistEc50(params);
+  const c = concs[drugId] ?? 0;
+  if (c <= 0) return 0;
+  return Math.max(0, Math.min(1, c / (ec50 + c)));
+}
+
+export function applyDrugInteractionPass(
+  input: VitalDeltas,
+  concs: Record<DrugId, number>,
+  axes: PathophysiologyAxes,
+  antagonistScale: Partial<Record<DrugId, number>> = {},
+  feedback?: PhysiologyFeedbackSnapshot | null,
+): VitalDeltas {
+  const deltas: VitalDeltas = { ...input };
+  const opioidSat = saturationFor(concs, 'fentanyl') * (antagonistScale.fentanyl ?? 1);
+  const benzoSat = saturationFor(concs, 'midazolam');
+  const naloxonePresent = saturationFor(concs, 'naloxone') > 0.05;
+
+  if (opioidSat > 0 && benzoSat > 0) {
+    const synergy = opioidSat * benzoSat;
+    deltas.rr += -4 * synergy;
+    deltas.spo2 += -2 * synergy;
+    deltas.gcs = (deltas.gcs ?? 0) - 3 * synergy;
+  }
+
+  if (benzoSat > 0) {
+    deltas.gcs = (deltas.gcs ?? 0) - 2.5 * benzoSat;
+  }
+  if (opioidSat > 0 && !naloxonePresent) {
+    deltas.gcs = (deltas.gcs ?? 0) - 1.5 * opioidSat;
+  }
+
+  const nitroSat = saturationFor(concs, 'nitroglycerin');
+  const shockDrive =
+    feedback?.shockDrive ??
+    Math.max(0, Math.min(1, (0.55 - clamp01(axes.hemodynamicReserve)) / 0.55));
+  if (nitroSat > 0 && shockDrive > 0) {
+    deltas.sBp += -10 * nitroSat * shockDrive;
+    deltas.dBp += -5 * nitroSat * shockDrive;
+  }
+
+  const adrenergicBlunt = Math.max(0, (0.35 - clamp01(axes.adrenergicReserve)) / 0.35);
+  const catecholamineSat =
+    saturationFor(concs, 'epinephrine-cardiac') +
+    saturationFor(concs, 'epinephrine-brady') +
+    saturationFor(concs, 'dopamine');
+  if (adrenergicBlunt > 0 && catecholamineSat > 0 && deltas.hr > 0) {
+    deltas.hr *= 1 - Math.min(0.45, adrenergicBlunt * 0.45);
+  }
+
+  const albuterolSat = saturationFor(concs, 'albuterol');
+  if (albuterolSat > 0 && catecholamineSat > 0) {
+    const adrenergicReserve = clamp01(axes.adrenergicReserve);
+    deltas.hr += Math.min(
+      8,
+      8 * albuterolSat * Math.min(1, catecholamineSat) * adrenergicReserve,
+    );
+  }
+
+  return deltas;
+}
+
 /**
  * Compute total per-drug plasma concentrations at `atSimSeconds`, summing every
  * bolus contribution plus the infusion segment for that drug.
@@ -164,6 +281,7 @@ export function concentrationsByDrugAt(
   atSimSeconds: number,
   axes: PathophysiologyAxes,
   weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): Record<DrugId, number> {
   const out: Partial<Record<DrugId, number>> = {};
   const infusionDrugs = new Set<DrugId>();
@@ -173,7 +291,7 @@ export function concentrationsByDrugAt(
     const params = DRUG_PK_CATALOG[dose.drugId];
     if (!params) continue;
     if (dose.kind === 'bolus') {
-      const c = concentrationAt(dose, atSimSeconds, params, axes, weightKg);
+      const c = concentrationAt(dose, atSimSeconds, params, axes, weightKg, feedback);
       out[dose.drugId] = (out[dose.drugId] ?? 0) + c;
     } else {
       infusionDrugs.add(dose.drugId);
@@ -190,6 +308,7 @@ export function concentrationsByDrugAt(
       params,
       axes,
       weightKg,
+      feedback,
     );
     out[drugId] = (out[drugId] ?? 0) + c;
   }
@@ -207,8 +326,9 @@ export function effectDeltasAt(
   atSimSeconds: number,
   axes: PathophysiologyAxes,
   weightKg: number,
+  feedback?: PhysiologyFeedbackSnapshot | null,
 ): VitalDeltas {
-  const concs = concentrationsByDrugAt(doseLog, atSimSeconds, axes, weightKg);
+  const concs = concentrationsByDrugAt(doseLog, atSimSeconds, axes, weightKg, feedback);
   const antagonistScale: Partial<Record<DrugId, number>> = {};
 
   for (const drugIdKey of Object.keys(concs) as DrugId[]) {
@@ -234,10 +354,10 @@ export function effectDeltasAt(
     for (const effect of params.effects) {
       const sat = (effect.emax * C) / (effect.ec50 + C);
       const modulated = applyModulator(sat, axes, effect.modulatedBy);
-      deltas[effect.axis] += modulated * scale;
+      deltas[effect.axis] = (deltas[effect.axis] ?? 0) + modulated * scale;
     }
   }
-  return deltas;
+  return applyDrugInteractionPass(deltas, concs, axes, antagonistScale, feedback);
 }
 
 /** Same shape as `Scenario['initialVitals']` to avoid a circular type import. */
@@ -307,6 +427,13 @@ export function mergeVitalsForDisplay(
     const merged = Math.max(0, Math.min(100, Math.round(spo2 + deltas.spo2)));
     const tail = suffixAfterNumber(baseline.spo2) || '%';
     out.spo2 = `${merged}${tail}`.trimEnd();
+  }
+
+  const gcs = parseLeadingNumber(baseline.gcs);
+  if (gcs != null && deltas.gcs != null) {
+    const merged = Math.max(3, Math.min(15, Math.round(gcs + deltas.gcs)));
+    const tail = suffixAfterNumber(baseline.gcs);
+    out.gcs = `${merged}${tail}`.trimEnd();
   }
 
   return out;

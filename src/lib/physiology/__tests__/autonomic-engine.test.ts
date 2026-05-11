@@ -5,6 +5,7 @@ import {
   defaultPathophysiologyAxes,
   resolveComorbidityAxes,
 } from '@/lib/physiology/comorbidity-resolve';
+import { buildPhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 import {
   defaultAutonomicState,
   mergeAutonomicWithPkDeltas,
@@ -150,6 +151,56 @@ describe('autonomic engine', () => {
     const r = tickAutonomic(st, 1, axes, obs, [], 0, zeroDeltas());
     expect(['compensated', 'decompensating', 'crashing']).toContain(
       r.state.decompensationPhase,
+    );
+  });
+
+  it('feedback drives RR up and penalizes vasoplegic BP response', () => {
+    const axes = defaultPathophysiologyAxes();
+    const feedback = buildPhysiologyFeedbackSnapshot({
+      hr: '120',
+      bp: '68/38',
+      rr: '32',
+      spo2: '84%',
+      etco2: '58 mmHg',
+      ph: 7.14,
+      lactateMmol: 7,
+      axes,
+    });
+    const observed = { ...baseVitals, bp: '68/38', spo2: '84%' };
+    const withoutFeedback = tickAutonomic(
+      defaultAutonomicState(undefined, 75),
+      1,
+      axes,
+      observed,
+      [],
+      0,
+      zeroDeltas(),
+    );
+    const withFeedbackNoPenalty = tickAutonomic(
+      defaultAutonomicState(undefined, 75),
+      1,
+      axes,
+      observed,
+      [],
+      0,
+      zeroDeltas(),
+      { ...feedback, vasoplegiaPenalty: 0 },
+    );
+    const withFeedback = tickAutonomic(
+      defaultAutonomicState(undefined, 75),
+      1,
+      axes,
+      observed,
+      [],
+      0,
+      zeroDeltas(),
+      feedback,
+    );
+    expect(withFeedback.deltasForStep.rr).toBeGreaterThan(
+      withoutFeedback.deltasForStep.rr,
+    );
+    expect(withFeedback.deltasForStep.sBp).toBeLessThan(
+      withFeedbackNoPenalty.deltasForStep.sBp,
     );
   });
 

@@ -9,6 +9,7 @@ import type {
 } from '@/lib/physiology/pk-types';
 import { zeroDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
+import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
 
 export type PkStoreState = {
   /** Server-durable dose log; the only field that survives a reload. */
@@ -29,7 +30,12 @@ export type PkStoreActions = {
   /** Append a dose locally (optimistic; the server-action mirrors it). */
   recordLocalDose: (dose: DoseRecord) => void;
   /** Re-derive concentrations + deltas at simulation second `simSec`. */
-  tickTo: (simSec: number, axes: PathophysiologyAxes, weightKg: number) => void;
+  tickTo: (
+    simSec: number,
+    axes: PathophysiologyAxes,
+    weightKg: number,
+    feedback?: PhysiologyFeedbackSnapshot | null,
+  ) => void;
   /** Clear every field; mirrors physiology-store.reset() on route change / end. */
   reset: () => void;
 };
@@ -65,7 +71,7 @@ export const usePkStore = create<PkStore>((set, get) => ({
   recordLocalDose: (dose) => {
     set((s) => ({ doses: dedupeById(s.doses, dose) }));
   },
-  tickTo: (simSec, axes, weightKg) => {
+  tickTo: (simSec, axes, weightKg, feedback) => {
     const { doses } = get();
     if (!doses.length) {
       set({
@@ -75,8 +81,8 @@ export const usePkStore = create<PkStore>((set, get) => ({
       });
       return;
     }
-    const concentrations = concentrationsByDrugAt(doses, simSec, axes, weightKg);
-    const deltas = effectDeltasAt(doses, simSec, axes, weightKg);
+    const concentrations = concentrationsByDrugAt(doses, simSec, axes, weightKg, feedback);
+    const deltas = effectDeltasAt(doses, simSec, axes, weightKg, feedback);
     set({ concentrations, deltas, lastTickSimSec: simSec });
   },
   reset: () => set(emptyState()),
