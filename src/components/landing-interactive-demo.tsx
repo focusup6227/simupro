@@ -531,9 +531,6 @@ export function LandingInteractiveDemo() {
               pulseless={false}
               onAction={(label) => appendEcgLog(label)}
               onRhythmChange={() => {}}
-              onMonitorMedication={(med) =>
-                appendEcgLog(`Medication (monitor menu): ${med.name}`)
-              }
             />
             <EquipmentDrawer />
 

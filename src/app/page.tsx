@@ -3,6 +3,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useUser } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +24,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LandingInteractiveDemo } from "@/components/landing-interactive-demo";
-import { SamplePerformanceReportPreview } from "@/components/sample-performance-report-preview";
 import { PREMIUM_MONTHLY_DISPLAY } from "@/lib/pricing-display";
+
+const LandingInteractiveDemo = dynamic(
+  () => import("@/components/landing-interactive-demo").then(m => ({ default: m.LandingInteractiveDemo })),
+  { loading: () => <div className="py-16 text-center text-muted-foreground">Loading interactive demo…</div> }
+);
+
+const SamplePerformanceReportPreview = dynamic(
+  () => import("@/components/sample-performance-report-preview").then(m => ({ default: m.SamplePerformanceReportPreview })),
+  { loading: () => null }
+);
 
 function LoadingScreen() {
   return (

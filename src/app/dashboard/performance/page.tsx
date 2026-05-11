@@ -2,7 +2,7 @@
 
 import { useCollection, useSupabase, useUser, useMemoSupabase } from "@/supabase";
 import type { SimulationSession, Insight, Scenario, RhythmQuizAttempt } from "@/lib/types";
-import { RhythmPerformanceSection } from "@/components/rhythm-performance-section";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -20,6 +20,11 @@ import { useEffect, useState, useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, BarChart as ReBarChart } from 'recharts';
 import { format } from "date-fns";
+
+const RhythmPerformanceSection = dynamic(
+  () => import("@/components/rhythm-performance-section").then(m => ({ default: m.RhythmPerformanceSection })),
+  { loading: () => <Skeleton className="h-64 w-full" /> }
+);
 
 type CombinedData = {
     session: SimulationSession;
