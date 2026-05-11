@@ -1,6 +1,7 @@
 
 import { ai } from '@/lib/genkit';
 import { z } from 'zod';
+import { AHA_ECC_GRADING_ANCHOR } from '@/lib/aha-ecc-clinical-anchors';
 import { GradeSimulationInputSchema, GradeSimulationOutputSchema } from '@/lib/types';
 
 export type GradeSimulationInput = z.infer<typeof GradeSimulationInputSchema>;
@@ -19,6 +20,11 @@ const prompt = ai.definePrompt({
     input: { schema: GradeSimulationInputSchema },
     output: { schema: GradeSimulationOutputSchema },
     prompt: `You are an **auditor for the agency whose protocol is attached as JSON below** — not a general-knowledge grader. Treat the **Protocol Source of Truth** as Law. For every learner treatment, perform the **Three-Point Check**: verify (1) **ID** (is this the right intervention for this presentation?), (2) **Dosage** (does the dose match the protocol row?), (3) **Indication** (do the vitals/context at that second match the row's \`indications\` and not its \`contraindications\`?). A clear mismatch is a Deviation; a clean match is a Win — you must record both.
+
+**AHA / ECC reference (training alignment — use only when protocol rows are silent on doses or sequence):**
+${AHA_ECC_GRADING_ANCHOR}
+
+**Conflict rule:** If a national-baseline or agency protocol row specifies a dose, route, or sequence that differs from the AHA anchor above, **follow the protocol row** for grading.
 
 **User's Role:** {{{userRole}}}
 

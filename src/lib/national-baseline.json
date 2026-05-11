@@ -2117,7 +2117,7 @@
         "Pacing pads",
         "Dopamine/epinephrine infusion"
       ],
-      "parameters": "Atropine 1 mg IV; TCP if refractory; treat underlying cause",
+      "parameters": "Symptomatic bradycardia: atropine 1 mg IV; repeat every 3–5 min to maximum 3 mg total; transcutaneous pacing if unstable or drugs inadequate; epinephrine or dopamine infusion if pacing delayed or ineffective (ACLS). Treat underlying causes.",
       "successCriteria": "HR and perfusion improved"
     }
   },
@@ -2210,7 +2210,7 @@
         "Epinephrine",
         "Advanced airway"
       ],
-      "parameters": "Quality CPR; shock VF/VT; epinephrine early; antiarrhythmics for refractory VF",
+      "parameters": "High-quality CPR (100–120/min); 30:2 compressions:ventilations without advanced airway; with advanced airway give continuous compressions with 1 breath every 6 seconds (~10/min). Shock VF/pulseless VT immediately; epinephrine 1 mg IV/IO every 3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine alternative) for refractory VF/pVT per ACLS. Do not defibrillate asystole/PEA—CPR, epinephrine, and treat causes.",
       "successCriteria": "ROSC or organized termination per guideline"
     }
   },
@@ -3091,7 +3091,7 @@
         "Cardioversion",
         "Amiodarone/procainamide for stable wide"
       ],
-      "parameters": "Vagal Valsalva for stable narrow; drugs per width and stability",
+      "parameters": "Unstable tachycardia with serious signs → immediate synchronized cardioversion (or unsynchronized if VF/pVT). Stable regular narrow-complex → vagal maneuvers then adenosine 6 mg rapid IV push then 12 mg; stable wide-complex VT → IV antiarrhythmic per ACLS (procainamide/amiodarone); irregular wide → avoid adenosine; polymorphic VT often unstable—defibrillate per ACLS.",
       "successCriteria": "Rate or rhythm controlled; perfusion restored"
     }
   },
