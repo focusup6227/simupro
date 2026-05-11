@@ -47,7 +47,13 @@ export async function POST(request: Request) {
   try {
     await enforceDemoPatientLimit(clientIp(request));
 
-    const json: unknown = await request.json();
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+
     const parsed = BodySchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
