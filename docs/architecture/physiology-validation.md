@@ -128,7 +128,7 @@ following as planned validation targets:
 | Opioid + benzodiazepine | RR/GCS depression exceeds either alone; naloxone reverses only opioid contribution. | Planned drug-interaction coverage. |
 | Cardiac arrest/ROSC | Pulseless EtCO2 remains low; ROSC produces sharp EtCO2 rise. | Partially covered by capno/EtCO2 behavior; integrated scenario test is planned. |
 | Massive overdose/profound shock | No NaN/Infinity; outputs stay clamped and plausible. | Planned stability coverage. |
-| Multi-hour replay | Replay remains deterministic and within acceptable runtime. | PK/autonomic deterministic replay is covered in focused tests; long integrated replay is planned. |
+| Multi-hour replay | Replay remains deterministic and within acceptable runtime. | PK/autonomic deterministic replay is covered in focused tests; long-term integrated browser-server parity is planned. |
 
 ## Feature-Flag Validation
 
