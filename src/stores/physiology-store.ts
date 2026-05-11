@@ -232,6 +232,9 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     if (ENABLE_METABOLIC_ENGINE) {
       useMetabolicStore.getState().reset();
     }
+    void import('@/stores/life-support-store').then(({ useLifeSupportStore }) => {
+      useLifeSupportStore.getState().reset();
+    });
     set({
       ...emptySlice(),
       availableMedications: [],
@@ -250,6 +253,8 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
           ...baseHw,
           isMonitorPowered: true,
           isFourLeadApplied: true,
+          /** Enables cardioversion/TCP on the unified monitor without an extra equipment click. */
+          isMonitorPadsApplied: true,
           isEkgChannelOn: true,
           isPulseOxApplied: true,
           isBpCuffApplied: true,
@@ -274,6 +279,9 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     if (opts?.warmStartMarketingMonitor) {
       get().requestNibpCycle();
     }
+    void import('@/stores/life-support-store').then(({ useLifeSupportStore }) => {
+      useLifeSupportStore.getState().reset();
+    });
   },
   pushAvailableMedication: (m) =>
     set((s) =>

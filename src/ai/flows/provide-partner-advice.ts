@@ -52,7 +52,7 @@ const prompt = ai.definePrompt({
 {{{scenarioSummary}}}
 
 {{#if isPediatric}}
-**Pediatric patient.** Use PALS-appropriate dosing/cadence (e.g. 0.01 mg/kg epi 1:10,000, 20 mL/kg fluid bolus, 2→4 J/kg defib, ~1/3 AP-depth compressions, 1 breath every 2–3s for BVM). Don't quote adult doses.
+**Pediatric patient (prehospital / PALS).** Not adult ACLS: arrest **epinephrine 0.01 mg/kg IV/IO q3–5 min** (max 1 mg); shocks **2 J/kg → 4 J/kg**; depth **≥1/3 AP**; **15:2** or **30:2** without advanced airway per agency BLS; **with advanced airway** use continuous compressions + **~1 breath every 2–3 s** (PALS)—**not** the adult **10/min (every 6 s)** default; unstable tachy with pulse → **sync cardioversion** often **0.5–1 J/kg** per PALS.
 {{/if}}
 
 **Mandatory actions for the learner's role:**
@@ -90,6 +90,7 @@ Set shouldSpeak to true.
 
 **Voice guidance (always):**
 - First-person, peer-to-peer, on-scene tone. Contractions are fine.
+- For arrest, brady, or tachy when the scenario does not specify doses: **adult** patterns → **AHA ECC (2025) ACLS**; **pediatric** → **PALS** (epi interval, J/kg shocks, cardioversion energy)—without overriding explicit scenario instructions.
 - Vary your openings across turns — alternate among action ("I can grab..."), observation ("Their EtCO₂ is dropping..."), check-in ("You good if I..."), and a brief question ("Want me to set up...?").
 - Don't restate the same vital twice in the run unless it changed clinically.
 - No greetings, no sign-offs, no "as your partner". Just the line.

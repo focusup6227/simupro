@@ -211,7 +211,15 @@ export default function DemoPage() {
             </Card>
             {cockpitHardwareReady ? (
               <>
-                <UnifiedCardiacMonitor scenario={scenario} />
+                <UnifiedCardiacMonitor
+                  scenario={scenario}
+                  onAction={(label) =>
+                    setMessages((prev) => [
+                      ...prev,
+                      { role: 'system', content: `Logged · ${label}` },
+                    ])
+                  }
+                />
                 <EquipmentDrawer />
               </>
             ) : (
