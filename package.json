@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "supabase db push --yes --linked",
-    "db:push:dry-run": "supabase db push --linked --dry-run"
+    "db:push:dry-run": "supabase db push --linked --dry-run",
+    "qa:scenario-roles": "tsx scripts/qa-dashboard-scenarios-roles.ts"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.0.0",
