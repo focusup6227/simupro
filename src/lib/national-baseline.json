@@ -1880,7 +1880,7 @@
         "Defibrillator",
         "Pads"
       ],
-      "parameters": "Biphasic per manufacturer; monophasic 360 J adult; minimize compression pause surrounding shock",
+      "parameters": "Biphasic per manufacturer; monophasic 360 J adult; pediatric manual energy **2 J/kg** initial then **4 J/kg** subsequent (pediatric attenuator or joules/kg per device); minimize compression pause surrounding shock",
       "successCriteria": "Rhythm no longer VF after shock; ROSC or organized rhythm"
     }
   },
@@ -2210,7 +2210,7 @@
         "Epinephrine",
         "Advanced airway"
       ],
-      "parameters": "High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min). Shock VF/pulseless VT promptly; epinephrine 1 mg IV/IO every 3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine alternative) for refractory VF/pVT per ACLS. Do not defibrillate asystole/PEA—CPR, epinephrine, and treat causes.",
+      "parameters": "**Adults (ACLS):** High-quality CPR: depth ≥2 in (≈5 cm), rate 100–120/min, full recoil, minimize pauses, chest compression fraction >80% when measured, no excessive ventilation; 30:2 without advanced airway; with advanced airway continuous compressions with 1 breath every 6 s (~10/min). Shock VF/pVT promptly; epinephrine 1 mg IV/IO q3–5 min; amiodarone 300 mg IV/IO then 150 mg IV/IO (or lidocaine) for refractory VF/pVT. Do not defibrillate asystole/PEA. **PALS:** epinephrine **0.01 mg/kg IV/IO q3–5 min**; VF/pVT **2 J/kg** then **4 J/kg**; compress ≥⅓ AP depth at 100–120/min; **15:2** (two rescuers) or **30:2** (single) without advanced airway; ~**10 breaths/min** with advanced airway; refractory VF/pVT **amiodarone 5 mg/kg** (max 300 mg).",
       "successCriteria": "ROSC or organized termination per guideline"
     }
   },
