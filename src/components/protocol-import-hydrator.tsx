@@ -16,22 +16,24 @@ const ExtractedSchema = z.array(BaselineInterventionSchema);
 export function ProtocolImportHydrator() {
   const { data: userData } = useDashboardProfile();
   const client = useSupabase();
+  const userId = userData?.id;
+  const isPremium = userData?.isPremium ?? false;
+  const activeProtocolImportId = userData?.activeProtocolImportId ?? null;
+  const activeWorkplaceProtocolImportId = userData?.activeWorkplaceProtocolImportId ?? null;
 
   useEffect(() => {
-    if (!client || !userData) return;
+    if (!client) return;
 
     const replaceCustomOverrides = useProtocolStore.getState().replaceCustomOverrides;
     const clearCustomOverrides = useProtocolStore.getState().clearCustomOverrides;
 
-    if (!userData.isPremium) {
+    if (!userId || !isPremium) {
       clearCustomOverrides();
       return;
     }
 
-    const workplaceActiveId = userData.activeWorkplaceProtocolImportId;
-    const personalActiveId = userData.activeProtocolImportId;
-    const activeId = workplaceActiveId ?? personalActiveId;
-    const sourceTable = workplaceActiveId ? 'workplace_protocol_imports' : 'user_protocol_imports';
+    const activeId = activeWorkplaceProtocolImportId ?? activeProtocolImportId;
+    const sourceTable = activeWorkplaceProtocolImportId ? 'workplace_protocol_imports' : 'user_protocol_imports';
 
     if (!activeId) {
       clearCustomOverrides();
@@ -67,10 +69,10 @@ export function ProtocolImportHydrator() {
     };
   }, [
     client,
-    userData?.id,
-    userData?.isPremium,
-    userData?.activeProtocolImportId,
-    userData?.activeWorkplaceProtocolImportId,
+    userId,
+    isPremium,
+    activeProtocolImportId,
+    activeWorkplaceProtocolImportId,
   ]);
 
   return null;

@@ -89,7 +89,7 @@ export function AdminProtocolImportReviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, selected, client]);
+  }, [open, selected, client, toast]);
 
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => {
     startTransition(() => {

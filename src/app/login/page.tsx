@@ -13,6 +13,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
+function safeRedirectPath(next: string | null): string {
+  if (!next) return '/dashboard';
+  if (!next.startsWith('/')) return '/dashboard';
+  if (next.startsWith('//')) return '/dashboard';
+  if (next.includes('\\')) return '/dashboard';
+  if (next.includes('@')) return '/dashboard';
+  if (/[\x00-\x1f]/.test(next)) return '/dashboard';
+  return next;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = useSupabase();
@@ -44,7 +54,11 @@ export default function LoginPage() {
         title: "Login Successful",
         description: "Welcome back!",
       });
-      router.push('/dashboard');
+      const next =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('next')
+          : null;
+      router.push(safeRedirectPath(next));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "An unexpected error occurred.";
       const isUnverified = /confirm|verify|email.*not.*confirmed/i.test(msg);
