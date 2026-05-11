@@ -125,8 +125,16 @@ export default function SettingsPage() {
   };
 
   const onSubmit = async (values: UserProfile) => {
-    if (!client || !authUser || !userData) {
+    if (!client || !authUser) {
       toast({ variant: 'destructive', title: 'Error', description: 'User not logged in.' });
+      return;
+    }
+    if (!userData) {
+      toast({
+        variant: 'destructive',
+        title: 'Profile not ready',
+        description: 'Your profile could not be loaded. Refresh the page or try again in a moment.',
+      });
       return;
     }
 
@@ -171,7 +179,7 @@ export default function SettingsPage() {
 
       if (userData.role === 'tester') {
         patch.test_role = values.role;
-      } else {
+      } else if (userData.role !== 'admin') {
         patch.role = values.role;
       }
 
