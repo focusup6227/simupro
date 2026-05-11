@@ -25,6 +25,7 @@ import {
   parseHeartRateBpm,
 } from '@/lib/vitals-parse';
 import { useMergedPkDisplay } from '@/hooks/use-merged-pk-display';
+import { useLifeSupportController } from '@/hooks/use-life-support-controller';
 import {
   Activity,
   Battery,
@@ -60,6 +61,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { usePhysiologyStore } from '@/stores/physiology-store';
+import { useLifeSupportStore } from '@/stores/life-support-store';
 import { InterventionMenu, MedicationMenu } from '@/components/monitor-menu';
 import type { Scenario } from '@/lib/types';
 import type { Medication, Procedure } from '@/types/protocol';
@@ -470,6 +472,179 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
   );
 });
 
+function LifeSupportTherapyPanel(props: {
+  /** Pads + ECG + power + strip live */
+  enabled: boolean;
+  onAction?: (label: string) => void;
+}) {
+  const {
+    energyJoules,
+    setEnergyJoules,
+    isSyncEnabled,
+    toggleSync,
+    beginCharge,
+    isCharging,
+    isCharged,
+    pressShock,
+    releaseShock,
+    isPacerEnabled,
+    setPacerEnabled,
+    pacerRatePpm,
+    setPacerRatePpm,
+    pacerOutputMa,
+    setPacerOutputMa,
+    pacerMode,
+    setPacerMode,
+  } = useLifeSupportStore(
+    useShallow((s) => ({
+      energyJoules: s.energyJoules,
+      setEnergyJoules: s.setEnergyJoules,
+      isSyncEnabled: s.isSyncEnabled,
+      toggleSync: s.toggleSync,
+      beginCharge: s.beginCharge,
+      isCharging: s.isCharging,
+      isCharged: s.isCharged,
+      pressShock: s.pressShock,
+      releaseShock: s.releaseShock,
+      isPacerEnabled: s.isPacerEnabled,
+      setPacerEnabled: s.setPacerEnabled,
+      pacerRatePpm: s.pacerRatePpm,
+      setPacerRatePpm: s.setPacerRatePpm,
+      pacerOutputMa: s.pacerOutputMa,
+      setPacerOutputMa: s.setPacerOutputMa,
+      pacerMode: s.pacerMode,
+      setPacerMode: s.setPacerMode,
+    })),
+  );
+
+  const btn =
+    'rounded-md border border-amber-600/80 bg-gradient-to-b from-amber-900/50 to-zinc-950 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-100 shadow-sm transition active:translate-y-px disabled:pointer-events-none disabled:opacity-35';
+  const btnLit =
+    'ring-2 ring-amber-400/50 shadow-[inset_0_0_10px_rgba(251,191,36,0.12)]';
+
+  if (!props.enabled) {
+    return (
+      <div className="rounded-md border border-zinc-700/60 bg-black/40 px-2 py-1.5 text-[9px] text-zinc-500">
+        Apply defib/monitor pads and enable ECG to use cardioversion / TCP.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-md border border-amber-800/50 bg-black/50 p-2">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-amber-200/90">
+        Defibrillator
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {([50, 100, 150, 200] as const).map((j) => (
+          <button
+            key={j}
+            type="button"
+            className={cn(btn, energyJoules === j && btnLit)}
+            onClick={() => {
+              setEnergyJoules(j);
+              props.onAction?.(`Defib energy ${j} J selected`);
+            }}
+          >
+            {j}J
+          </button>
+        ))}
+        <button
+          type="button"
+          className={cn(btn, isSyncEnabled && btnLit)}
+          onClick={() => {
+            const wasOn = isSyncEnabled;
+            toggleSync();
+            props.onAction?.(wasOn ? 'Sync mode off' : 'Sync mode on');
+          }}
+        >
+          Sync
+        </button>
+        <button
+          type="button"
+          className={cn(btn, (isCharging || isCharged) && btnLit)}
+          disabled={isCharged}
+          onClick={() => {
+            beginCharge();
+            props.onAction?.('Charging defibrillator');
+          }}
+        >
+          {isCharging ? 'Chrg…' : isCharged ? 'Rdy' : 'Charge'}
+        </button>
+        <button
+          type="button"
+          className={cn(
+            btn,
+            'min-w-[4.5rem] border-rose-700/80 bg-gradient-to-b from-rose-950/80 to-zinc-950 text-rose-100',
+          )}
+          disabled={!isCharged}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            pressShock();
+          }}
+          onPointerUp={() => releaseShock()}
+          onPointerLeave={() => releaseShock()}
+        >
+          Shock
+        </button>
+      </div>
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-cyan-200/85">
+        Transcutaneous pacing
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          className={cn(btn, isPacerEnabled && btnLit)}
+          onClick={() => {
+            const wasOn = isPacerEnabled;
+            setPacerEnabled(!isPacerEnabled);
+            props.onAction?.(wasOn ? 'TCP off' : 'TCP on');
+          }}
+        >
+          Pace
+        </button>
+        <label className="flex items-center gap-1 text-[9px] text-zinc-400">
+          Rate
+          <input
+            type="number"
+            min={40}
+            max={120}
+            className="w-12 rounded border border-zinc-600 bg-black px-1 py-0.5 font-mono text-[10px] text-zinc-100"
+            value={pacerRatePpm}
+            onChange={(e) =>
+              setPacerRatePpm(Number.parseInt(e.target.value, 10) || 60)
+            }
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[9px] text-zinc-400">
+          mA
+          <input
+            type="number"
+            min={0}
+            max={140}
+            step={5}
+            className="w-12 rounded border border-zinc-600 bg-black px-1 py-0.5 font-mono text-[10px] text-zinc-100"
+            value={pacerOutputMa}
+            onChange={(e) =>
+              setPacerOutputMa(Number.parseInt(e.target.value, 10) || 0)
+            }
+          />
+        </label>
+        <select
+          className="rounded border border-zinc-600 bg-black px-1 py-0.5 text-[9px] text-zinc-200"
+          value={pacerMode}
+          onChange={(e) =>
+            setPacerMode(e.target.value as 'DEMAND' | 'FIXED')
+          }
+        >
+          <option value="FIXED">Fixed</option>
+          <option value="DEMAND">Demand</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function MonitorHardwareBezel(props: {
   onTwelveLead: () => void;
   twelveLeadDisabled: boolean;
@@ -593,9 +768,6 @@ function MonitorHardwareBezel(props: {
           12-Lead
         </button>
       )}
-      <button type="button" className={rubber} disabled title="Not available in this build">
-        Sync
-      </button>
     </div>
   );
 }
@@ -651,7 +823,17 @@ export function UnifiedCardiacMonitor({
     [merged.hr, merged.bp, merged.rr, merged.spo2],
   );
 
-  const ctx = useMemo(() => {
+  const isMonitorPowered = usePhysiologyStore((s) => s.isMonitorPowered);
+  const { isFourLeadApplied, isMonitorPadsApplied, isEkgChannelOn } =
+    usePhysiologyStore(
+      useShallow((s) => ({
+        isFourLeadApplied: s.isFourLeadApplied,
+        isMonitorPadsApplied: s.isMonitorPadsApplied,
+        isEkgChannelOn: s.isEkgChannelOn,
+      })),
+    );
+
+  const baseCtx = useMemo(() => {
     const currentVitals = vitalsForDerive.hr
       ? {
           hr: vitalsForDerive.hr,
@@ -674,6 +856,39 @@ export function UnifiedCardiacMonitor({
     forcedRhythm,
     pulseless,
   ]);
+
+  const rhythmOverride = useLifeSupportStore((s) => s.rhythmOverride);
+  const pulselessOverride = useLifeSupportStore((s) => s.pulselessOverride);
+
+  const ctx = useMemo(() => {
+    const currentVitals = vitalsForDerive.hr
+      ? {
+          hr: vitalsForDerive.hr,
+          bp: vitalsForDerive.bp,
+          rr: vitalsForDerive.rr,
+          spo2: vitalsForDerive.spo2,
+        }
+      : null;
+    return deriveEcgScenarioContext({
+      scenario: scenario ?? null,
+      currentVitals,
+      cprActive,
+      forcedRhythm: rhythmOverride ?? forcedRhythm ?? null,
+      pulseless: pulselessOverride ?? pulseless,
+    });
+  }, [
+    scenario,
+    vitalsForDerive,
+    cprActive,
+    forcedRhythm,
+    pulseless,
+    rhythmOverride,
+    pulselessOverride,
+  ]);
+
+  useEffect(() => {
+    useLifeSupportStore.getState().setIntrinsicRhythmSnapshot(baseCtx.kind);
+  }, [baseCtx.kind]);
 
   const lastKindRef = useRef<EcgRhythmKind | null>(null);
   useEffect(() => {
@@ -730,18 +945,24 @@ export function UnifiedCardiacMonitor({
     onAction?.('Acquired 12-lead ECG');
   }, [ctx, onAction]);
 
-  const isMonitorPowered = usePhysiologyStore((s) => s.isMonitorPowered);
-  const { isFourLeadApplied, isMonitorPadsApplied, isEkgChannelOn } =
-    usePhysiologyStore(
-      useShallow((s) => ({
-        isFourLeadApplied: s.isFourLeadApplied,
-        isMonitorPadsApplied: s.isMonitorPadsApplied,
-        isEkgChannelOn: s.isEkgChannelOn,
-      })),
-    );
   const stripLeadsOff =
     !(isFourLeadApplied || isMonitorPadsApplied) || !isEkgChannelOn;
   const stripOff = !isMonitorPowered || stripLeadsOff;
+
+  useLifeSupportController({
+    enabled:
+      isMonitorPowered &&
+      isMonitorPadsApplied &&
+      isEkgChannelOn &&
+      !stripLeadsOff,
+    intrinsicKind: baseCtx.kind,
+    intrinsicRateBpm: baseCtx.rateBpm,
+  });
+
+  const lsSyncMarkers = useLifeSupportStore((s) => s.isSyncEnabled);
+  const lsPacerOn = useLifeSupportStore((s) => s.isPacerEnabled);
+  const lsPacerRate = useLifeSupportStore((s) => s.pacerRatePpm);
+
   const ecgLeadLabel = isFourLeadApplied ? 'II' : 'PADS';
   const capnoLive = usePhysiologyStore(
     (s) => s.capnoSensor != null && s.isEtco2ChannelOn,
@@ -866,6 +1087,21 @@ export function UnifiedCardiacMonitor({
                     height={176}
                     paused={!isMonitorPowered}
                     leadsOff={stripOff}
+                    lifeSupportShowSyncMarkers={
+                      isMonitorPowered &&
+                      isMonitorPadsApplied &&
+                      isEkgChannelOn &&
+                      !stripLeadsOff &&
+                      lsSyncMarkers
+                    }
+                    lifeSupportTcpEnabled={
+                      isMonitorPowered &&
+                      isMonitorPadsApplied &&
+                      isEkgChannelOn &&
+                      !stripLeadsOff &&
+                      lsPacerOn
+                    }
+                    lifeSupportTcpRatePpm={lsPacerRate}
                   />
                   {!isMonitorPowered ? (
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55">
@@ -890,6 +1126,15 @@ export function UnifiedCardiacMonitor({
                       ? merged.assistedRateBpm
                       : undefined
                   }
+                />
+                <LifeSupportTherapyPanel
+                  enabled={
+                    isMonitorPowered &&
+                    isMonitorPadsApplied &&
+                    isEkgChannelOn &&
+                    !stripLeadsOff
+                  }
+                  onAction={onAction}
                 />
                 <TooltipProvider delayDuration={350}>
                   <MonitorHardwareBezel

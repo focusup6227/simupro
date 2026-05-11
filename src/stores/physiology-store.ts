@@ -232,6 +232,9 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     if (ENABLE_METABOLIC_ENGINE) {
       useMetabolicStore.getState().reset();
     }
+    void import('@/stores/life-support-store').then(({ useLifeSupportStore }) => {
+      useLifeSupportStore.getState().reset();
+    });
     set({
       ...emptySlice(),
       availableMedications: [],
@@ -274,6 +277,9 @@ export const usePhysiologyStore = create<PhysiologyStore>((set, get) => ({
     if (opts?.warmStartMarketingMonitor) {
       get().requestNibpCycle();
     }
+    void import('@/stores/life-support-store').then(({ useLifeSupportStore }) => {
+      useLifeSupportStore.getState().reset();
+    });
   },
   pushAvailableMedication: (m) =>
     set((s) =>
