@@ -44,9 +44,10 @@ The monitor is not just a static vitals card. Simu-Pro combines the scenario's s
 Several physiology layers are active today:
 - **Medication effects**: The pharmacokinetics/pharmacodynamics engine is enabled. Doses, routes, infusion rates, patient weight, and comorbidity-derived physiology traits influence drug concentrations and vital-sign changes.
 - **Autonomic and volume response**: The autonomic engine is enabled. Bleeding, fluids, oxygen, airway support, shock physiology, and stress events can change the patient's compensation and decompensation trend.
+- **Bounded feedback overlay**: The monitor derives a transient snapshot from current vitals, EtCO2, comorbidity axes, and metabolic state when available. That snapshot can shape perfusion-sensitive drug behavior, respiratory drive, vascular response, and lung-mechanics display while staying clamped and replayable.
 - **Capnography and lung mechanics**: EtCO2 and the waveform respond to ventilation mode, perfusion state, airway obstruction, comorbidities, and selected medication effects. For example, bronchospasm can create a shark-fin waveform, CPR/arrest can keep EtCO2 low, and ROSC can produce a sharp EtCO2 rise.
 
-Some deeper physiology is still being validated. A simplified metabolic acid-base engine exists behind a feature flag and is not enabled by default yet, so public simulations should not be interpreted as full lab-grade acid-base modeling. A planned feedback layer will make perfusion, hypoxia, hypercarbia, acidemia, and drug interactions influence each other more directly while remaining bounded and replayable; until that work ships, those details should be treated as roadmap behavior rather than current product behavior.
+Some deeper physiology is still being validated. A simplified metabolic acid-base engine exists behind a feature flag and is not enabled by default yet, so public simulations should not be interpreted as full lab-grade acid-base modeling. The feedback overlay is designed for teaching realism and deterministic replay, not real-patient clinical prediction.
 
 ### Special Case: Cardiac Arrest
 For scenarios identified as a cardiac arrest, the interface changes to improve realism:
