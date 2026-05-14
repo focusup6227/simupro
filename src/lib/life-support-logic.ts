@@ -10,16 +10,31 @@ export function isOrganizedTachyForCardioversion(kind: EcgRhythmKind): boolean {
   return false;
 }
 
-/** VF or pulseless VT — unsynchronized defibrillation may terminate the rhythm (training model). */
+/**
+ * Identifies rhythms that are shockable in cardiac arrest.
+ *
+ * @param kind - The ECG rhythm kind to evaluate.
+ * @returns `true` if the rhythm is `vfib` or `pulseless_vt`, `false` otherwise.
+ */
 export function isShockableArrestRhythm(kind: EcgRhythmKind): boolean {
   return kind === 'vfib' || kind === 'pulseless_vt';
 }
 
-/** Asystole, PEA, agonal — no defibrillation benefit in ACLS-style teaching flows. */
+/**
+ * Determines whether the rhythm represents a non-shockable pulseless arrest.
+ *
+ * @returns `true` if `kind` is 'asystole', 'pea', or 'agonal', `false` otherwise.
+ */
 export function isNonShockablePulselessArrest(kind: EcgRhythmKind): boolean {
   return kind === 'asystole' || kind === 'pea' || kind === 'agonal';
 }
 
+/**
+ * Provides the baseline success rate used for cardioversion calculations for a given ECG rhythm.
+ *
+ * @param kind - The ECG rhythm kind to look up
+ * @returns The base success rate for `kind`. Values: `svt` => 0.72, `sinus_tach` => 0.68, `vt` => 0.55, `afib` => 0.48, `aflutter` => 0.52, all other kinds => 0.5
+ */
 function cardioversionBaseRate(kind: EcgRhythmKind): number {
   switch (kind) {
     case 'svt':
@@ -37,6 +52,15 @@ function cardioversionBaseRate(kind: EcgRhythmKind): number {
   }
 }
 
+/**
+ * Estimate the probability of successful electrical cardioversion for a given rhythm using energy delivered, prior attempts, and rhythm resistance.
+ *
+ * @param opts.kind - Rhythm kind being treated
+ * @param opts.energyJoules - Energy delivered in joules
+ * @param opts.attempts - Number of prior cardioversion attempts (used to apply fatigue penalty)
+ * @param opts.rhythmResistance - Scaling factor representing rhythm resistance to cardioversion
+ * @returns A probability between 0.06 and 0.94 indicating the estimated chance of successful cardioversion
+ */
 export function cardioversionSuccessProbability(opts: {
   kind: EcgRhythmKind;
   energyJoules: number;
@@ -53,6 +77,13 @@ export function cardioversionSuccessProbability(opts: {
   return Math.min(0.94, Math.max(0.06, scaled));
 }
 
+/**
+ * Classifies transcutaneous pacing capture based on the difference between output and threshold.
+ *
+ * @param outputMa - Pacing output in milliamps (mA)
+ * @param thresholdMa - Measured capture threshold in milliamps (mA)
+ * @returns `'full'` when `outputMa` is more than 2 mA above `thresholdMa`, `'intermittent'` when the difference is within ±2 mA, `'none'` otherwise
+ */
 export function tcpCaptureBand(
   outputMa: number,
   thresholdMa: number,

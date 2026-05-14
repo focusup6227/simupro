@@ -95,6 +95,9 @@ export interface LifeSupportStore {
 
 let chargeTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Clears the module-level charge timer and resets its reference to null.
+ */
 function clearChargeTimer() {
   if (chargeTimer != null) {
     clearTimeout(chargeTimer);
@@ -102,12 +105,24 @@ function clearChargeTimer() {
   }
 }
 
+/**
+ * Create randomized hidden patient variables used by pacing and capture logic.
+ *
+ * @returns An object with:
+ *  - `captureThresholdMa`: an integer milliamperes threshold between 40 and 100 (inclusive).
+ *  - `rhythmResistance`: a floating-point multiplier between 0.85 (inclusive) and 1.13 (exclusive).
+ */
 function initialHiddenVars() {
   const captureThresholdMa = 40 + Math.floor(Math.random() * 61);
   const rhythmResistance = 0.85 + Math.random() * 0.28;
   return { captureThresholdMa, rhythmResistance };
 }
 
+/**
+ * Creates baseline hardware and transient defaults for the life support store.
+ *
+ * @returns An object with default values for charging state, pacer parameters, TCP capture fields, rhythm/pulseless overrides, transient/stun timing and exit, cardioversion attempts, intrinsic rhythm snapshot, and learner hint suitable for initializing or resetting the store.
+ */
 function emptyHardware(): Pick<
   LifeSupportStore,
   | 'energyJoules'
@@ -159,6 +174,18 @@ function emptyHardware(): Pick<
   };
 }
 
+/**
+ * Create a store fragment that begins a 2.6-second "stunned" transient with the provided exit behavior.
+ *
+ * @param nowMs - Current time in milliseconds used to compute when the transient ends
+ * @param exit - How rhythm should resolve when the stunned period ends
+ * @returns An object containing the transient state to apply to the store:
+ * - `transientPhase: 'stunned'` — marks the store as in the stunned phase
+ * - `transientEndsAtMs` — timestamp (`nowMs + 2600`) when the stunned phase should end
+ * - `rhythmOverride: 'asystole'` — immediate rhythm override while stunned
+ * - `pulselessOverride: false` — pulseless status while stunned
+ * - `stunnedExit` — the provided exit specification applied when the transient ends
+ */
 function enterStunned(nowMs: number, exit: StunnedExit) {
   return {
     transientPhase: 'stunned' as const,
