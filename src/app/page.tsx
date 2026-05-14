@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from "react";
@@ -6,7 +5,6 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useUser } from "@/supabase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppLogo from "@/components/app-logo";
 import {
   ArrowRight,
@@ -15,7 +13,6 @@ import {
   Calculator,
   CheckCircle2,
   HeartPulse,
-  Layers,
   Quote,
   ShieldCheck,
   Sparkles,
@@ -23,42 +20,49 @@ import {
   Stethoscope,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PREMIUM_MONTHLY_DISPLAY } from "@/lib/pricing-display";
 
 const LandingInteractiveDemo = dynamic(
-  () => import("@/components/landing-interactive-demo").then(m => ({ default: m.LandingInteractiveDemo })),
-  { loading: () => <div className="py-16 text-center text-muted-foreground">Loading interactive demo…</div> }
+  () =>
+    import("@/components/landing-interactive-demo").then((m) => ({
+      default: m.LandingInteractiveDemo,
+    })),
+  {
+    loading: () => (
+      <div className="py-16 text-center text-white/40">Loading interactive demo…</div>
+    ),
+  }
 );
 
 const SamplePerformanceReportPreview = dynamic(
-  () => import("@/components/sample-performance-report-preview").then(m => ({ default: m.SamplePerformanceReportPreview })),
+  () =>
+    import("@/components/sample-performance-report-preview").then((m) => ({
+      default: m.SamplePerformanceReportPreview,
+    })),
   { loading: () => null }
 );
 
 function LoadingScreen() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen" style={{ background: "#020918" }}>
       <div className="p-8 max-w-md w-full">
         <div className="flex justify-center mb-6">
           <AppLogo />
         </div>
-        <Skeleton className="h-8 w-3/4 mx-auto mb-4" />
-        <Skeleton className="h-4 w-1/2 mx-auto" />
+        <Skeleton className="h-8 w-3/4 mx-auto mb-4 bg-white/10" />
+        <Skeleton className="h-4 w-1/2 mx-auto bg-white/10" />
       </div>
     </div>
   );
 }
 
-
 export default function LandingPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  /** Middleware normally redirects authenticated users server-side — this is fallback only (no spinner during auth bootstrap). */
   useEffect(() => {
-    if (!isUserLoading && user) router.replace('/dashboard');
+    if (!isUserLoading && user) router.replace("/dashboard");
   }, [user, isUserLoading, router]);
 
   if (!isUserLoading && user) {
@@ -66,182 +70,295 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background">
-      <header className="container mx-auto px-4 sm:px-6 lg:px-8 min-h-16 sm:min-h-20 flex flex-wrap items-center justify-between gap-y-2 py-2 sm:py-0">
-        <AppLogo />
-        <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 md:gap-4">
-          <Button variant="ghost" asChild size="sm" className="sm:h-10 px-2.5 sm:px-4">
-            <Link href="/#try-cockpit"><span className="sm:hidden">Cockpit</span><span className="hidden sm:inline">Try the full cockpit</span></Link>
-          </Button>
-          <Button variant="ghost" asChild size="sm" className="sm:h-10 px-2.5 sm:px-4">
-            <Link href="/login">Log In</Link>
-          </Button>
-          <Button asChild size="sm" className="sm:h-10">
-             <Link href="/signup">Sign Up <ArrowRight className="ml-1 hidden sm:inline md:inline" /></Link>
-          </Button>
+    /* `dark` forces shadcn's dark CSS-variable set for all children */
+    <div
+      className="dark flex min-h-screen min-w-0 flex-col overflow-x-hidden"
+      style={{ background: "#020918" }}
+    >
+      {/* ── Ambient background orbs (fixed, behind everything) ── */}
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+        aria-hidden
+      >
+        <div className="landing-orb-1" />
+        <div className="landing-orb-2" />
+        <div className="landing-orb-3" />
+        {/* Subtle noise texture */}
+        <div
+          className="absolute inset-0 opacity-[0.018]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: "128px 128px",
+          }}
+        />
+      </div>
+
+      {/* ── Header ── */}
+      <header
+        className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl"
+        style={{ background: "rgba(2, 9, 24, 0.75)" }}
+      >
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 min-h-16 sm:min-h-20 flex flex-wrap items-center justify-between gap-y-2 py-2 sm:py-0">
+          <AppLogo />
+          <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 md:gap-4">
+            <Button
+              variant="ghost"
+              asChild
+              size="sm"
+              className="sm:h-10 px-2.5 sm:px-4 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Link href="/#try-cockpit">
+                <span className="sm:hidden">Cockpit</span>
+                <span className="hidden sm:inline">Try the full cockpit</span>
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              asChild
+              size="sm"
+              className="sm:h-10 px-2.5 sm:px-4 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Link href="/login">Log In</Link>
+            </Button>
+            <Button asChild size="sm" className="sm:h-10 landing-btn-primary">
+              <Link href="/signup">
+                Get Started <ArrowRight className="ml-1 hidden sm:inline h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 
       <main id="main-content" className="flex-grow">
-        {/* Hero Section */}
+        {/* ── Hero ── */}
         <section
-          className="relative isolate overflow-hidden py-12 sm:py-20 lg:py-32 text-white"
+          className="relative isolate overflow-hidden py-24 sm:py-32 lg:py-44 text-white"
           aria-labelledby="landing-hero-heading"
         >
-          <Image
-            src="/landing/hero-background.jpg"
-            alt=""
-            fill
-            priority
-            className="object-cover object-center"
-            sizes="100vw"
-          />
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[hsl(222_44%_7%/0.94)] via-[hsl(222_40%_9%/0.78)] to-[hsl(222_48%_5%/0.92)]"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_70%_at_50%_-10%,hsl(190_92%_48%/0.12)_0%,transparent_55%)]"
-            aria-hidden
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/45" aria-hidden />
           <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl text-center mx-auto">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-4 py-1.5 text-xs font-medium text-sky-300 mb-8 backdrop-blur-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                AI-powered · No credit card required
+              </div>
+
               <h1
                 id="landing-hero-heading"
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight drop-shadow-sm"
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08]"
               >
-                AI-Powered EMS Training for Modern Heroes
+                <span className="text-white">EMS Training</span>
+                <br />
+                <span className="landing-gradient-text">Built for the Field</span>
               </h1>
-              <p className="mt-6 text-base sm:text-lg md:text-xl text-gray-300">
-                Master critical decision-making with AI-driven patients plus a structured physiology layer—pathophysiology, weight-aware treatment hooks, and autonomic modeling where scenarios enable it. Go from rookie to pro with EMS Simu-Pro.
+
+              <p className="mt-6 text-base sm:text-lg md:text-xl text-white/55 max-w-2xl mx-auto leading-relaxed">
+                Master critical decision-making with AI-driven patients, real physiology
+                modeling, and personalized coaching — so every rep builds real skill.
               </p>
-              <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
-                <Button size="lg" asChild className="w-full sm:w-auto min-h-11">
+
+              <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
+                <Button
+                  size="lg"
+                  asChild
+                  className="w-full sm:w-auto min-h-12 landing-btn-primary text-base font-semibold"
+                >
                   <Link href="/signup">Get Started for Free</Link>
                 </Button>
-                <Button size="lg" variant="secondary" asChild className="w-full sm:w-auto min-h-11">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  asChild
+                  className="w-full sm:w-auto min-h-12 border-white/20 bg-white/[0.06] text-white hover:bg-white/10 hover:border-white/30 text-base backdrop-blur-sm"
+                >
                   <Link href="/#try-cockpit">Try the full cockpit</Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild className="w-full sm:w-auto min-h-11 bg-transparent text-white hover:bg-white/10 border-white/40">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  asChild
+                  className="w-full sm:w-auto min-h-12 border-amber-400/30 bg-amber-400/[0.06] text-amber-300 hover:bg-amber-400/10 hover:border-amber-400/50 text-base"
+                >
                   <Link href="/billing">See Premium</Link>
                 </Button>
               </div>
+
+              <p className="mt-6 text-xs text-white/30">
+                Free forever · Upgrade anytime · Cancel anytime
+              </p>
             </div>
           </div>
+
+          {/* bottom edge accent */}
+          <div
+            className="pointer-events-none absolute bottom-0 inset-x-0 h-px"
+            style={{
+              background:
+                "linear-gradient(to right, transparent, rgba(14,165,233,0.35), transparent)",
+            }}
+            aria-hidden
+          />
         </section>
 
+        {/* ── Interactive Demo ── */}
         <LandingInteractiveDemo />
 
+        {/* ── Performance report preview ── */}
         <SamplePerformanceReportPreview />
 
-        {/* Features Section */}
-        <section className="py-12 sm:py-20 lg:py-28">
+        {/* ── Features ── */}
+        <section className="py-20 sm:py-28 lg:py-36">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-10 sm:mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold">Why EMS Simu-Pro?</h2>
-              <p className="mt-4 text-lg text-muted-foreground">The ultimate training ground for EMTs, Paramedics, and Students.</p>
+            <div className="text-center mb-14">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-400 mb-3">
+                Why SimuPro
+              </p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+                The ultimate EMS training ground
+              </h2>
+              <p className="mt-4 text-lg text-white/45 max-w-2xl mx-auto">
+                For EMTs, Paramedics, and Students at every stage.
+              </p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
-              <div className="flex flex-col items-center">
-                <div className="p-4 bg-primary/10 rounded-full mb-4">
-                  <BrainCircuit className="h-10 w-10 text-primary" />
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {[
+                {
+                  icon: <BrainCircuit className="h-5 w-5" />,
+                  color: "text-violet-400",
+                  bg: "bg-violet-500/10 border-violet-500/20",
+                  title: "AI + Authored Physiology",
+                  desc: "Natural-language patients plus scenario-driven layers for vitals, fluids, and meds — practice feels clinical, not canned.",
+                },
+                {
+                  icon: <Stethoscope className="h-5 w-5" />,
+                  color: "text-sky-400",
+                  bg: "bg-sky-500/10 border-sky-500/20",
+                  title: "Personalized Feedback",
+                  desc: "Instant performance analysis against your role's objectives, with deeper coaching on Premium.",
+                },
+                {
+                  icon: <ShieldCheck className="h-5 w-5" />,
+                  color: "text-emerald-400",
+                  bg: "bg-emerald-500/10 border-emerald-500/20",
+                  title: "Train for Your Scope",
+                  desc: "Scenarios and grading follow EMT, AEMT, and Paramedic lanes so you're never studying out of scope.",
+                },
+                {
+                  icon: <HeartPulse className="h-5 w-5" />,
+                  color: "text-rose-400",
+                  bg: "bg-rose-500/10 border-rose-500/20",
+                  title: "ECG Trainer (Premium)",
+                  desc: "Dedicated rhythm practice with difficulty levels, family filters, and session stats — outside of live scenarios.",
+                },
+                {
+                  icon: <Calculator className="h-5 w-5" />,
+                  color: "text-amber-400",
+                  bg: "bg-amber-500/10 border-amber-500/20",
+                  title: "Tools & References",
+                  desc: "Drug calculator, abbreviations, and an intervention guide — quick references alongside your simulations.",
+                },
+                {
+                  icon: <BarChart3 className="h-5 w-5" />,
+                  color: "text-cyan-400",
+                  bg: "bg-cyan-500/10 border-cyan-500/20",
+                  title: "Performance & Streaks",
+                  desc: "Track scores over time and build daily training streaks to keep your skills sharp.",
+                },
+              ].map((f, i) => (
+                <div
+                  key={i}
+                  className="landing-glass-card group rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/14"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${f.bg} ${f.color}`}
+                  >
+                    {f.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white mb-1.5">{f.title}</h3>
+                    <p className="text-sm text-white/45 leading-relaxed">{f.desc}</p>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">AI + authored physiology</h3>
-                <p className="text-muted-foreground">Natural-language patients plus scenario-driven layers for vitals trends, fluids and meds where the case enables them—so practice feels clinical, not canned.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                 <div className="p-4 bg-primary/10 rounded-full mb-4">
-                   <Stethoscope className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Personalized feedback</h3>
-                <p className="text-muted-foreground">Instant performance analysis against your role’s objectives, with deeper coaching when you are on Premium.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                 <div className="p-4 bg-primary/10 rounded-full mb-4">
-                   <ShieldCheck className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Train for your scope</h3>
-                <p className="text-muted-foreground">Scenarios and grading follow EMT, AEMT, and Paramedic lanes so you are not studying out of scope.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="p-4 bg-primary/10 rounded-full mb-4">
-                  <HeartPulse className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">ECG Trainer (Premium)</h3>
-                <p className="text-muted-foreground">Dedicated rhythm practice with difficulty levels, family filters, and session stats—outside of live scenarios.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="p-4 bg-primary/10 rounded-full mb-4">
-                  <Calculator className="h-9 w-9 sm:h-10 sm:w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Tools &amp; References</h3>
-                <p className="text-muted-foreground">Drug calculator, abbreviations, and an intervention guide—quick references alongside your simulations.</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="p-4 bg-primary/10 rounded-full mb-4">
-                  <BarChart3 className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Performance &amp; Streaks</h3>
-                <p className="text-muted-foreground">Track scores over time and build daily training streaks to keep your skills sharp.</p>
-              </div>
+              ))}
             </div>
           </div>
         </section>
-        
-        {/* How It Works Section */}
-        <section className="bg-muted py-12 sm:py-20 lg:py-28">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-10 sm:mb-12">
-                    <h2 className="text-3xl md:text-4xl font-bold">How It Works</h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-10">
-                    <Card className="min-w-0">
-                        <CardHeader>
-                            <CardTitle as="h3" className="text-xl font-semibold mb-2">1. Choose Your Scenario</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground">Pick a case from the library—classic EMS scenarios on the free tier, engine-backed physiology scenarios when your account includes Premium.</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="min-w-0">
-                        <CardHeader>
-                           <CardTitle as="h3" className="text-xl font-semibold mb-2">2. Assess and Treat</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground">Interact with an AI patient; on engine scenarios, interventions can feed deterministic hooks so vitals and teaching rails track what you did.</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="min-w-0">
-                        <CardHeader>
-                            <CardTitle as="h3" className="text-xl font-semibold mb-2">3. Get Your Grade</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground">Receive an instant, AI-powered report on your performance and how to improve.</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="min-w-0">
-                        <CardHeader>
-                            <CardTitle as="h3" className="text-xl font-semibold mb-2">4. Explore Tools</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground">Use the drug calculator, ECG Trainer (Premium), Performance dashboard, and reference pages between runs.</p>
-                        </CardContent>
-                    </Card>
-                </div>
+
+        {/* ── How It Works ── */}
+        <section
+          className="py-20 sm:py-28"
+          style={{ background: "rgba(255,255,255,0.025)" }}
+        >
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-14">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-400 mb-3">
+                The Process
+              </p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+                How It Works
+              </h2>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 relative">
+              {/* Connector line — desktop only */}
+              <div
+                className="hidden lg:block absolute top-8 left-[12.5%] right-[12.5%] h-px pointer-events-none"
+                style={{
+                  background:
+                    "linear-gradient(to right, transparent, rgba(14,165,233,0.3), transparent)",
+                }}
+                aria-hidden
+              />
+
+              {[
+                {
+                  n: "01",
+                  title: "Choose Your Scenario",
+                  desc: "Pick a case from the library — classic EMS scenarios free, physiology-engine cases with Premium.",
+                },
+                {
+                  n: "02",
+                  title: "Assess and Treat",
+                  desc: "Interact with an AI patient; interventions feed deterministic hooks so vitals track what you did.",
+                },
+                {
+                  n: "03",
+                  title: "Get Your Grade",
+                  desc: "Receive an instant, AI-powered report on your performance and how to improve.",
+                },
+                {
+                  n: "04",
+                  title: "Explore Tools",
+                  desc: "Use the drug calculator, ECG Trainer, Performance dashboard, and references between runs.",
+                },
+              ].map((step, i) => (
+                <div key={i} className="landing-glass-card rounded-2xl p-6">
+                  <div className="text-5xl font-black text-white/[0.05] mb-4 leading-none select-none tabular-nums">
+                    {step.n}
+                  </div>
+                  <h3 className="text-sm font-semibold text-white mb-2">{step.title}</h3>
+                  <p className="text-sm text-white/45 leading-relaxed">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* Testimonials */}
-        <section className="bg-muted/50 py-12 sm:py-16 lg:py-20">
+        {/* ── Testimonials ── */}
+        <section className="py-20 sm:py-28">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-10 text-center">
-              <h2 className="text-3xl font-bold md:text-4xl">What learners say</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+            <div className="text-center mb-14">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-400 mb-3">
+                From the Field
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold text-white">What learners say</h2>
+              <p className="mt-2 text-sm text-white/30">
                 Spot holders — replace with real quotes from agencies or graduates whenever you have them.
               </p>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
+
+            <div className="grid gap-5 md:grid-cols-3">
               {[
                 {
                   quote:
@@ -259,183 +376,334 @@ export default function LandingPage() {
                   attribution: "AEMT · Field clinician",
                 },
               ].map((t, idx) => (
-                <Card key={idx}>
-                  <CardHeader className="pb-2">
-                    <Quote className="h-8 w-8 text-primary/70" aria-hidden />
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm leading-relaxed text-foreground/90">&ldquo;{t.quote}&rdquo;</p>
-                    <p className="text-xs font-medium text-muted-foreground">{t.attribution}</p>
-                  </CardContent>
-                </Card>
+                <div
+                  key={idx}
+                  className="landing-glass-card rounded-2xl p-6 flex flex-col gap-4"
+                >
+                  <Quote className="h-7 w-7 text-sky-400/50 shrink-0" aria-hidden />
+                  <p className="text-sm leading-relaxed text-white/65 flex-1">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                  <p className="text-xs font-medium text-white/30">{t.attribution}</p>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing" className="py-12 sm:py-20 lg:py-28">
+        {/* ── Pricing ── */}
+        <section
+          id="pricing"
+          className="py-20 sm:py-28"
+          style={{ background: "rgba(255,255,255,0.025)" }}
+        >
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-10 sm:mb-12 text-center">
-              <h2 className="text-3xl md:text-4xl font-bold">Simple Pricing</h2>
-              <p className="mt-4 text-lg text-muted-foreground">
+            <div className="mb-14 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-400 mb-3">
+                Pricing
+              </p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+                Simple, honest pricing
+              </h2>
+              <p className="mt-4 text-lg text-white/45">
                 Free is real, not a trial. Upgrade when you want the deeper experience.
               </p>
             </div>
 
-            <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
-              <Card className="flex flex-col min-w-0">
-                <CardHeader>
-                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Free</p>
-                  <CardTitle className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
-                    $0
-                    <span className="text-base font-medium text-muted-foreground">/forever</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col gap-5">
-                  <ul className="space-y-2.5 text-sm text-foreground/80">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      Classic EMS scenario library (free tier, always)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      AI-powered patient simulator
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      Performance dashboard &amp; training streaks
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      Drug calculator &amp; clinical references
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      Role-based grading (EMT / AEMT / Paramedic)
-                    </li>
-                  </ul>
-                  <div className="mt-auto">
-                    <Button asChild variant="outline" className="w-full min-h-11">
-                      <Link href="/signup">Create your free account</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative flex flex-col min-w-0 overflow-hidden border-yellow-300/60 dark:border-yellow-500/40">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-yellow-300 via-yellow-500 to-amber-400" />
-                <CardHeader>
-                  <p className="inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-yellow-700 dark:text-yellow-300">
-                    <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                    Premium
+            <div className="mx-auto grid max-w-3xl gap-5 md:grid-cols-2">
+              {/* Free tier */}
+              <div className="landing-glass-card rounded-2xl p-8 flex flex-col gap-6">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-white/35 mb-3">
+                    Free
                   </p>
-                  <CardTitle className="flex items-baseline gap-1 text-4xl font-extrabold tracking-tight">
-                    {PREMIUM_MONTHLY_DISPLAY}
-                    <span className="text-base font-medium text-muted-foreground">/month</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col gap-5">
-                  <ul className="space-y-2.5 text-sm text-foreground/80">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Everything in Free
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Simu-Pro Engine scenario pack (physiology-forward cases, gold star in-app)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      ECG Trainer — unlimited rhythm drills &amp; family filters
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Advanced patient realism &amp; complications
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Deep-dive AI coaching after every sim
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
-                      Cancel anytime
-                    </li>
-                  </ul>
-                  <div className="mt-auto">
-                    <Button asChild className="w-full min-h-11 bg-yellow-500 text-yellow-950 hover:bg-yellow-400">
-                      <Link href="/billing">
-                        Go Premium <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-5xl font-black text-white">$0</span>
+                    <span className="text-sm font-medium text-white/35">/forever</span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <ul className="space-y-3 text-sm flex-1">
+                  {[
+                    "Classic EMS scenario library (free tier, always)",
+                    "AI-powered patient simulator",
+                    "Performance dashboard & training streaks",
+                    "Drug calculator & clinical references",
+                    "Role-based grading (EMT / AEMT / Paramedic)",
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                      <span className="text-white/55">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full min-h-11 border-white/20 bg-white/[0.04] text-white hover:bg-white/10 hover:border-white/30"
+                >
+                  <Link href="/signup">Create your free account</Link>
+                </Button>
+              </div>
+
+              {/* Premium tier */}
+              <div className="landing-premium-border rounded-2xl p-[1px] relative">
+                <div
+                  className="absolute inset-x-0 top-0 h-px rounded-t-2xl"
+                  style={{
+                    background:
+                      "linear-gradient(to right, transparent, rgba(251,191,36,0.7), transparent)",
+                  }}
+                  aria-hidden
+                />
+                <div
+                  className="relative rounded-2xl p-8 flex flex-col gap-6 h-full"
+                  style={{
+                    background: "rgba(12, 9, 2, 0.85)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                  }}
+                >
+                  {/* subtle amber glow inside */}
+                  <div
+                    className="absolute inset-0 rounded-2xl pointer-events-none"
+                    style={{
+                      background:
+                        "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(251,191,36,0.08), transparent)",
+                    }}
+                    aria-hidden
+                  />
+
+                  <div className="relative">
+                    <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-amber-400 mb-3">
+                      <Star className="h-3.5 w-3.5 fill-amber-400" />
+                      Premium
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-5xl font-black text-white">
+                        {PREMIUM_MONTHLY_DISPLAY}
+                      </span>
+                      <span className="text-sm font-medium text-white/35">/month</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 text-sm flex-1 relative">
+                    {[
+                      "Everything in Free",
+                      "Simu-Pro Engine scenarios (physiology-forward cases)",
+                      "ECG Trainer — unlimited rhythm drills & family filters",
+                      "Advanced patient realism & complications",
+                      "Deep-dive AI coaching after every sim",
+                      "Cancel anytime",
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                        <span className="text-white/55">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    asChild
+                    className="relative w-full min-h-11 bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 hover:from-amber-300 hover:to-amber-400 font-semibold"
+                    style={{ boxShadow: "0 0 28px rgba(251,191,36,0.28)" }}
+                  >
+                    <Link href="/billing">
+                      Go Premium <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Call to Action Section */}
-        <section className="bg-muted py-12 sm:py-20 lg:py-28">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold">Ready to Elevate Your Skills?</h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Join the next generation of EMS professionals. Sign up now and run your first simulation in minutes.
+        {/* ── CTA ── */}
+        <section className="relative overflow-hidden py-24 sm:py-32">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 120% at 50% 110%, rgba(14,165,233,0.14), transparent)",
+            }}
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 60% 80% at 50% 110%, rgba(124,58,237,0.1), transparent)",
+            }}
+            aria-hidden
+          />
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+              Ready to Elevate Your Skills?
+            </h2>
+            <p className="mt-4 text-lg text-white/50 max-w-2xl mx-auto">
+              Join the next generation of EMS professionals. Sign up now and run your first
+              simulation in minutes.
             </p>
-            <div className="mt-8">
-              <Button size="lg" asChild className="min-h-11">
-                <Link href="/signup">Start Training Now</Link>
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                size="lg"
+                asChild
+                className="min-h-12 px-10 landing-btn-primary text-base font-semibold"
+              >
+                <Link href="/signup">
+                  Start Training Now <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
             </div>
           </div>
+          <div
+            className="pointer-events-none absolute bottom-0 inset-x-0 h-px"
+            style={{
+              background: "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)",
+            }}
+            aria-hidden
+          />
         </section>
       </main>
 
-      <footer className="border-t bg-background">
+      {/* ── Footer ── */}
+      <footer
+        className="border-t border-white/[0.06]"
+        style={{ background: "rgba(2, 9, 24, 0.6)" }}
+      >
         <div className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <AppLogo />
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-3 text-sm text-white/35">
                 AI-powered EMS simulation training for EMTs, AEMTs, and Paramedics.
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide">Product</h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
-                <li><Link href="/#try-cockpit" className="inline-block py-0.5 hover:text-foreground">Try the full cockpit</Link></li>
-                <li><Link href="/tools/drug-calculator" className="inline-block py-0.5 hover:text-foreground">Drug calculator</Link></li>
-                <li><Link href="/#pricing" className="inline-block py-0.5 hover:text-foreground">Pricing</Link></li>
-                <li><Link href="/billing" className="inline-block py-0.5 hover:text-foreground">Premium / Billing</Link></li>
-                <li><Link href="/login" className="inline-block py-0.5 hover:text-foreground">Log in</Link></li>
-                <li><Link href="/signup" className="inline-block py-0.5 hover:text-foreground">Sign up</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide">Learn</h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
-                <li><Link href="/faq" className="inline-block py-0.5 hover:text-foreground">FAQ</Link></li>
-                <li><Link href="/about" className="inline-block py-0.5 hover:text-foreground">About</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide">Legal</h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
-                <li><Link href="/privacy" className="inline-block py-0.5 hover:text-foreground">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="inline-block py-0.5 hover:text-foreground">Terms of Service</Link></li>
-                <li><Link href="/refund-policy" className="inline-block py-0.5 hover:text-foreground">Refund Policy</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide">Contact</h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-muted-foreground">
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+                Product
+              </h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-white/40">
                 <li>
-                  <a href="mailto:support@simupro.io" className="inline-block py-0.5 hover:text-foreground">support@simupro.io</a>
+                  <Link
+                    href="/#try-cockpit"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Try the full cockpit
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/tools/drug-calculator"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Drug calculator
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/#pricing"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/billing"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Premium / Billing
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/login"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Log in
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/signup"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Sign up
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+                Learn
+              </h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-white/40">
+                <li>
+                  <Link
+                    href="/faq"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    FAQ
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/about"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    About
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+                Legal
+              </h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-white/40">
+                <li>
+                  <Link
+                    href="/privacy"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/terms"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/refund-policy"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    Refund Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+                Contact
+              </h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-white/40">
+                <li>
+                  <a
+                    href="mailto:support@simupro.io"
+                    className="inline-block py-0.5 hover:text-white transition-colors duration-150"
+                  >
+                    support@simupro.io
+                  </a>
                 </li>
               </ul>
             </div>
           </div>
-          <div className="mt-10 border-t pt-6 text-center text-sm text-muted-foreground sm:text-left">
+          <div className="mt-10 border-t border-white/[0.06] pt-6 text-center text-sm text-white/20 sm:text-left">
             <p>&copy; {new Date().getFullYear()} SimuPro. All rights reserved.</p>
           </div>
         </div>

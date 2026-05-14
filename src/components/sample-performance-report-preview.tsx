@@ -35,20 +35,28 @@ export function SamplePerformanceReportPreview() {
   return (
     <section
       aria-labelledby="sample-report-heading"
-      className="bg-muted/40 py-12 sm:py-16"
+      className="py-12 sm:py-16"
+      style={{ background: "rgba(255,255,255,0.025)" }}
     >
       <div className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
-          <Badge variant="secondary" className="mb-3">
+          <Badge
+            variant="secondary"
+            className="mb-3 border-violet-500/25 bg-violet-500/10 text-violet-300"
+          >
             <Sparkles className="mr-1.5 inline size-3.5" />
             Sample illustration
           </Badge>
-          <h2 id="sample-report-heading" className="text-2xl font-bold tracking-tight sm:text-3xl">
+          <h2
+            id="sample-report-heading"
+            className="text-2xl font-bold tracking-tight sm:text-3xl text-white"
+          >
             Post-run performance report preview
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            After signed-in simulations, AI grades your assessments and interventions. Below is fictional output so you know
-            what the report screen looks like (not from the free cockpit demo above).
+          <p className="mt-3 text-white/45">
+            After signed-in simulations, AI grades your assessments and interventions. Below is
+            fictional output so you know what the report screen looks like (not from the free
+            cockpit demo above).
           </p>
         </div>
 
