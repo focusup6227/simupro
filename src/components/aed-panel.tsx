@@ -29,12 +29,11 @@ interface AedPanelProps {
 }
 
 type Phase =
-  | "no_pads"
-  | "ready"
-  | "analyzing"
-  | "shock_advised"
-  | "no_shock_advised"
-  | "post_shock";
+  | 'apply_pads'
+  | 'analyzing'
+  | 'charging'
+  | 'shock_ready'
+  | 'shock_delivered';
 
 export function AedPanel({
   role,
@@ -44,50 +43,48 @@ export function AedPanel({
   onDeliveredShock,
   disabled,
 }: AedPanelProps) {
-  const [phase, setPhase] = useState<Phase>("no_pads");
+  const [phase, setPhase] = useState<Phase>('apply_pads');
   const [shockCount, setShockCount] = useState(0);
   const [ivAccess, setIvAccess] = useState(false);
   const [epiCount, setEpiCount] = useState(0);
 
-  // If the rhythm changes mid-flow (e.g. ROSC, or deteriorates after shock),
-  // reset the analyzer to ready so the operator must analyze again.
+  // Rhythm change resets to apply/ready as appropriate
   useEffect(() => {
-    setPhase((p) =>
-      p === "shock_advised" || p === "no_shock_advised" ? "ready" : p,
-    );
-  }, [currentArrestRhythm]);
+    if (phase === 'shock_ready' || phase === 'shock_delivered') {
+      setPhase('apply_pads');
+    }
+  }, [currentArrestRhythm, phase]);
 
   const applyPads = () => {
-    setPhase("ready");
+    setPhase('analyzing');
     usePhysiologyStore.getState().applyMonitorPads();
-    onLogAction("Applied AED pads");
-  };
-
-  const analyze = () => {
-    setPhase("analyzing");
-    onLogAction("AED analyzed rhythm");
-    // Real AEDs take ~6–12 seconds; we simulate a short delay client-side.
+    onLogAction('Apply Pads');
+    // Simulate analysis delay (State 2)
     window.setTimeout(() => {
       const shockable = shockableArrestRhythm(currentArrestRhythm as EcgRhythmKind | null);
-      setPhase(shockable ? "shock_advised" : "no_shock_advised");
-    }, 1800);
+      setPhase(shockable ? 'charging' : 'shock_ready'); // non-shockable still goes to ready for clarity
+    }, 2200);
+  };
+
+  const startCharge = () => {
+    setPhase('charging');
+    onLogAction('AED analyzing — Charging');
   };
 
   const deliverShock = () => {
-    setPhase("post_shock");
+    setPhase('shock_delivered');
     setShockCount((c) => c + 1);
-    onLogAction("Delivered AED shock");
+    onLogAction('Delivered AED shock');
     onDeliveredShock?.();
+    // Auto transition to CPR cycle after shock (State 5)
+    window.setTimeout(() => {
+      setPhase('apply_pads');
+    }, 800);
   };
 
   const resumeCpr = () => {
-    setPhase("ready");
-    onLogAction("Resumed CPR — no shock advised");
-  };
-
-  const resumeCprAfterShock = () => {
-    setPhase("ready");
-    onLogAction("Resumed CPR for 2-minute cycle");
+    setPhase('apply_pads');
+    onLogAction('Resumed CPR');
   };
 
   const obtainIv = () => {
@@ -134,27 +131,41 @@ export function AedPanel({
         <PhaseBanner phase={phase} hasROSC={hasROSC} />
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            variant={phase === "no_pads" ? "default" : "outline"}
-            size="sm"
-            onClick={applyPads}
-            disabled={isLocked || phase !== "no_pads"}
-          >
-            <HeartPulse className="mr-1.5 size-4" />
-            Apply AED pads
-          </Button>
+          {/* State 1: Apply Pads */}
+          {phase === 'apply_pads' && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={applyPads}
+              disabled={isLocked}
+            >
+              <HeartPulse className="mr-1.5 size-4" />
+              Apply Pads
+            </Button>
+          )}
 
-          <Button
-            variant={phase === "ready" ? "default" : "outline"}
-            size="sm"
-            onClick={analyze}
-            disabled={isLocked || phase !== "ready"}
-          >
-            <Zap className="mr-1.5 size-4" />
-            {phase === "analyzing" ? "Analyzing…" : "Analyze rhythm"}
-          </Button>
+          {/* State 2: Analyzing - block CPR, "Do not touch patient" */}
+          {phase === 'analyzing' && (
+            <div className="text-sm font-semibold text-amber-400 sm:col-span-2">
+              ANALYZING — Do not touch patient
+            </div>
+          )}
 
-          {phase === "shock_advised" && (
+          {/* State 3: Charging - "Charging — Resume CPR" */}
+          {phase === 'charging' && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={resumeCpr}
+              disabled={isLocked}
+            >
+              <ArrowRight className="mr-1.5 size-4" />
+              Charging — Resume CPR
+            </Button>
+          )}
+
+          {/* State 4: Shock Ready - "Clear Patient", show shock */}
+          {phase === 'shock_ready' && (
             <Button
               size="sm"
               variant="destructive"
@@ -163,33 +174,15 @@ export function AedPanel({
               disabled={isLocked}
             >
               <Zap className="mr-1.5 size-4" />
-              Deliver shock — clear!
+              Clear Patient — Deliver Shock
             </Button>
           )}
 
-          {phase === "no_shock_advised" && (
-            <Button
-              size="sm"
-              className="sm:col-span-2"
-              variant="default"
-              onClick={resumeCpr}
-              disabled={isLocked}
-            >
-              <ArrowRight className="mr-1.5 size-4" />
-              Resume CPR — no shock advised
-            </Button>
-          )}
-
-          {phase === "post_shock" && (
-            <Button
-              size="sm"
-              className="sm:col-span-2"
-              onClick={resumeCprAfterShock}
-              disabled={isLocked}
-            >
-              <ArrowRight className="mr-1.5 size-4" />
-              Resume CPR (2-min cycle)
-            </Button>
+          {/* State 5: Shock Delivered -> CPR timer transition handled in handler */}
+          {phase === 'shock_delivered' && (
+            <div className="text-sm font-semibold text-emerald-400 sm:col-span-2">
+              Shock Delivered — Resume CPR now
+            </div>
           )}
         </div>
 
@@ -236,26 +229,23 @@ function PhaseBanner({ phase, hasROSC }: { phase: Phase; hasROSC: boolean }) {
   let label = "";
   let tone = "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
   switch (phase) {
-    case "no_pads":
-      label = "Step 1: Apply pads to bare chest.";
+    case 'apply_pads':
+      label = "State 1: Apply Pads";
       break;
-    case "ready":
-      label = "Step 2: Stop CPR and press Analyze.";
-      break;
-    case "analyzing":
-      label = "Stand clear — AED is analyzing rhythm.";
+    case 'analyzing':
+      label = "State 2: Analyzing — Do not touch patient";
       tone = "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30";
       break;
-    case "shock_advised":
-      label = "Shock advised — clear the patient and deliver shock.";
-      tone = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30";
-      break;
-    case "no_shock_advised":
-      label = "No shock advised — resume CPR for 2 minutes.";
+    case 'charging':
+      label = "State 3: Charging — Resume CPR";
       tone = "bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30";
       break;
-    case "post_shock":
-      label = "Shock delivered. Resume CPR immediately.";
+    case 'shock_ready':
+      label = "State 4: Shock Ready — Clear Patient";
+      tone = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30";
+      break;
+    case 'shock_delivered':
+      label = "State 5: Shock Delivered — Resume CPR";
       tone = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30";
       break;
   }

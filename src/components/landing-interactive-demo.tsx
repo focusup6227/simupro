@@ -33,8 +33,16 @@ import { isTypedDoseSubOptionLabel } from "@/lib/intervention-dose-ui";
 import type { Message, UserAction, ArrestRhythmKind } from "@/lib/types";
 import { interventionCertifications } from "@/lib/types";
 import { hospitals } from "@/lib/hospitals-data";
-import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
+import dynamic from "next/dynamic";
 import { EquipmentDrawer } from "@/components/equipment-drawer";
+
+const UnifiedCardiacMonitor = dynamic(
+  () => import("@/components/unified-cardiac-monitor").then((m) => ({ default: m.UnifiedCardiacMonitor })),
+  {
+    loading: () => <div className="h-[420px] w-full rounded-lg bg-black/90 animate-pulse" />,
+    ssr: false,
+  }
+);
 import { usePhysiologyStore } from "@/stores/physiology-store";
 import { usePkStore } from "@/stores/pk-store";
 import { AedPanel } from "@/components/aed-panel";

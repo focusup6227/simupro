@@ -270,6 +270,45 @@ function VitalBlockBp() {
     })),
   );
 
+  // NIBP count animation state (top-level hook)
+  const [animSys, setAnimSys] = useState(80);
+  const [animDia, setAnimDia] = useState(50);
+
+  useEffect(() => {
+    if (st.nibpPhase !== 'inflating') return;
+    let raf = 0;
+    let t = 0;
+    const upDur = 1200;
+    const pause = 400;
+    const downDur = 1800;
+    const targetUp = 168 + Math.floor(Math.random() * 12);
+    const finalSys = st.bpDisplaySys ?? 122;
+    const finalDia = st.bpDisplayDia ?? 78;
+    const tick = () => {
+      t += 16;
+      if (t < upDur) {
+        const p = t / upDur;
+        setAnimSys(Math.floor(80 + (targetUp - 80) * p));
+        setAnimDia(Math.floor(50 + (targetUp * 0.6 - 50) * p));
+      } else if (t < upDur + pause) {
+        setAnimSys(targetUp);
+        setAnimDia(Math.floor(targetUp * 0.6));
+      } else if (t < upDur + pause + downDur) {
+        const p = (t - upDur - pause) / downDur;
+        const eased = 1 - Math.pow(1 - p, 1.8);
+        setAnimSys(Math.floor(targetUp + (finalSys - targetUp) * eased));
+        setAnimDia(Math.floor(targetUp * 0.6 + (finalDia - targetUp * 0.6) * eased));
+      } else {
+        setAnimSys(finalSys);
+        setAnimDia(finalDia);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [st.nibpPhase, st.bpDisplaySys, st.bpDisplayDia]);
+
   let inner: ReactNode;
 
   if (!st.isMonitorPowered) {
@@ -289,16 +328,12 @@ function VitalBlockBp() {
     );
   } else if (st.nibpPhase === 'inflating') {
     inner = (
-      <div className="flex flex-col items-end gap-1.5 pt-3">
-        <Loader2
-          className="size-7 animate-spin"
-          style={{ color: COLOR_BP }}
-          aria-hidden
-        />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-          INFLATING…
-        </span>
-      </div>
+      <span
+        className="pt-4 text-right text-3xl font-bold tabular-nums leading-none"
+        style={{ color: COLOR_BP }}
+      >
+        {Math.round(animSys)}/{Math.round(animDia)}
+      </span>
     );
   } else if (st.bpDisplaySys != null && st.bpDisplayDia != null) {
     const ms = Math.round(

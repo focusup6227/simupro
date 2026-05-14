@@ -118,6 +118,9 @@ export function CapnoWaveCanvasImpl({
   const wrapRef = useRef<HTMLDivElement>(null);
   const maxMmHgRef = useRef(48);
   const stripStartMsRef = useRef<number | null>(null);
+  const phaseRef = useRef(0);
+  const lastFrameRef = useRef<number | null>(null);
+  const calEndRef = useRef(0);
   /** Latest props snapshot read inside the rAF loop so we don't tear down the loop on prop changes. */
   const overridesRef = useRef<{
     lungMechanics: LungMechanicsState | undefined;
@@ -127,6 +130,13 @@ export function CapnoWaveCanvasImpl({
   overridesRef.current.lungMechanics = lungMechanics;
   overridesRef.current.rrOverrideBpm = rrOverrideBpm;
   overridesRef.current.hrOverrideBpm = hrOverrideBpm;
+
+  useEffect(() => {
+    if (enabled) {
+      // Start 4s calibration delay on sensor apply (nasal/inline)
+      calEndRef.current = performance.now() + 4000;
+    }
+  }, [enabled]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -260,6 +270,19 @@ export function CapnoWaveCanvasImpl({
         perlinAmpMmHg: PERLIN_AMP_MMHG,
       };
 
+      // Advance sweep phase (left-to-right, ~6.5s full sweep for EtCO2)
+      const CAPNO_SWEEP_MS = 6500;
+      if (!reduceMotion) {
+        const now = performance.now();
+        const last = lastFrameRef.current ?? now;
+        lastFrameRef.current = now;
+        const dt = now - last;
+        let next = phaseRef.current + dt / CAPNO_SWEEP_MS;
+        while (next >= 1) next -= 1;
+        phaseRef.current = next;
+      }
+      const sweepX = phaseRef.current * wCss;
+
       const simSecAtRightEdge =
         (performance.now() - (stripStartMsRef.current ?? performance.now())) / 1000;
 
@@ -288,6 +311,22 @@ export function CapnoWaveCanvasImpl({
       }
 
       const allowGlow = !reduceMotion && !document.hidden;
+
+      const now = performance.now();
+      if (now < calEndRef.current) {
+        // Calibration UI during sensor warmup (simulates real EtCO2 sensor delay)
+        c.fillStyle = 'rgba(255,255,120,0.75)';
+        c.font = '10px ui-monospace, monospace';
+        c.fillText('Calibrating…', 8, 14);
+        scheduleNext();
+        return;
+      }
+
+      // Sweep clip: only reveal trace up to current sweep position (left-to-right)
+      c.save();
+      c.beginPath();
+      c.rect(0, 0, Math.max(0, sweepX), h);
+      c.clip();
       drawBezierCapnoGlow(
         c,
         buf,
@@ -296,6 +335,11 @@ export function CapnoWaveCanvasImpl({
         maxMmHgRef.current,
         allowGlow,
       );
+      c.restore();
+
+      // Black blanking bar just ahead of sweep (erases old data cleanly)
+      c.fillStyle = '#000';
+      c.fillRect(sweepX + 1.5, 0, 3, h);
 
       scheduleNext();
     };

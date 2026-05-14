@@ -23,6 +23,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PREMIUM_MONTHLY_DISPLAY } from "@/lib/pricing-display";
 
@@ -83,11 +84,33 @@ export default function LandingPage() {
 
       <main id="main-content" className="flex-grow">
         {/* Hero Section */}
-        <section className="relative py-12 sm:py-20 lg:py-32 bg-gray-900 text-white">
-          <div className="absolute inset-0 bg-black/60"></div>
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <section
+          className="relative isolate overflow-hidden py-12 sm:py-20 lg:py-32 text-white"
+          aria-labelledby="landing-hero-heading"
+        >
+          <Image
+            src="/landing/hero-background.jpg"
+            alt=""
+            fill
+            priority
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[hsl(222_44%_7%/0.94)] via-[hsl(222_40%_9%/0.78)] to-[hsl(222_48%_5%/0.92)]"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_70%_at_50%_-10%,hsl(190_92%_48%/0.12)_0%,transparent_55%)]"
+            aria-hidden
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/45" aria-hidden />
+          <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl text-center mx-auto">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight">
+              <h1
+                id="landing-hero-heading"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight drop-shadow-sm"
+              >
                 AI-Powered EMS Training for Modern Heroes
               </h1>
               <p className="mt-6 text-base sm:text-lg md:text-xl text-gray-300">
