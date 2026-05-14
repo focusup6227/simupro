@@ -48,6 +48,7 @@ export interface LifeSupportStore {
 
   transientPhase: LifeSupportTransient;
   transientEndsAtMs: number;
+  stunnedStartedAtMs: number;
   stunnedExit: StunnedExit | null;
 
   nextTcpSpikeAtMs: number;
@@ -139,6 +140,7 @@ function emptyHardware(): Pick<
   | 'pulselessOverride'
   | 'transientPhase'
   | 'transientEndsAtMs'
+  | 'stunnedStartedAtMs'
   | 'stunnedExit'
   | 'nextTcpSpikeAtMs'
   | 'lastTcpDemandResetMs'
@@ -163,6 +165,7 @@ function emptyHardware(): Pick<
     pulselessOverride: null,
     transientPhase: 'none',
     transientEndsAtMs: 0,
+    stunnedStartedAtMs: 0,
     stunnedExit: null,
     nextTcpSpikeAtMs: 0,
     lastTcpDemandResetMs: 0,
@@ -190,6 +193,7 @@ function enterStunned(nowMs: number, exit: StunnedExit) {
   return {
     transientPhase: 'stunned' as const,
     transientEndsAtMs: nowMs + 2600,
+    stunnedStartedAtMs: nowMs,
     rhythmOverride: 'asystole' as const,
     pulselessOverride: false as const,
     stunnedExit: exit,
@@ -285,6 +289,7 @@ export const useLifeSupportStore = create<LifeSupportStore>((set, get) => ({
       set({
         transientPhase: 'none',
         transientEndsAtMs: 0,
+        stunnedStartedAtMs: 0,
         stunnedExit: null,
       });
 

@@ -150,10 +150,26 @@ function CardiacCanvasImpl({
   );
   cycleMsRef.current = sweepDurationSec(LIVE_STRIP_VIEWPORT_PX) * 1000;
 
+  /**
+   * Etched history buffers (what is actually painted on the "phosphor"):
+   *  - `currXs/currYs` — written this sweep cycle, bright trace shown left of the sweep head
+   *  - `prevXs/prevYs` — written during the previous sweep cycle, dim trace shown right of head
+   *
+   * The waveform template for the active rhythm is held separately in
+   * `templateXs/templateYs`. Each animation frame copies template[i] → curr[i]
+   * only for indices whose x falls under the moving sweep head, so a mid-cycle
+   * rhythm change (e.g. post-shock asystole) only flattens samples etched AFTER
+   * the shock — pre-shock trace history is preserved exactly like a real CRT
+   * monitor recording.
+   */
   const currXsRef = useRef<Float64Array>(new Float64Array(0));
   const currYsRef = useRef<Float64Array>(new Float64Array(0));
   const prevXsRef = useRef<Float64Array>(new Float64Array(0));
   const prevYsRef = useRef<Float64Array>(new Float64Array(0));
+  const templateXsRef = useRef<Float64Array>(new Float64Array(0));
+  const templateYsRef = useRef<Float64Array>(new Float64Array(0));
+  /** Logical-space sweep position from the previous frame, used to bracket which samples to etch. */
+  const lastSweepXLRef = useRef(0);
 
   const viewWLogical = LIVE_STRIP_VIEWPORT_PX;
   const midY = height * 0.5;
@@ -216,11 +232,19 @@ function CardiacCanvasImpl({
     ) => {
       if (requestId !== lastIssuedStripRequestIdRef.current) return;
       const isFirstStrip = currXsRef.current.length === 0;
-      currXsRef.current = xs;
-      currYsRef.current = ys;
-      if (isFirstStrip) {
+      const sizeChanged =
+        !isFirstStrip && currXsRef.current.length !== xs.length;
+      // The active-rhythm template is replaced wholesale; etched history is preserved.
+      templateXsRef.current = xs;
+      templateYsRef.current = ys;
+      if (isFirstStrip || sizeChanged) {
+        currXsRef.current = xs.slice();
+        currYsRef.current = ys.slice();
         prevXsRef.current = xs.slice();
         prevYsRef.current = ys.slice();
+      } else {
+        // Keep x positions in sync (they're a function of pathWidthPx only).
+        currXsRef.current = xs;
       }
       perfMeasureStripDelivery(requestId, viaWorker);
     },
@@ -467,27 +491,60 @@ function CardiacCanvasImpl({
       const vwDevice = canvas.width / dpr;
       const cycle = Math.max(1, cycleMsRef.current);
 
+      let wrappedThisFrame = false;
       if (!paused && !reduceMotion) {
         const now = performance.now();
         const last = lastFrameRef.current ?? now;
         lastFrameRef.current = now;
         const dt = now - last;
         let next = phaseRef.current + dt / cycle;
-        let wrapped = false;
         while (next >= 1) {
           next -= 1;
-          wrapped = true;
+          wrappedThisFrame = true;
         }
         phaseRef.current = next;
-        if (wrapped) {
-          prevXsRef.current = Float64Array.from(currXsRef.current);
-          prevYsRef.current = Float64Array.from(currYsRef.current);
-        }
       }
 
       void hrBpmRef.current;
 
       const sweepX = phaseRef.current * vwDevice;
+      const newSweepXL = phaseRef.current * viewWLogical;
+
+      // Advance the etch frontier: copy current-rhythm template into the
+      // etched history buffer ONLY for samples whose x lies under the segment
+      // the sweep head just traversed. This is what makes the "recording"
+      // behaviour correct — pre-shock history stays intact and only post-shock
+      // pixels get the new (flat) rhythm.
+      {
+        const template = templateYsRef.current;
+        const etched = currYsRef.current;
+        const xs = currXsRef.current;
+        const n = xs.length;
+        if (n > 0 && template.length === n && etched.length === n) {
+          const lastXL = lastSweepXLRef.current;
+          if (wrappedThisFrame) {
+            // Snapshot the just-completed cycle into prev for the dim trace.
+            prevXsRef.current = Float64Array.from(currXsRef.current);
+            prevYsRef.current = Float64Array.from(currYsRef.current);
+            // Etch the remainder of the old cycle [lastXL, viewWLogical]
+            // and the start of the new cycle [0, newSweepXL].
+            for (let i = 0; i < n; i++) {
+              const xv = xs[i]!;
+              if (xv >= lastXL || xv <= newSweepXL) {
+                etched[i] = template[i]!;
+              }
+            }
+          } else if (newSweepXL >= lastXL) {
+            for (let i = 0; i < n; i++) {
+              const xv = xs[i]!;
+              if (xv >= lastXL && xv <= newSweepXL) {
+                etched[i] = template[i]!;
+              }
+            }
+          }
+        }
+      }
+      lastSweepXLRef.current = newSweepXL;
 
       const c = canvas.getContext('2d');
       if (!c) {
