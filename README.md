@@ -12,7 +12,7 @@
 | Area | What you’ll find |
 |------|-------------------|
 | **Scenarios** | Structured simulation runs with branching flow, session narratives, vitals on a unified cardiac monitor, optional cardiac-arrest workflows, and post-run **reports** |
-| **Physiology simulation** | Layered model: **AI baseline vitals** plus optional deterministic engines—**pharmacokinetics / PD** (drug-induced deltas), **autonomic / volume** (fluids, hemorrhage, oxygenation reflexes, decompensation phase), and optional **metabolic / labs** (feature-flagged). Event logs in Postgres enable grading replay. |
+| **Physiology simulation** | Layered model: **AI baseline vitals** plus deterministic engines—**pharmacokinetics / PD** (drug-induced deltas), **autonomic / volume** (fluids, hemorrhage, oxygenation reflexes, decompensation phase), and a bounded **feedback overlay** for perfusion, hypoxia, hypercarbia, acidemia, shock, and lung mechanics. Optional **metabolic / labs** remain feature-flagged. Event logs in Postgres enable attribution replay. |
 | **Scenario authoring** | Admins edit scenarios (including **comorbidities**, **autonomic seed**, pediatrics/weight/ICP-style fields) via **`/dashboard/admin/scenarios`**. |
 | **Demo** | Try the experience **without signing up** (`/demo`) |
 | **Dashboard** | Overview, scenarios list, performance, guide, abbreviations, account **settings** |
@@ -57,6 +57,10 @@ Noteworthy additions beyond the initial schema:
 | Simulation logs | **`simulation_pk_doses`**, **`simulation_autonomic_events`** — `session_id` is **`text`** to match **`simulation_sessions.id`** |
 
 Regenerate **`src/lib/supabase/database.types.ts`** when your remote schema changes (`supabase gen types` or your team’s process).
+
+## Supabase Edge Functions
+
+Edge Functions live under **`supabase/functions/`**. Database CI only pushes migrations; deploy functions separately when their code or shared replay helpers change. See **`docs/operations/supabase-edge-functions.md`** for request/response contracts, environment variables, and current limitations.
 
 ## Contact & policies
 

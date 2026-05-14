@@ -2,7 +2,7 @@
 
 This document records the qualitative relationships, clamps, deterministic replay
 expectations, and current test evidence for the physiology stack. It also names
-the planned validation work for the accepted bounded feedback roadmap.
+remaining validation gaps for the shipped bounded feedback overlay.
 
 ## Validation Principles
 
@@ -17,6 +17,9 @@ Physiology changes should satisfy these invariants:
   tested without React, Zustand, browser APIs, or wall-clock time.
 - **Scenario axes are stable traits**: runtime physiology should derive from
   transient state or logs rather than mutating resolved comorbidity axes.
+- **Feedback is transient**: a `PhysiologyFeedbackSnapshot` may influence PK,
+  autonomic, metabolic, and lung-mechanics equations when explicitly passed, but
+  it must be rebuilt from current observables instead of persisted as state.
 - **Display and replay agree where they share behavior**: if a user-facing rail
   depends on deterministic engine state, replay should use the same math or an
   explicitly documented approximation.
@@ -38,6 +41,10 @@ Current tests cover targeted behavior across the shipped layers:
   composition.
 - Lung-mechanics display tests verify axes-to-compliance/VQ mapping, auto-PEEP,
   metabolic RR boost helper behavior, and the full display composition pipeline.
+- Feedback tests verify bounded snapshot parsing and clamps. Golden-path tests
+  now exercise asthma/albuterol, hemorrhage with lactate rise, opioid plus
+  benzodiazepine interaction with partial naloxone reversal, arrest/ROSC EtCO2,
+  massive overdose stability, and multi-hour autonomic replay determinism.
 
 This evidence supports the current layer-by-layer implementation. It does not
 yet constitute full closed-loop feedback validation because many roadmap feedback
@@ -69,9 +76,21 @@ Current bounded areas include:
 - **Autonomic state**:
   - Distributive tone, oxygen boost, pulmonary edema severity, tension
     pneumothorax severity, and selected stressor values are bounded.
+- **Feedback snapshot**:
+  - MAP is clamped to `0..160 mmHg`.
+  - SpO2 is clamped to `0..100%`.
+  - EtCO2 is clamped or parsed into the supported `0..80 mmHg` range.
+  - RR is clamped to `0..80 bpm`.
+  - HR is clamped to `0..260 bpm`.
+  - pH is clamped to `6.75..7.65`.
+  - Lactate is clamped to `0.4..20 mmol/L`.
+  - Perfusion factor is clamped to `0.15..1.15`.
+  - Hypoxic, hypercarbic, acidemia, shock, vasoplegia, and
+    inflammatory/coagulation drives are clamped to `0..1`.
+  - Sympathetic amplification is clamped to `0.75..1.75`.
 
-Any planned feedback terms should use similarly explicit clamps at the snapshot
-or equation boundary.
+Any additional feedback terms should use similarly explicit clamps at the
+snapshot or equation boundary.
 
 ## Qualitative Relationships
 
@@ -98,32 +117,26 @@ Expected current relationships:
 - **Metabolic stress**: when the metabolic engine is enabled, poor perfusion and
   decompensation raise lactate and lower pH; metabolic RR boost is currently a
   display coupling.
-
-Expected planned feedback-layer relationships:
-
-- **Low perfusion** should modestly slow dynamic drug clearance and reduce
-  non-IV absorption.
-- **Hypoxia/hypercarbia/acidemia** should increase respiratory drive when the
-  patient can compensate.
-- **Severe acidemia and vasoplegia** should limit vascular tone and BP response.
-- **Inflammatory/coagulation stress** should perturb pulmonary V/Q behavior
+- **Low perfusion feedback**: when supplied, the feedback snapshot modestly slows
+  dynamic drug clearance and can reduce perfusion-sensitive non-IV absorption.
+- **Hypoxia/hypercarbia/acidemia feedback**: these drives can increase
+  respiratory drive and sympathetic response when the patient has reserve.
+- **Severe acidemia and vasoplegia feedback**: these terms can reduce effective
+  vascular tone and BP response.
+- **Inflammatory/coagulation feedback**: this perturbs pulmonary V/Q behavior
   through lung/capno composition rather than mutating base axes.
-- **Drug interactions** should capture post-Emax combinations such as
-  opioid-benzodiazepine respiratory depression and naloxone partially reversing
-  only the opioid component.
-
-Those planned relationships should be documented as feedback-layer behavior only
-after implementation and tests land.
+- **Drug interactions**: the post-Emax pass captures targeted interactions such
+  as opioid-benzodiazepine respiratory depression and naloxone partially
+  reversing only the opioid component.
 
 ## Golden-Path Matrix
 
-The roadmap calls for a broader golden-path suite. Until implemented, treat the
-following as planned validation targets:
+The current golden-path suite is targeted, not exhaustive:
 
 | Scenario | Expected Trend | Current Coverage |
 | --- | --- | --- |
-| Asthma + albuterol | Airway resistance and tau fall; capnogram upstroke straightens. | Partially covered by lung-mechanics and capno tests. |
-| Hemorrhage | MAP trends down, HR/RR rise, EtCO2 falls, lactate rises when metabolic is enabled. | Partially covered by autonomic tests; metabolic and EtCO2 trends need integrated coverage. |
+| Asthma + albuterol | Airway resistance and tau fall; capnogram upstroke straightens. | Covered by lung-mechanics display and golden-path tests. |
+| Hemorrhage | MAP trends down, HR/RR rise, EtCO2 falls, lactate rises when metabolic is enabled. | Covered for autonomic volume loss and lactate rise; integrated browser-to-replay EtCO2 trend remains a gap. |
 | Sepsis + fluids + vasopressor | MAP rises partially; vasoplegia persists; EtCO2 clamp relaxes only with perfusion. | Partially covered by autonomic decompensation tests; vasopressor sequence is planned. |
 | Opioid + benzodiazepine | RR/GCS depression exceeds either alone; naloxone reverses only opioid contribution. | Planned drug-interaction coverage. |
 | Cardiac arrest/ROSC | Pulseless EtCO2 remains low; ROSC produces sharp EtCO2 rise. | Partially covered by capno/EtCO2 behavior; integrated scenario test is planned. |
@@ -138,6 +151,10 @@ Use the current flags as explicit validation boundaries:
   drug deltas and drug-driven lung-mechanics display effects.
 - With `ENABLE_AUTONOMIC_ENGINE = true`, monitor rails may include cumulative
   autonomic deltas and decompensation phase effects.
+- With `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`, display composition builds a
+  transient feedback snapshot from merged vitals, final EtCO2, metabolic state,
+  and axes, then passes it to lung-mechanics composition. Pure replay helpers can
+  also accept snapshots when the caller supplies them.
 - With `ENABLE_METABOLIC_ENGINE = false`, user-facing metabolic RR coupling is
   off by default even though engine tests exist.
 - With `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`, monitor-time PK/tick paths may
@@ -146,13 +163,26 @@ Use the current flags as explicit validation boundaries:
 
 ## Acceptance Checklist For Feedback Work
 
-Before claiming the feedback layer is shipped, verify:
+Before extending the feedback layer or changing its inputs, verify:
 
 - A pure feedback snapshot module exists and is unit-tested.
 - Feedback inputs are derived from current tick/replay values and logs.
 - Scenario axes remain immutable during runtime feedback.
-- PK, autonomic, metabolic, and capno paths can replay deterministically.
+- PK, autonomic, metabolic, and capno paths remain deterministic for the same
+  inputs, timestamps, and optional feedback snapshots.
 - Extreme values remain clamped and finite.
-- Golden-path scenarios cover qualitative trends, not just point equations.
+- Golden-path scenarios cover qualitative trends, not just point equations, for
+  any newly coupled behavior.
 - Public docs describe learner-visible fidelity without exposing unsupported
   implementation details.
+
+## Known Replay Parity Gaps
+
+- The browser display path resolves scenario comorbidities into
+  `PathophysiologyAxes` before composing feedback-informed lung mechanics.
+- The `grade-session` Supabase Edge function currently uses
+  `defaultPathophysiologyAxes()` for attribution replay instead of resolving the
+  scenario's comorbidities. Treat server attribution as diagnostic until that
+  parity gap is closed.
+- The Edge function returns `score: null` and an empty `breakdown`; attribution
+  arrays are useful for debugging but are not final grading output.
