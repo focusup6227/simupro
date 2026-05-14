@@ -15,6 +15,11 @@ The shipped stack is layered and deterministic:
   built from current observable vitals and bounded stress drives.
 - `ENABLE_METABOLIC_ENGINE = false`: the acid-base integrator exists, but is not
   enabled in the user-facing display path by default.
+- `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`: a transient
+  `PhysiologyFeedbackSnapshot` is built from current vitals/metabolic fields and
+  passed into PK/tick integrations for bounded modulation. This is narrower than the
+  full closed-loop roadmap (dynamic clearance, fuller interaction matrix): those
+  items remain planned work guarded by continued testing and clamps.
 
 Today, scenario inputs and logs drive pure replay functions. Display composition
 then merges the AI baseline, PK deltas, autonomic deltas, optional metabolic RR
@@ -54,9 +59,10 @@ The simulation currently uses these physiology layers:
 
 4. **Metabolic engine**
    - A deterministic teaching-grade acid-base/lactate integrator exists.
-   - It models lactate, bicarbonate, and pH from perfusion stress, bleed rate,
+   - The integrator models lactate, bicarbonate, and pH from perfusion stress, bleed rate,
      decompensation phase, inflammatory axis, RR, and pediatric scaling.
-   - It is currently guarded by `ENABLE_METABOLIC_ENGINE = false`.
+   - `ENABLE_METABOLIC_ENGINE = false` currently keeps that path off in the display
+     stack by default.
    - When enabled, display-time metabolic coupling can add a bounded RR boost
      from high lactate or low pH.
    - The pure engine accepts a feedback snapshot, but the user-facing metabolic
@@ -156,10 +162,11 @@ effectiveKel = baseKel
   * dynamicPerfusionFeedback
 ```
 
-`dynamicPerfusionFeedback` is `1` when no feedback snapshot is supplied. With a
-snapshot, it is clamped from the current perfusion factor. The same feedback
-input also reduces perfusion-sensitive non-IV absorption in shock and applies
-small selected volume-of-distribution shifts.
+The planned feedback layer should add optional, bounded dynamic modifiers such as
+perfusion-dependent clearance, non-IV absorption reduction in shock, and selected
+volume-of-distribution shifts. These are not shipped yet. When they land, keep them
+behind the existing `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` flag (or a successor) so
+operators can roll back.
 
 ## Autonomic Equations And Clamps
 
@@ -233,12 +240,14 @@ When extending the feedback layer:
 - Preserve deterministic replay from logs, scenario inputs, and timestamps.
 - Remain bounded so extreme scenarios cannot produce NaN, Infinity, or runaway
   monitor values.
-- Keep `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` as the rollback flag for the overlay.
+- Respect the existing `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE` rollback flag.
 
 ## Limitations
 
-- Feedback is bounded and teaching-grade. It is not a full cardiopulmonary or
-  pharmacology model.
+- Current PK feedback is static-axis based, not live closed-loop perfusion based.
+- A bounded `PhysiologyFeedbackSnapshot` is built for ticks when the feedback flag
+  is on; fuller roadmap drives (hypoxia/hypercarbia loops, richer interactions) are
+  not completely represented yet.
 - The metabolic engine is implemented but disabled by default.
 - Drug interaction behavior now includes a targeted post-Emax interaction pass
   for opioid/benzodiazepine respiratory depression, partial naloxone reversal,

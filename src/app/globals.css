@@ -3,77 +3,96 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * EMS SimuPro brand palette (logo-aligned): deep navy fields, electric cyan
+   * accent (Star of Life), warm orange for secondary emphasis.
+   */
   :root {
-    --background: 210 16% 93%;
-    --foreground: 224 71% 4%;
+    --brand-cyan: 190 92% 48%;
+    --brand-orange: 27 95% 56%;
+
+    --background: 214 24% 96%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
-    --primary: 220 63% 45%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 47% 12%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 210 16% 85%;
-    --secondary-foreground: 224 71% 4%;
-    --muted: 210 16% 85%;
-    --muted-foreground: 224 71% 25%;
-    --accent: 26 65% 51%;
-    --accent-foreground: 0 0% 98%;
+    --secondary: 214 20% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 18% 94%;
+    --muted-foreground: 222 30% 38%;
+    --accent: 190 92% 48%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 16% 80%;
-    --input: 210 16% 80%;
-    --ring: 220 63% 45%;
+    --border: 214 16% 86%;
+    --input: 214 16% 86%;
+    --ring: 190 92% 48%;
     --radius: 0.5rem;
-    --chart-1: 220 63% 45%;
-    --chart-2: 26 65% 51%;
+    --chart-1: 222 47% 12%;
+    --chart-2: 190 92% 48%;
     --chart-3: 160 60% 45%;
-    --chart-4: 30 80% 55%;
+    --chart-4: 27 95% 56%;
     --chart-5: 280 65% 60%;
-    
+
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 224 71% 10%;
-    --sidebar-primary: 220 63% 45%;
+    --sidebar-foreground: 222 35% 18%;
+    --sidebar-primary: 222 47% 12%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 16% 90%;
-    --sidebar-accent-foreground: 220 63% 30%;
-    --sidebar-border: 210 16% 88%;
-    --sidebar-ring: 220 63% 45%;
+    --sidebar-accent: 214 22% 92%;
+    --sidebar-accent-foreground: 222 47% 12%;
+    --sidebar-border: 214 18% 88%;
+    --sidebar-ring: 190 92% 48%;
+
+    /* Monitor / waveform specific */
+    --monitor-bg: 222 45% 5%;
+    --ecg-trace: 120 100% 50%;
+    --capno-trace: 60 100% 50%;
+    --bp-text: 0 0% 100%;
   }
 
   .dark {
-    --background: 224 71% 4%;
+    --background: 222 44% 7%;
     --foreground: 210 40% 98%;
-    --card: 220 20% 10%;
+    --card: 222 38% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 224 71% 4%;
+    --popover: 222 44% 6%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
-    --primary-foreground: 224 71% 4%;
-    --secondary: 220 20% 10%;
+    --primary-foreground: 222 44% 7%;
+    --secondary: 222 32% 12%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 220 20% 10%;
-    --muted-foreground: 210 40% 70%;
-    --accent: 26 65% 51%;
-    --accent-foreground: 0 0% 98%;
+    --muted: 222 30% 13%;
+    --muted-foreground: 215 18% 68%;
+    --accent: 190 92% 48%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 26 65% 51%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 26 75% 55%;
+    --border: 222 28% 18%;
+    --input: 222 28% 18%;
+    --ring: 190 92% 48%;
+    --chart-1: 210 40% 98%;
+    --chart-2: 190 92% 48%;
     --chart-3: 160 60% 45%;
-    --chart-4: 30 80% 55%;
+    --chart-4: 27 95% 56%;
     --chart-5: 280 65% 60%;
 
-    --sidebar-background: 220 60% 10%;
-    --sidebar-foreground: 220 20% 85%;
+    --sidebar-background: 222 42% 8%;
+    --sidebar-foreground: 215 25% 88%;
     --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 224 71% 4%;
-    --sidebar-accent: 220 50% 20%;
-    --sidebar-accent-foreground: 220 20% 95%;
-    --sidebar-border: 220 50% 15%;
-    --sidebar-ring: 26 65% 51%;
+    --sidebar-primary-foreground: 222 44% 7%;
+    --sidebar-accent: 222 35% 16%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 222 32% 14%;
+    --sidebar-ring: 190 92% 48%;
+
+    /* Monitor / waveform specific (dark-first) */
+    --monitor-bg: 222 48% 5%;
+    --ecg-trace: 120 100% 50%;
+    --capno-trace: 60 100% 50%;
+    --bp-text: 0 0% 100%;
   }
 }
 
@@ -93,6 +112,125 @@
  * browsers (the clip region can be cached at definition time), so JS-driven
  * attribute mutation is the safe path. Reduced-motion is honoured in JS too.
  */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing page — premium dark aesthetic
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Ambient floating orbs */
+.landing-orb-1,
+.landing-orb-2,
+.landing-orb-3 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  will-change: transform;
+}
+
+.landing-orb-1 {
+  width: clamp(300px, 50vw, 640px);
+  height: clamp(300px, 50vw, 640px);
+  top: -15%;
+  left: -10%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, transparent 70%);
+  filter: blur(72px);
+  animation-name: orb-float-1;
+  animation-duration: 22s;
+}
+
+.landing-orb-2 {
+  width: clamp(250px, 45vw, 540px);
+  height: clamp(250px, 45vw, 540px);
+  top: 25%;
+  right: -8%;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.18) 0%, transparent 70%);
+  filter: blur(64px);
+  animation-name: orb-float-2;
+  animation-duration: 28s;
+}
+
+.landing-orb-3 {
+  width: clamp(200px, 35vw, 440px);
+  height: clamp(200px, 35vw, 440px);
+  bottom: 10%;
+  left: 30%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
+  filter: blur(56px);
+  animation-name: orb-float-3;
+  animation-duration: 18s;
+}
+
+@keyframes orb-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(40px, -30px) scale(1.04); }
+  66%       { transform: translate(-20px, 22px) scale(0.97); }
+}
+
+@keyframes orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-28px, 24px) scale(1.05); }
+  66%       { transform: translate(24px, -18px) scale(0.96); }
+}
+
+@keyframes orb-float-3 {
+  0%, 100% { transform: translate(0, 0); }
+  50%       { transform: translate(-32px, -22px); }
+}
+
+/* Gradient headline text */
+.landing-gradient-text {
+  background: linear-gradient(130deg, #38bdf8 0%, #818cf8 48%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  display: inline;
+}
+
+/* Glassmorphism card */
+.landing-glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Primary CTA button */
+.landing-btn-primary {
+  background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 0 28px rgba(14, 165, 233, 0.3) !important;
+  transition: opacity 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+.landing-btn-primary:hover {
+  opacity: 0.9 !important;
+  box-shadow: 0 0 40px rgba(14, 165, 233, 0.45) !important;
+}
+
+/* Premium pricing card amber gradient border wrapper */
+.landing-premium-border {
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.4),
+    rgba(251, 191, 36, 0.08),
+    rgba(251, 191, 36, 0.2)
+  );
+}
+
+/* Honour reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .landing-orb-1,
+  .landing-orb-2,
+  .landing-orb-3 {
+    animation: none;
+  }
+}
+
+/* ─── end landing styles ──────────────────────────────────────────────────── */
 
 @media print {
   @page {

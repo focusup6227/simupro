@@ -11,8 +11,18 @@ import { useLifeSupportStore } from '@/stores/life-support-store';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 
 /**
- * Drives TCP spike scheduling, demand-mode R inhibition, sync cardioversion on R,
- * and stunned-phase resolution. Requires monitor pads + therapy-enabled surface.
+ * Runs a lifecycle loop that advances the life-support simulation and drives pacing, intrinsic-R handling, and synchronized shock attempts while enabled.
+ *
+ * While enabled, starts a requestAnimationFrame loop that:
+ * - advances simulation time,
+ * - triggers TCP spikes when scheduled (except during the "stunned" transient phase),
+ * - detects rising edges of "near-R" from an effective heart rate and notifies intrinsic R peaks,
+ * - marks whether an intrinsic R occurred since the last TCP spike,
+ * - attempts synchronized cardioversion on an intrinsic R when shock, charge, and sync conditions are satisfied.
+ *
+ * @param opts.enabled - When true, starts and continues the animation loop; when false, no loop runs.
+ * @param opts.intrinsicKind - The intrinsic ECG rhythm kind used to determine whether synchronized cardioversion is appropriate.
+ * @param opts.intrinsicRateBpm - If non-null, used as the effective heart rate in beats per minute; otherwise the hook falls back to the parsed physiology HR text.
  */
 export function useLifeSupportController(opts: {
   enabled: boolean;

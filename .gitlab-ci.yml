@@ -1,3 +1,4 @@
+# Legacy: primary CI for this project is GitHub Actions (`.github/workflows/ci.yml`).
 # Applies new SQL migrations to the linked Supabase project when they land on the default branch.
 # GitLab → Settings → CI/CD → Variables (mask & protect as appropriate):
 #   SUPABASE_ACCESS_TOKEN — https://supabase.com/dashboard/account/tokens
@@ -5,7 +6,41 @@
 #   SUPABASE_DB_PASSWORD   — Project Settings → Database → Database password
 
 stages:
+  - test
   - database
+
+variables:
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+.node_test:
+  stage: test
+  image: node:20-bookworm-slim
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - npm ci --prefer-offline --no-audit
+
+nextjs_lint:
+  extends: .node_test
+  script:
+    - npm run lint
+
+nextjs_typecheck:
+  extends: .node_test
+  script:
+    - npm run typecheck
+
+vitest_unit:
+  extends: .node_test
+  script:
+    - npm run test
 
 supabase_migrations:
   stage: database

@@ -1,0 +1,64 @@
+# Replaces GitLab CI for this repo. Configure secrets under:
+#   GitHub repo → Settings → Secrets and variables → Actions
+#
+#   SUPABASE_PROJECT_REF   — Supabase → Project Settings → General → Reference ID
+#   SUPABASE_DB_PASSWORD   — Project Settings → Database → Database password
+#
+# Optional if your CLI/link step requires it:
+#   SUPABASE_ACCESS_TOKEN  — https://supabase.com/dashboard/account/tokens
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci --prefer-offline --no-audit
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test
+
+  supabase_migrations:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            migrations:
+              - 'supabase/migrations/**'
+
+      - if: steps.filter.outputs.migrations == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.98.2
+
+      - if: steps.filter.outputs.migrations == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --password "$SUPABASE_DB_PASSWORD" --yes
+          supabase db push --yes --linked

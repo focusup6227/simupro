@@ -71,6 +71,11 @@ import {
   MONITOR_PROCEDURE_TCP,
 } from '@/lib/monitor-procedure-ids';
 
+/**
+ * Generates a short pseudo-unique identifier prefixed with `ucm-`.
+ *
+ * @returns A pseudo-unique id string such as `ucm-xxxxxxxx` where the suffix is an 8-character base-36 token derived from Math.random().
+ */
 function uid() {
   return `ucm-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -265,6 +270,45 @@ function VitalBlockBp() {
     })),
   );
 
+  // NIBP count animation state (top-level hook)
+  const [animSys, setAnimSys] = useState(80);
+  const [animDia, setAnimDia] = useState(50);
+
+  useEffect(() => {
+    if (st.nibpPhase !== 'inflating') return;
+    let raf = 0;
+    let t = 0;
+    const upDur = 1200;
+    const pause = 400;
+    const downDur = 1800;
+    const targetUp = 168 + Math.floor(Math.random() * 12);
+    const finalSys = st.bpDisplaySys ?? 122;
+    const finalDia = st.bpDisplayDia ?? 78;
+    const tick = () => {
+      t += 16;
+      if (t < upDur) {
+        const p = t / upDur;
+        setAnimSys(Math.floor(80 + (targetUp - 80) * p));
+        setAnimDia(Math.floor(50 + (targetUp * 0.6 - 50) * p));
+      } else if (t < upDur + pause) {
+        setAnimSys(targetUp);
+        setAnimDia(Math.floor(targetUp * 0.6));
+      } else if (t < upDur + pause + downDur) {
+        const p = (t - upDur - pause) / downDur;
+        const eased = 1 - Math.pow(1 - p, 1.8);
+        setAnimSys(Math.floor(targetUp + (finalSys - targetUp) * eased));
+        setAnimDia(Math.floor(targetUp * 0.6 + (finalDia - targetUp * 0.6) * eased));
+      } else {
+        setAnimSys(finalSys);
+        setAnimDia(finalDia);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [st.nibpPhase, st.bpDisplaySys, st.bpDisplayDia]);
+
   let inner: ReactNode;
 
   if (!st.isMonitorPowered) {
@@ -284,16 +328,12 @@ function VitalBlockBp() {
     );
   } else if (st.nibpPhase === 'inflating') {
     inner = (
-      <div className="flex flex-col items-end gap-1.5 pt-3">
-        <Loader2
-          className="size-7 animate-spin"
-          style={{ color: COLOR_BP }}
-          aria-hidden
-        />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-          INFLATING…
-        </span>
-      </div>
+      <span
+        className="pt-4 text-right text-3xl font-bold tabular-nums leading-none"
+        style={{ color: COLOR_BP }}
+      >
+        {Math.round(animSys)}/{Math.round(animDia)}
+      </span>
     );
   } else if (st.bpDisplaySys != null && st.bpDisplayDia != null) {
     const ms = Math.round(
@@ -477,6 +517,17 @@ const PulseHeartImpl = memo(function PulseHeartImpl({
   );
 });
 
+/**
+ * Renders the defibrillator and transcutaneous pacing control panel when enabled.
+ *
+ * The panel includes energy selection, sync, charge/shock controls for cardioversion/defibrillation,
+ * and controls for transcutaneous pacing (enable, rate, output mA, and mode). When `enabled` is false
+ * a passive instructional placeholder is shown instead.
+ *
+ * @param props.enabled - Whether therapy controls are active (pads applied, ECG enabled, monitor powered, and strip live)
+ * @param props.onAction - Optional callback invoked with a short descriptive label when the user performs an action (e.g., selecting energy, toggling sync, starting charge, enabling TCP)
+ * @returns The life-support therapy panel React element
+ */
 function LifeSupportTherapyPanel(props: {
   /** Pads + ECG + power + strip live */
   enabled: boolean;
@@ -679,6 +730,13 @@ function LifeSupportTherapyPanel(props: {
   );
 }
 
+/**
+ * Render the monitor hardware bezel with controls for power, mute, NIBP, EtCO₂, ECG, and 12‑lead acquisition.
+ *
+ * @param props.onTwelveLead - Callback invoked when the enabled 12‑Lead button is activated.
+ * @param props.twelveLeadDisabled - When `true`, the 12‑Lead button is rendered disabled and shows a tooltip instructing to apply electrodes.
+ * @returns A JSX element containing the bezel control buttons and their interactive state.
+ */
 function MonitorHardwareBezel(props: {
   onTwelveLead: () => void;
   twelveLeadDisabled: boolean;
@@ -834,6 +892,22 @@ export interface UnifiedCardiacMonitorProps {
   showProtocolQuickMenus?: boolean;
 }
 
+/**
+ * Displays the unified cardiac monitor user interface with live waveforms, vital signs, life-support controls, and acquisition/printing tools.
+ *
+ * Renders ECG and capnography canvases, vital blocks (HR, SpO₂, EtCO₂, NIBP), life-support therapy controls (defibrillation, cardioversion, transcutaneous pacing), hardware bezel controls, protocol quick-menus, and saved tracings. Derives ECG context from the provided scenario and live vitals, applies life-support overrides from store state, and emits telemetry/actions for rhythm changes, saved acquisitions, and monitor interventions.
+ *
+ * @param scenario - Optional scenario data used to derive ECG context and displayed vitals
+ * @param cprActive - Whether CPR is currently active; affects ECG context derivation and display
+ * @param forcedRhythm - Optional rhythm forced by the caller to override scenario-derived rhythm
+ * @param pulseless - Optional pulseless flag to influence derived ECG context
+ * @param onRhythmChange - Callback invoked when the derived ECG rhythm kind changes
+ * @param onAction - Generic action/telemetry callback for user-visible events (e.g., saved snapshot, shocks delivered)
+ * @param onMonitorMedication - Optional callback invoked when a medication is selected from the monitor medication menu
+ * @param onMonitorIntervention - Optional callback invoked when a monitor intervention/procedure is selected; if omitted, the component will forward a textual action to `onAction`
+ * @param showProtocolQuickMenus - When true, displays protocol quick menus (medication/intervention) when the monitor is powered
+ * @returns A React element that renders the complete cardiac monitor interface
+ */
 export function UnifiedCardiacMonitor({
   scenario,
   cprActive,

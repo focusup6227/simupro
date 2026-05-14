@@ -47,8 +47,9 @@ Current tests cover targeted behavior across the shipped layers:
   massive overdose stability, and multi-hour autonomic replay determinism.
 
 This evidence supports the current layer-by-layer implementation. It does not
-make the simulation a full clinical physiology model; feedback behavior remains
-bounded and teaching-grade.
+yet constitute full closed-loop feedback validation because many roadmap feedback
+drives that `PhysiologyFeedbackSnapshot` is meant to carry (beyond the current
+bounded fields) are not fully implemented or golden-pathed.
 
 ## Clamps And Plausibility Bounds
 
@@ -137,10 +138,10 @@ The current golden-path suite is targeted, not exhaustive:
 | Asthma + albuterol | Airway resistance and tau fall; capnogram upstroke straightens. | Covered by lung-mechanics display and golden-path tests. |
 | Hemorrhage | MAP trends down, HR/RR rise, EtCO2 falls, lactate rises when metabolic is enabled. | Covered for autonomic volume loss and lactate rise; integrated browser-to-replay EtCO2 trend remains a gap. |
 | Sepsis + fluids + vasopressor | MAP rises partially; vasoplegia persists; EtCO2 clamp relaxes only with perfusion. | Partially covered by autonomic decompensation tests; vasopressor sequence is planned. |
-| Opioid + benzodiazepine | RR/GCS depression exceeds either alone; naloxone reverses only opioid contribution. | Covered by PK golden-path tests. |
-| Cardiac arrest/ROSC | Pulseless EtCO2 remains low; ROSC produces sharp EtCO2 rise. | Covered at EtCO2 policy level; integrated scenario UI test is planned. |
-| Massive overdose/profound shock | No NaN/Infinity; outputs stay clamped and plausible. | Covered by golden-path stability test across PK feedback deltas. |
-| Multi-hour replay | Replay remains deterministic and within acceptable runtime. | Covered for autonomic replay determinism; long integrated browser/server parity remains a gap. |
+| Opioid + benzodiazepine | RR/GCS depression exceeds either alone; naloxone reverses only opioid contribution. | Planned drug-interaction coverage. |
+| Cardiac arrest/ROSC | Pulseless EtCO2 remains low; ROSC produces sharp EtCO2 rise. | Partially covered by capno/EtCO2 behavior; integrated scenario test is planned. |
+| Massive overdose/profound shock | No NaN/Infinity; outputs stay clamped and plausible. | Planned stability coverage. |
+| Multi-hour replay | Replay remains deterministic and within acceptable runtime. | PK/autonomic deterministic replay is covered in focused tests; long-term integrated browser-server parity is planned. |
 
 ## Feature-Flag Validation
 
@@ -156,8 +157,9 @@ Use the current flags as explicit validation boundaries:
   also accept snapshots when the caller supplies them.
 - With `ENABLE_METABOLIC_ENGINE = false`, user-facing metabolic RR coupling is
   off by default even though engine tests exist.
-- With `HIDE_LEGACY_SCENARIOS_FROM_CATALOG = true`, learners see the curated
-  physiology QA catalog while staff roles can still see the full published list.
+- With `ENABLE_PHYSIOLOGY_FEEDBACK_ENGINE = true`, monitor-time PK/tick paths may
+  consume a bounded feedback snapshot; tests should cover both enabled and disabled
+  rollback paths once the matrix is stable.
 
 ## Acceptance Checklist For Feedback Work
 

@@ -109,7 +109,26 @@ function drawEcgGrid(
   }
 }
 
-/** Sweep viewport maps onto logical LIVE_STRIP_VIEWPORT_PX (same as SVG strips). */
+/**
+ * Renders an animated, live ECG strip onto a canvas and manages sampling, drawing, and lifecycle.
+ *
+ * The component samples a polyline representing an ECG strip (via worker when available, falling back
+ * to synchronous sampling), animates a sweeping playback across a logical viewport, caches and draws
+ * the background grid, responds to resize/visibility/reduced-motion, and optionally overlays training
+ * markers (R-peak sync markers and TCP pacing spikes).
+ *
+ * @param ctx - ECG scenario/context used for sampling the strip waveform
+ * @param tileW - Width of a single ECG tile in logical pixels (used for sampling and overlay alignment)
+ * @param leadIdx - 1-based lead index to sample (defaults to 1)
+ * @param leadLabel - Label drawn in the canvas corner (defaults to "II")
+ * @param height - Canvas visible height in CSS pixels (defaults to 168)
+ * @param paused - When true, animation phase does not advance
+ * @param leadsOff - When true, the sampled waveform is replaced with a flat baseline
+ * @param lifeSupportShowSyncMarkers - When true, draw phase-aligned R-peak sync markers across the viewport
+ * @param lifeSupportTcpEnabled - When true, draw transcutaneous pacing spike overlay
+ * @param lifeSupportTcpRatePpm - Configured pacing rate in pulses per minute (clamped to 40–120; default 80)
+ * @returns The rendered wrapper <div> containing the canvas and lead label
+ */
 function CardiacCanvasImpl({
   ctx,
   tileW,
@@ -510,12 +529,17 @@ function CardiacCanvasImpl({
         true,
       );
 
+      // Sweep position indicator (bright vertical line)
       c.strokeStyle = TRACE;
       c.lineWidth = 1.5 * (vwDevice / viewWLogical);
       c.beginPath();
       c.moveTo(sweepX + 0.5, 0);
       c.lineTo(sweepX + 0.5, height);
       c.stroke();
+
+      // Black blanking/erase bar immediately ahead of the sweep (overwrites old trace data)
+      c.fillStyle = '#000';
+      c.fillRect(sweepX + 2, 0, 3.5, height);
 
       const lsOv = lifeSupportRef.current;
       if (!lsOv.leadsOff) {
@@ -525,6 +549,7 @@ function CardiacCanvasImpl({
         const sxMap = vwDevice / viewWL;
 
         if (lsOv.showSync) {
+          // Sync markers shown on R-waves only during charge; flatline/rhythm change occurs exactly on shock delivery (not before)
           const rPx = ECG_QRS_R_PEAK_PHASE * tw;
           c.fillStyle = 'rgba(34,211,238,0.92)';
           for (let xl = rPx % tw; xl < viewWL; xl += tw) {
@@ -539,19 +564,22 @@ function CardiacCanvasImpl({
         }
 
         if (lsOv.tcp) {
+          // Distinct vertical pacer spikes immediately preceding each QRS (no scrolling yellow line)
           const ppm = Math.max(40, Math.min(120, lsOv.tcpRate));
           const intervalMs = 60000 / ppm;
           const spacingPx = intervalMs / ECG_MS_PER_PIXEL;
-          const phasePx =
-            ((performance.now() % intervalMs) / intervalMs) * spacingPx;
-          c.strokeStyle = 'rgba(250,204,21,0.88)';
-          c.lineWidth = 1.15 * (vwDevice / viewWLogical);
-          for (let xl = phasePx % spacingPx; xl < viewWL; xl += spacingPx) {
-            const x = xl * sxMap + 0.5;
-            c.beginPath();
-            c.moveTo(x, 0);
-            c.lineTo(x, height);
-            c.stroke();
+          // Small negative offset so spike appears just before the R-peak
+          const preQrsOffset = -4 * (vwDevice / viewWLogical);
+          c.strokeStyle = '#fff';
+          c.lineWidth = 1.6 * (vwDevice / viewWLogical);
+          for (let xl = 0; xl < viewWL; xl += spacingPx) {
+            const x = (xl * sxMap + preQrsOffset) + 0.5;
+            if (x > 0 && x < vwDevice) {
+              c.beginPath();
+              c.moveTo(x, 4);
+              c.lineTo(x, height - 4);
+              c.stroke();
+            }
           }
         }
       }

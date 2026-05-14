@@ -33,8 +33,16 @@ import { isTypedDoseSubOptionLabel } from "@/lib/intervention-dose-ui";
 import type { Message, UserAction, ArrestRhythmKind } from "@/lib/types";
 import { interventionCertifications } from "@/lib/types";
 import { hospitals } from "@/lib/hospitals-data";
-import { UnifiedCardiacMonitor } from "@/components/unified-cardiac-monitor";
+import dynamic from "next/dynamic";
 import { EquipmentDrawer } from "@/components/equipment-drawer";
+
+const UnifiedCardiacMonitor = dynamic(
+  () => import("@/components/unified-cardiac-monitor").then((m) => ({ default: m.UnifiedCardiacMonitor })),
+  {
+    loading: () => <div className="h-[420px] w-full rounded-lg bg-black/90 animate-pulse" />,
+    ssr: false,
+  }
+);
 import { usePhysiologyStore } from "@/stores/physiology-store";
 import { usePkStore } from "@/stores/pk-store";
 import { AedPanel } from "@/components/aed-panel";
@@ -455,20 +463,31 @@ export function LandingInteractiveDemo() {
     <section
       id="try-cockpit"
       aria-labelledby="landing-demo-heading"
-      className="scroll-mt-[4.75rem] border-y bg-gradient-to-b from-muted/60 to-background py-12 sm:py-16"
+      className="scroll-mt-[4.75rem] border-y border-white/[0.06] py-12 sm:py-16"
+      style={{
+        background:
+          "linear-gradient(to bottom, rgba(14,165,233,0.05) 0%, rgba(2,9,24,0.0) 100%)",
+      }}
     >
       <div className="container mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 text-center lg:text-left">
           <div>
-            <Badge className="mb-3" variant="secondary">
+            <Badge
+              className="mb-3 border-sky-500/25 bg-sky-500/10 text-sky-300"
+              variant="secondary"
+            >
               Live sandbox · Free · No sign-in
             </Badge>
-            <h2 id="landing-demo-heading" className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            <h2
+              id="landing-demo-heading"
+              className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl text-white"
+            >
               Try the full cockpit
             </h2>
-            <p className="mt-3 max-w-3xl text-muted-foreground md:text-lg">
-              Vitals, 4‑lead and 12‑lead monitors, AED interface, transports, and the full structured treatment list—same diabetic
-              emergency preview on this page ({DEMO_MAX_AI_TURNS} AI responses per visitor, rate-limited).
+            <p className="mt-3 max-w-3xl text-white/50 md:text-lg">
+              Vitals, 4‑lead and 12‑lead monitors, AED interface, transports, and the full
+              structured treatment list — same diabetic emergency preview on this page (
+              {DEMO_MAX_AI_TURNS} AI responses per visitor, rate-limited).
             </p>
           </div>
         </div>
