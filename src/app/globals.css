@@ -221,12 +221,13 @@
   );
 }
 
-/* Honour reduced-motion */
+/* Honour reduced-motion: strip animation AND will-change to avoid wasted layers */
 @media (prefers-reduced-motion: reduce) {
   .landing-orb-1,
   .landing-orb-2,
   .landing-orb-3 {
     animation: none;
+    will-change: auto;
   }
 }
 

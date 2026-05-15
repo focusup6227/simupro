@@ -24,6 +24,7 @@ export const metadata: Metadata = {
   description:
     'Train smarter with SimuPro: AI-driven EMS simulation scenarios, dynamic patient responses, and personalized coaching for EMTs, AEMTs, and Paramedics.',
   applicationName: 'SimuPro',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

@@ -45,7 +45,7 @@ const SamplePerformanceReportPreview = dynamic(
 
 function LoadingScreen() {
   return (
-    <div className="flex items-center justify-center min-h-screen" style={{ background: "#020918" }}>
+    <div className="flex items-center justify-center min-h-screen bg-[#020918]">
       <div className="p-8 max-w-md w-full">
         <div className="flex justify-center mb-6">
           <AppLogo />
