@@ -54,39 +54,39 @@
   }
 
   .dark {
-    --background: 222 44% 7%;
-    --foreground: 210 40% 98%;
-    --card: 222 38% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 44% 6%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 44% 7%;
-    --secondary: 222 32% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 30% 13%;
-    --muted-foreground: 215 18% 68%;
-    --accent: 190 92% 48%;
-    --accent-foreground: 210 40% 98%;
+    --background: 218 79% 11%;
+    --foreground: 216 75% 95%;
+    --card: 219 72% 16%;
+    --card-foreground: 216 75% 95%;
+    --popover: 219 72% 16%;
+    --popover-foreground: 216 75% 95%;
+    --primary: 27 100% 55%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 224 62% 20%;
+    --secondary-foreground: 216 75% 95%;
+    --muted: 222 55% 18%;
+    --muted-foreground: 222 32% 64%;
+    --accent: 197 73% 57%;
+    --accent-foreground: 218 79% 9%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 222 28% 18%;
-    --input: 222 28% 18%;
-    --ring: 190 92% 48%;
-    --chart-1: 210 40% 98%;
-    --chart-2: 190 92% 48%;
-    --chart-3: 160 60% 45%;
-    --chart-4: 27 95% 56%;
+    --border: 222 54% 24%;
+    --input: 224 62% 20%;
+    --ring: 197 73% 57%;
+    --chart-1: 216 75% 95%;
+    --chart-2: 197 73% 57%;
+    --chart-3: 158 62% 52%;
+    --chart-4: 27 100% 55%;
     --chart-5: 280 65% 60%;
 
-    --sidebar-background: 222 42% 8%;
-    --sidebar-foreground: 215 25% 88%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222 44% 7%;
-    --sidebar-accent: 222 35% 16%;
-    --sidebar-accent-foreground: 210 40% 95%;
-    --sidebar-border: 222 32% 14%;
-    --sidebar-ring: 190 92% 48%;
+    --sidebar-background: 222 83% 9%;
+    --sidebar-foreground: 216 75% 95%;
+    --sidebar-primary: 27 100% 55%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 219 72% 18%;
+    --sidebar-accent-foreground: 216 75% 95%;
+    --sidebar-border: 224 62% 20%;
+    --sidebar-ring: 197 73% 57%;
 
     /* Monitor / waveform specific (dark-first) */
     --monitor-bg: 222 48% 5%;
@@ -232,6 +232,40 @@
 }
 
 /* ─── end landing styles ──────────────────────────────────────────────────── */
+
+/* ─── App shell restyle — sidebar active state ──────────────────────────────── */
+
+/* Orange left-bar active indicator */
+.dark [data-sidebar="menu-button"][data-active="true"] {
+  background: linear-gradient(90deg, rgba(255,122,24,0.10) 0%, rgba(255,122,24,0.03) 100%) !important;
+  border-color: rgba(255,122,24,0.22) !important;
+  position: relative;
+}
+.dark [data-sidebar="menu-button"][data-active="true"]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: #ff7a18;
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 10px rgba(255,122,24,0.65);
+}
+
+/* Admin section header styling */
+.dark [data-sidebar="separator"] {
+  background: rgba(143, 220, 246, 0.07);
+}
+
+/* Topbar glass blur */
+.dark header[data-sidebar="inset"] {
+  background: rgba(4, 16, 43, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+/* ─── end app shell restyle ──────────────────────────────────────────────────── */
 
 @media print {
   @page {

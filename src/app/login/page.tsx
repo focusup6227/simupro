@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import AppLogo from '@/components/app-logo';
@@ -90,17 +89,25 @@ export default function LoginPage() {
 
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-          <Link href="/" className="mx-auto mb-4">
+    <main className="flex items-center justify-center min-h-screen p-4" style={{ background: '#04102b' }}>
+      <div className="w-full max-w-md">
+        {/* Brand mark */}
+        <div className="flex flex-col items-center mb-8">
+          <Link href="/" className="flex items-center gap-3 mb-2">
             <AppLogo />
           </Link>
-          <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <div className="space-y-6">
+          <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
+            EMS Simulation &amp; Training
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-8" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back</h1>
+            <p className="text-sm mt-1" style={{ color: '#8595c0' }}>Enter your credentials to access your training</p>
+          </div>
+
+          <div className="space-y-5">
             {!supabase && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -109,32 +116,36 @@ export default function LoginPage() {
                   Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
                   <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{' '}
                   <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code>, then restart{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run dev</code> (these are inlined at dev/build start).
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run dev</code>.
                 </AlertDescription>
               </Alert>
             )}
-            <form onSubmit={handleSignIn} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="john.doe@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#8595c0' }}>Email</Label>
+                <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                <div className="text-right">
-                    <Link href="/forgot-password">
-                        <span className="inline-block text-sm underline cursor-pointer">
-                            Forgot your password?
-                        </span>
-                    </Link>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#8595c0' }}>Password</Label>
+                  <Link href="/forgot-password" className="text-xs hover:text-white transition" style={{ color: '#3fb8e5' }}>
+                    Forgot password?
+                  </Link>
                 </div>
+                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
-              <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading}>
-                {isLoading ? 'Signing In...' : 'Sign In'}
+              <Button
+                type="submit"
+                className="w-full min-h-11 font-semibold"
+                size="lg"
+                disabled={isLoading}
+                style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}
+              >
+                {isLoading ? 'Signing in…' : 'Sign in'}
               </Button>
             </form>
             {showResend && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+              <div className="rounded-lg border p-3 text-sm" style={{ borderColor: 'rgba(245,185,94,0.4)', background: 'rgba(245,185,94,0.06)', color: '#f5b95e' }}>
                 <p>Looks like your email isn&apos;t verified yet.</p>
                 <button
                   type="button"
@@ -147,14 +158,19 @@ export default function LoginPage() {
               </div>
             )}
           </div>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="underline">
-              Sign up
+
+          <div className="mt-6 text-center text-sm" style={{ color: '#8595c0' }}>
+            No account?{' '}
+            <Link href="/signup" className="font-medium text-white hover:underline">
+              Sign up free
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="mt-6 text-center text-[11px] font-mono" style={{ color: 'rgba(143,220,246,0.35)' }}>
+          Training only · Not medical advice · Not clinical decision support
+        </p>
+      </div>
     </main>
   );
 }

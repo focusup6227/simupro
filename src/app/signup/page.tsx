@@ -119,7 +119,7 @@ export default function SignUpPage() {
 
   if (needsEmailVerify) {
     return (
-      <main className="flex items-center justify-center min-h-screen bg-background p-4">
+      <main className="flex items-center justify-center min-h-screen p-4" style={{ background: '#04102b' }}>
         <Card className="w-full max-w-md shadow-2xl">
           <CardHeader className="text-center">
             <Link href="/" className="mx-auto mb-4">
@@ -191,77 +191,94 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center">
-           <Link href="/" className="mx-auto mb-4">
+    <main className="flex items-center justify-center min-h-screen p-4 py-10" style={{ background: '#04102b' }}>
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <Link href="/" className="flex items-center gap-3 mb-2">
             <AppLogo />
           </Link>
-          <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Enter your credentials to get started</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="space-y-6">
-                {!supabase && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Supabase is not configured in this environment</AlertTitle>
-                    <AlertDescription>
-                      Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code>, then restart{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run dev</code>.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <form onSubmit={handleSignUp} className="space-y-6">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" type="text" placeholder="John" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" type="text" placeholder="Doe" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="john.doe@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="role">Role</Label>
-                        <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
-                            <SelectTrigger id="role">
-                            <SelectValue placeholder="Select your role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="emt">EMT</SelectItem>
-                            <SelectItem value="aemt">AEMT</SelectItem>
-                            <SelectItem value="paramedic">Paramedic</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p className="text-sm text-muted-foreground pt-1">
-                            Please select your current certification level.
-                        </p>
-                    </div>
-                    <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading}>
-                    {isLoading ? 'Creating Account...' : 'Sign Up'}
-                    </Button>
-                </form>
-            </div>
-           <div className="mt-4 text-center text-sm">
+          <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
+            EMS Simulation &amp; Training
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-8" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Create your account</h1>
+            <p className="text-sm mt-1" style={{ color: '#8595c0' }}>Free forever · No card required</p>
+          </div>
+
+          <div className="space-y-5">
+            {!supabase && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Supabase is not configured in this environment</AlertTitle>
+                <AlertDescription>
+                  Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{' '}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code>, then restart.
+                </AlertDescription>
+              </Alert>
+            )}
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName" className="text-sm font-medium" style={{ color: '#8595c0' }}>First name</Label>
+                  <Input id="firstName" type="text" placeholder="John" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName" className="text-sm font-medium" style={{ color: '#8595c0' }}>Last name</Label>
+                  <Input id="lastName" type="text" placeholder="Doe" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#8595c0' }}>Email</Label>
+                <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#8595c0' }}>Password</Label>
+                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="role" className="text-sm font-medium" style={{ color: '#8595c0' }}>Certification level</Label>
+                <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="emt">EMT</SelectItem>
+                    <SelectItem value="aemt">AEMT</SelectItem>
+                    <SelectItem value="paramedic">Paramedic</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs" style={{ color: '#5a6a93' }}>
+                  Used to scope scenarios and grading to your cert level.
+                </p>
+              </div>
+              <Button
+                type="submit"
+                className="w-full min-h-11 font-semibold"
+                size="lg"
+                disabled={isLoading}
+                style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}
+              >
+                {isLoading ? 'Creating account…' : 'Create free account'}
+              </Button>
+            </form>
+          </div>
+
+          <div className="mt-6 text-center text-sm" style={{ color: '#8595c0' }}>
             Already have an account?{' '}
-            <Link href="/login" className="underline">
+            <Link href="/login" className="font-medium text-white hover:underline">
               Sign in
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="mt-6 text-center text-[11px] font-mono" style={{ color: 'rgba(143,220,246,0.35)' }}>
+          Training only · Not medical advice · Not clinical decision support
+        </p>
+      </div>
     </main>
   );
 }

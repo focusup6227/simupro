@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SupabaseClientProvider } from '@/supabase/client-provider';
@@ -13,6 +13,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://simupro.io';
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
 });
 
 export const metadata: Metadata = {
@@ -102,7 +108,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} font-body antialiased`}>
+      <body className={`${inter.className} ${spaceGrotesk.variable} font-body antialiased`}>
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-foreground focus:shadow-md focus:ring-2 focus:ring-ring"
@@ -111,8 +117,7 @@ export default function RootLayout({
         </a>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
           disableTransitionOnChange
         >
           <SupabaseClientProvider>{children}</SupabaseClientProvider>
