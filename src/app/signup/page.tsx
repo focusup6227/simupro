@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -120,32 +120,37 @@ export default function SignUpPage() {
   if (needsEmailVerify) {
     return (
       <main className="flex items-center justify-center min-h-screen p-4" style={{ background: '#04102b' }}>
-        <Card className="w-full max-w-md shadow-2xl">
-          <CardHeader className="text-center">
-            <Link href="/" className="mx-auto mb-4">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center mb-8">
+            <Link href="/" className="flex items-center gap-3 mb-2">
               <AppLogo />
             </Link>
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Mail className="h-6 w-6" />
-            </div>
-            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
-            <CardDescription>
-              We sent a verification link to <span className="font-medium text-foreground">{needsEmailVerify}</span>.
-              Click it to activate your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-foreground/80">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p>
-                Once verified, you&apos;ll be redirected here automatically. You can close this tab in the meantime.
+            <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
+              EMS Simulation &amp; Training
+            </p>
+          </div>
+          <div className="rounded-2xl p-8 space-y-5" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full" style={{ background: 'rgba(255,122,24,0.12)' }}>
+                <Mail className="h-6 w-6" style={{ color: '#ff7a18' }} />
+              </div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Check your email</h1>
+              <p className="text-sm" style={{ color: '#8595c0' }}>
+                We sent a verification link to{' '}
+                <span className="font-medium text-white">{needsEmailVerify}</span>.
+                Click it to activate your account.
               </p>
             </div>
-            <p className="text-muted-foreground">
+            <div className="flex items-start gap-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'rgba(63,184,229,0.25)', background: 'rgba(63,184,229,0.06)', color: '#8fdbf6' }}>
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#3fb8e5' }} />
+              <p>Once verified, you&apos;ll be redirected here automatically. You can close this tab in the meantime.</p>
+            </div>
+            <p className="text-sm" style={{ color: '#8595c0' }}>
               Didn&apos;t get it? Check spam, or{' '}
               <button
                 type="button"
-                className="text-foreground underline underline-offset-4"
+                className="underline underline-offset-4 hover:text-white transition"
+                style={{ color: '#3fb8e5' }}
                 onClick={async () => {
                   if (!supabase) return;
                   const origin =
@@ -173,19 +178,20 @@ export default function SignUpPage() {
               .
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild variant="outline" className="w-full">
+              <Button asChild className="w-full" style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}>
                 <Link href="/login">Back to log in</Link>
               </Button>
               <Button
                 variant="ghost"
                 className="w-full"
+                style={{ color: '#8595c0' }}
                 onClick={() => setNeedsEmailVerify(null)}
               >
                 Use a different email
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     );
   }
