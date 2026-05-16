@@ -215,6 +215,7 @@ export interface Database {
           age_band: string | null;
           icp_mm_hg: number | null;
           interventions_enabled: boolean;
+          bystanders: Json;
           created_at: string;
           updated_at: string;
         };
@@ -245,6 +246,7 @@ export interface Database {
           age_band?: string | null;
           icp_mm_hg?: number | null;
           interventions_enabled?: boolean;
+          bystanders?: Json;
         };
         Update: Partial<{
           title: string;
@@ -272,6 +274,7 @@ export interface Database {
           age_band?: string | null;
           icp_mm_hg?: number | null;
           interventions_enabled?: boolean;
+          bystanders?: Json;
         }>;
         Relationships: [];
       };

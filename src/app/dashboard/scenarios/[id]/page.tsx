@@ -28,9 +28,11 @@ import { type Intervention, isMedication, toLicensureLevel } from "@/types/proto
 import { isTypedDoseSubOptionLabel } from "@/lib/intervention-dose-ui";
 import { seedInterventions } from "@/lib/interventions-data";
 import { useProtocolStore, monitorMenuRowsToScenarioOverlay } from "@/stores/protocol-store";
-import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerInstruction, runHospitalHandover } from "@/app/actions";
+import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerInstruction, runHospitalHandover, getBystanderResponse } from "@/app/actions";
+import { BYSTANDER_ROLE_LABEL, BYSTANDER_SUGGESTED_QUESTIONS, BYSTANDER_COLOR_GROUP } from "@/lib/bystander-prompts";
+import type { Bystander } from "@/lib/types";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
-import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -110,7 +112,8 @@ type ActiveTab =
   | "destination"
   | "radioReport"
   | "cardiacArrest"
-  | "handover";
+  | "handover"
+  | "bystanders";
 
 /** Names used for the receiving ER physician at hospital handover. */
 const DOCTOR_NAME_POOL = [
@@ -360,6 +363,8 @@ export default function SimulationPage() {
   const [simulationEnded, setSimulationEnded] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("assessment");
+  const [bystanderInputs, setBystanderInputs] = useState<Record<string, string>>({});
+  const [bystanderLoadingId, setBystanderLoadingId] = useState<string | null>(null);
   const [endSimAlertOpen, setEndSimAlertOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isAnalyzingAED, setIsAnalyzingAED] = useState(false);
@@ -1632,6 +1637,76 @@ export default function SimulationPage() {
       toast({ title: 'No Input', description: 'Please enter your assessment findings.', variant: 'destructive' });
     }
   };
+
+  const handleAskBystander = useCallback(
+    async (bystander: Bystander, rawQuestion?: string) => {
+      if (!scenario) return;
+      const question = (rawQuestion ?? bystanderInputs[bystander.id] ?? '').trim();
+      if (!question) {
+        toast({ title: 'No question', description: `Type something to ask ${bystander.name}.`, variant: 'destructive' });
+        return;
+      }
+      setBystanderLoadingId(bystander.id);
+      const medicTurn: Message = {
+        role: 'user',
+        content: `[To ${bystander.name}] ${question}`,
+      };
+      setMessages((prev) => [...prev, medicTurn]);
+      try {
+        const priorTurns = messages
+          .filter((m) => (m.role === 'user' && m.content.startsWith(`[To ${bystander.name}]`)) ||
+                        (m.role === 'bystander' && m.bystanderId === bystander.id))
+          .slice(-8)
+          .map((m) => ({
+            speaker: (m.role === 'user' ? 'medic' : 'bystander') as 'medic' | 'bystander',
+            text: m.role === 'user' ? m.content.replace(`[To ${bystander.name}] `, '') : m.content,
+          }));
+        const result = await getBystanderResponse({
+          scenarioSummary: `${scenario.patientPresentation ?? ''}\n\n${scenario.details}`.trim(),
+          bystander: {
+            id: bystander.id,
+            role: bystander.role,
+            name: bystander.name,
+            relationship: bystander.relationship,
+            demeanor: bystander.demeanor,
+            knowledge: bystander.knowledge,
+            guardrails: bystander.guardrails,
+          },
+          transcript: [...priorTurns, { speaker: 'medic', text: question }],
+          medicQuestion: question,
+          userRole: currentUserRole ?? 'paramedic',
+        });
+        const bystanderTurn: Message = {
+          role: 'bystander',
+          content: result.bystanderResponse,
+          bystanderId: bystander.id,
+          bystanderName: bystander.name,
+          bystanderRole: bystander.role,
+          bystanderDemeanor: bystander.demeanor,
+        };
+        setMessages((prev) => [...prev, bystanderTurn]);
+        if (result.volunteersAdditionalInfo) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'bystander',
+              content: result.volunteersAdditionalInfo!,
+              bystanderId: bystander.id,
+              bystanderName: bystander.name,
+              bystanderRole: bystander.role,
+              bystanderDemeanor: bystander.demeanor,
+            },
+          ]);
+        }
+        setBystanderInputs((prev) => ({ ...prev, [bystander.id]: '' }));
+      } catch (e) {
+        toast({ title: 'AI error', description: e instanceof Error ? e.message : 'Could not reach bystander.', variant: 'destructive' });
+      } finally {
+        setBystanderLoadingId(null);
+      }
+    },
+    [scenario, bystanderInputs, messages, currentUserRole, toast],
+  );
   // Mirror the latest handleSubmitAssessment into the ref the hands-free
   // auto-submit timer reads from.
   handleSubmitAssessmentRef.current = handleSubmitAssessment;
@@ -2527,9 +2602,14 @@ export default function SimulationPage() {
               if (message.role === "user") return null;
               const isPartner = message.role === "partner";
               const isDoctor = message.role === "doctor";
+              const isBystander = message.role === "bystander";
+              const bystanderGroup = isBystander && message.bystanderRole ? BYSTANDER_COLOR_GROUP[message.bystanderRole] : undefined;
               const partnerLetter = partnerAvatarLetter(
                 message.partnerRole ?? partner?.role ?? "emt",
               );
+              const bystanderInitial = isBystander
+                ? (message.bystanderName ?? '?').slice(0, 1).toUpperCase()
+                : 'S';
               const avatarLetter = isDoctor
                 ? "Dr"
                 : message.role === "assistant"
@@ -2538,32 +2618,50 @@ export default function SimulationPage() {
                     ? "H"
                     : isPartner
                       ? partnerLetter
-                      : "S";
+                      : isBystander
+                        ? bystanderInitial
+                        : "S";
+              const bystanderBubble = bystanderGroup === 'authority'
+                ? 'border border-sky-700/30 bg-sky-950/10 dark:bg-sky-500/10'
+                : bystanderGroup === 'personal'
+                  ? 'border border-amber-700/30 bg-amber-950/10 dark:bg-amber-500/10'
+                  : 'border border-slate-700/30 bg-slate-900/10 dark:bg-slate-500/10';
               const bubbleClass = isDoctor
                 ? "border border-sky-700/30 bg-sky-50 dark:bg-sky-950/30"
                 : message.role === "system"
                   ? "bg-yellow-100 dark:bg-yellow-900/50"
                   : isPartner
                     ? "border border-emerald-800/25 bg-emerald-950/10 dark:bg-emerald-500/10"
-                    : "bg-muted";
+                    : isBystander
+                      ? bystanderBubble
+                      : "bg-muted";
+              const bystanderAvatarBg = bystanderGroup === 'authority'
+                ? 'bg-sky-700 text-xs font-semibold text-white'
+                : bystanderGroup === 'personal'
+                  ? 'bg-amber-700 text-xs font-semibold text-white'
+                  : 'bg-slate-700 text-xs font-semibold text-white';
               const avatarBgClass = isDoctor
                 ? "bg-sky-700 text-[10px] font-semibold text-white"
                 : isPartner
                   ? "bg-emerald-700 text-xs font-semibold text-emerald-50"
-                  : undefined;
+                  : isBystander
+                    ? bystanderAvatarBg
+                    : undefined;
               const roleTooltip = isDoctor
                 ? `Receiving physician${
                     message.doctorPersonality
                       ? ` — ${message.doctorPersonality}`
                       : ""
                   }`
-                : message.partnerRole === "paramedic"
-                  ? "Paramedic partner"
-                  : message.partnerRole === "aemt"
-                    ? "AEMT partner"
-                    : message.partnerRole === "emt"
-                      ? "EMT partner"
-                      : "Partner";
+                : isBystander
+                  ? `${message.bystanderName ?? 'Bystander'} — ${message.bystanderRole ? BYSTANDER_ROLE_LABEL[message.bystanderRole] : 'Bystander'}${message.bystanderDemeanor ? ` (${message.bystanderDemeanor})` : ''}`
+                  : message.partnerRole === "paramedic"
+                    ? "Paramedic partner"
+                    : message.partnerRole === "aemt"
+                      ? "AEMT partner"
+                      : message.partnerRole === "emt"
+                        ? "EMT partner"
+                        : "Partner";
               return (
                 <div key={messageIndex} className="flex items-start gap-3">
                   <TooltipProvider>
@@ -2575,7 +2673,7 @@ export default function SimulationPage() {
                           </AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
-                      {isPartner || isDoctor ? (
+                      {isPartner || isDoctor || isBystander ? (
                         <TooltipContent>{roleTooltip}</TooltipContent>
                       ) : null}
                     </Tooltip>
@@ -2589,6 +2687,14 @@ export default function SimulationPage() {
                     {isDoctor && message.doctorName ? (
                       <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">
                         Dr. {message.doctorName}
+                      </p>
+                    ) : null}
+                    {isBystander && message.bystanderName ? (
+                      <p className="text-sm font-semibold">
+                        {message.bystanderName}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {message.bystanderRole ? BYSTANDER_ROLE_LABEL[message.bystanderRole] : ''}
+                        </span>
                       </p>
                     ) : null}
                     <p className="text-sm whitespace-pre-wrap">
@@ -2661,6 +2767,13 @@ export default function SimulationPage() {
                     <span className="hidden sm:inline">Assessment</span>
                     <span className="sm:hidden">Assess</span>
                   </TabsTrigger>
+                  {scenario.bystanders && scenario.bystanders.length > 0 ? (
+                    <TabsTrigger value="bystanders" className="min-h-9 shrink-0 px-2.5 sm:px-3">
+                      <Users className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
+                      <span className="hidden sm:inline">Bystanders</span>
+                      <span className="sm:hidden">Bys</span>
+                    </TabsTrigger>
+                  ) : null}
                   <TabsTrigger value="treatment" className="min-h-9 shrink-0 px-2.5 sm:px-3">
                     <Syringe className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Treatment</span>
@@ -2785,6 +2898,73 @@ export default function SimulationPage() {
                 </Button>
               </div>
             </TabsContent>
+            {scenario.bystanders && scenario.bystanders.length > 0 ? (
+              <TabsContent value="bystanders" className="flex min-h-0 flex-1 flex-col outline-none">
+                <ScrollArea className="min-h-[11rem] flex-1 pr-4">
+                  <div className="space-y-4 pr-2">
+                    {(['on_scene', 'phone', 'arriving_later'] as const).map((bucket) => {
+                      const bucketBystanders = scenario.bystanders!.filter((b) => b.availability === bucket);
+                      if (bucketBystanders.length === 0) return null;
+                      const bucketLabel = bucket === 'on_scene' ? 'On scene' : bucket === 'phone' ? 'By phone' : 'Arriving later';
+                      return (
+                        <div key={bucket} className="space-y-3">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{bucketLabel}</h3>
+                          {bucketBystanders.map((b) => {
+                            const colorGroup = BYSTANDER_COLOR_GROUP[b.role];
+                            const accent = colorGroup === 'authority' ? 'border-sky-700/30' : colorGroup === 'personal' ? 'border-amber-700/30' : 'border-slate-700/30';
+                            const suggestions = BYSTANDER_SUGGESTED_QUESTIONS[b.role];
+                            const busy = bystanderLoadingId === b.id;
+                            return (
+                              <div key={b.id} className={`rounded-lg border ${accent} bg-card p-3 space-y-3`}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold">{b.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {BYSTANDER_ROLE_LABEL[b.role]}{b.relationship ? ` • ${b.relationship}` : ''} • {b.demeanor}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Textarea
+                                  rows={2}
+                                  placeholder={`Ask ${b.name}…`}
+                                  value={bystanderInputs[b.id] ?? ''}
+                                  onChange={(e) => setBystanderInputs((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                                  disabled={simulationEnded || showCardiacArrestTab || busy}
+                                />
+                                <div className="flex flex-wrap gap-1.5">
+                                  {suggestions.map((q) => (
+                                    <Button
+                                      key={q}
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      disabled={simulationEnded || showCardiacArrestTab || busy}
+                                      onClick={() => handleAskBystander(b, q)}
+                                    >
+                                      {q}
+                                    </Button>
+                                  ))}
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="w-full"
+                                  disabled={simulationEnded || showCardiacArrestTab || busy}
+                                  onClick={() => handleAskBystander(b)}
+                                >
+                                  {busy ? 'Asking…' : `Ask ${b.name.split(' ')[0]}`} <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            ) : null}
             <TabsContent value="treatment" className="flex min-h-0 flex-1 flex-col outline-none">
                <ScrollArea className="min-h-[11rem] flex-1 pr-4">
                 <div className="space-y-4 pr-4">

@@ -12,8 +12,9 @@ import type {
   AiResponseFeedback,
   CertificationActions,
   RhythmQuizAttempt,
+  Bystander,
 } from '@/lib/types';
-import { AutonomicProfileSchema } from '@/lib/types';
+import { AutonomicProfileSchema, BystanderSchema } from '@/lib/types';
 import type { Database, Json } from '@/lib/supabase/database.types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -125,7 +126,18 @@ export function scenarioRowToScenario(r: ScenarioRow): Scenario {
     ageBand: (r.age_band as Scenario['ageBand']) ?? undefined,
     icpMmHg: r.icp_mm_hg ?? undefined,
     interventionsEnabled: r.interventions_enabled ?? true,
+    bystanders: parseBystanders(r.bystanders),
   };
+}
+
+function parseBystanders(raw: unknown): Bystander[] {
+  if (!Array.isArray(raw)) return [];
+  const result: Bystander[] = [];
+  for (const entry of raw) {
+    const parsed = BystanderSchema.safeParse(entry);
+    if (parsed.success) result.push(parsed.data);
+  }
+  return result;
 }
 
 export function scenarioRowToScenarioCard(r: {
@@ -181,6 +193,7 @@ export function scenarioToDbUpsert(values: Omit<Scenario, 'id'> & { id: string }
     age_band: values.ageBand ?? null,
     icp_mm_hg: values.icpMmHg ?? null,
     interventions_enabled: values.interventionsEnabled ?? true,
+    bystanders: (values.bystanders ?? []) as Json,
   };
   return row;
 }

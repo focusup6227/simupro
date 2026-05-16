@@ -115,6 +115,43 @@ export const AutonomicProfileSchema = z.object({
 });
 export type AutonomicProfile = z.infer<typeof AutonomicProfileSchema>;
 
+export const BYSTANDER_ROLES = [
+  'family',
+  'friend',
+  'coworker',
+  'witness',
+  'police',
+  'fire',
+  'first_responder',
+  'bystander_stranger',
+] as const;
+export type BystanderRole = (typeof BYSTANDER_ROLES)[number];
+
+export const BYSTANDER_DEMEANORS = [
+  'calm',
+  'anxious',
+  'distraught',
+  'uncooperative',
+  'intoxicated',
+  'professional',
+] as const;
+export type BystanderDemeanor = (typeof BYSTANDER_DEMEANORS)[number];
+
+export const BYSTANDER_AVAILABILITIES = ['on_scene', 'phone', 'arriving_later'] as const;
+export type BystanderAvailability = (typeof BYSTANDER_AVAILABILITIES)[number];
+
+export const BystanderSchema = z.object({
+  id: z.string().min(1),
+  role: z.enum(BYSTANDER_ROLES),
+  name: z.string().min(1, 'Bystander name is required.'),
+  relationship: z.string().optional(),
+  demeanor: z.enum(BYSTANDER_DEMEANORS),
+  availability: z.enum(BYSTANDER_AVAILABILITIES).default('on_scene'),
+  knowledge: z.string().min(1, 'Knowledge is required so the AI knows what this person can say.'),
+  guardrails: z.string().optional(),
+});
+export type Bystander = z.infer<typeof BystanderSchema>;
+
 /** Entries for the unified monitor `MedicationMenu` (backed by `usePhysiologyStore`). */
 export const MonitorMenuMedicationSchema = z.object({
   id: z.string().min(1),
@@ -196,6 +233,12 @@ export const ScenarioSchema = z.object({
    * (assessment / narrative paths remain available).
    */
   interventionsEnabled: z.boolean().optional(),
+  /**
+   * Role-scoped NPCs the medic can interrogate during the run (family, friends,
+   * witnesses, police, fire). Each carries admin-authored `knowledge` and
+   * optional `guardrails` that condition the bystander AI flow.
+   */
+  bystanders: z.array(BystanderSchema).optional(),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 export type ScenarioData = Omit<Scenario, 'id'>;
@@ -330,7 +373,7 @@ export type PerformanceData = {
 export type DoctorPersonality = 'nice' | 'neutral' | 'skeptical' | 'hard';
 
 export type Message = {
-    role: 'user' | 'assistant' | 'system' | 'partner' | 'doctor';
+    role: 'user' | 'assistant' | 'system' | 'partner' | 'doctor' | 'bystander';
     content: string;
     vitals?: Scenario['initialVitals'];
     conditionChange?: string;
@@ -346,6 +389,11 @@ export type Message = {
     /** Receiving ER physician metadata for `role: 'doctor'` turns. */
     doctorName?: string;
     doctorPersonality?: DoctorPersonality;
+    /** Bystander turn metadata (set when role === 'bystander'). */
+    bystanderId?: string;
+    bystanderName?: string;
+    bystanderRole?: BystanderRole;
+    bystanderDemeanor?: BystanderDemeanor;
 }
 
 export const RhythmQuizAttemptSchema = z.object({

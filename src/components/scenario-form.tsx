@@ -2,9 +2,15 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import type { Scenario } from '@/lib/types';
-import { ScenarioSchema } from '@/lib/types';
+import { useForm, useFieldArray } from 'react-hook-form';
+import type { Scenario, Bystander, BystanderRole, BystanderDemeanor, BystanderAvailability } from '@/lib/types';
+import {
+  ScenarioSchema,
+  BYSTANDER_ROLES,
+  BYSTANDER_DEMEANORS,
+  BYSTANDER_AVAILABILITIES,
+} from '@/lib/types';
+import { BYSTANDER_ROLE_LABEL } from '@/lib/bystander-prompts';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -34,7 +40,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { COMORBIDITY_MATRIX } from '@/lib/physiology/comorbidity-matrix';
 import { hospitals } from '@/lib/hospitals-data';
 import {
@@ -144,8 +150,27 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
         initialRhythm: defaultValues?.initialRhythm,
         acsPattern: defaultValues?.acsPattern,
         interventionsEnabled: defaultValues?.interventionsEnabled ?? true,
+        bystanders: defaultValues?.bystanders ?? [],
     },
   });
+
+  const bystanderFieldArray = useFieldArray({
+    control: form.control,
+    name: 'bystanders',
+  });
+
+  const addBystander = () => {
+    const idSuffix = Math.random().toString(36).slice(2, 8);
+    const newBystander: Bystander = {
+      id: `bys_${idSuffix}`,
+      role: 'family',
+      name: '',
+      demeanor: 'calm',
+      availability: 'on_scene',
+      knowledge: '',
+    };
+    bystanderFieldArray.append(newBystander);
+  };
 
   const handleSubmit = (values: Omit<Scenario, 'id'>) => {
     const v = { ...values };
@@ -873,6 +898,182 @@ export function ScenarioForm({ onSubmit, defaultValues, onCancel }: ScenarioForm
                         <h3 className="font-semibold pt-4">Critical Failures</h3>
                         <FormField control={form.control} name="criticalFailures" render={({ field }) => (<FormItem><FormLabel>All Levels</FormLabel><FormControl><ActionTextarea field={field}/></FormControl><FormMessage /></FormItem>)}/>
                     </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Bystanders</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      People on scene the medic can interrogate: family, friends, witnesses, police, fire, or prior responders. The AI keeps each bystander in their role and follows your guardrails.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Collapsible className="rounded-md border bg-muted/30">
+                      <CollapsibleTrigger className="group flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium hover:bg-muted/40">
+                        <span>How to write guardrails</span>
+                        <ChevronDown className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="border-t px-3 pb-3 pt-2 text-sm text-muted-foreground space-y-2">
+                        <p>Guardrails are admin notes that steer how this bystander behaves with the AI. The AI follows guardrails over its default role behavior when they conflict.</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li><b>Hide a piece of information</b> until the learner asks directly — e.g., <i>&ldquo;Don&rsquo;t volunteer that he uses heroin; only reveal if asked specifically about drug use.&rdquo;</i></li>
+                          <li><b>Force imprecision</b> — e.g., <i>&ldquo;Wife describes the pill as the little blue heart one; she does not know the name.&rdquo;</i></li>
+                          <li><b>Cap what the role can know</b> — e.g., <i>&ldquo;Officer arrived after the collapse; he did not witness the event.&rdquo;</i></li>
+                          <li><b>Set a behavioral ceiling</b> — e.g., <i>&ldquo;Mother is hysterical; will only answer one question at a time before crying.&rdquo;</i></li>
+                          <li><b>Prevent giveaways</b> — e.g., <i>&ldquo;Do not mention the empty insulin syringe unless the learner asks about meds or looks around.&rdquo;</i></li>
+                        </ul>
+                        <p>Keep guardrails short and specific.</p>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {bystanderFieldArray.fields.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">No bystanders yet. Add one to give this scenario family, witnesses, or scene authorities.</p>
+                    ) : null}
+
+                    <div className="space-y-4">
+                      {bystanderFieldArray.fields.map((entry, index) => {
+                        const currentRole = form.watch(`bystanders.${index}.role`);
+                        const showRelationship = currentRole === 'family' || currentRole === 'friend' || currentRole === 'coworker';
+                        return (
+                          <div key={entry.id} className="rounded-lg border bg-card p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-muted-foreground">Bystander {index + 1}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => bystanderFieldArray.remove(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <FormField
+                                control={form.control}
+                                name={`bystanders.${index}.role`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Role</FormLabel>
+                                    <Select onValueChange={(v) => field.onChange(v as BystanderRole)} value={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {BYSTANDER_ROLES.map((r) => (
+                                          <SelectItem key={r} value={r}>{BYSTANDER_ROLE_LABEL[r]}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`bystanders.${index}.name`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Name / label</FormLabel>
+                                    <FormControl><Input placeholder="e.g., Susan (wife) or Officer Diaz" {...field} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              {showRelationship ? (
+                                <FormField
+                                  control={form.control}
+                                  name={`bystanders.${index}.relationship`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Relationship (optional)</FormLabel>
+                                      <FormControl><Input placeholder="e.g., wife, 30 yrs" value={field.value ?? ''} onChange={field.onChange} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              ) : null}
+                              <FormField
+                                control={form.control}
+                                name={`bystanders.${index}.demeanor`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Demeanor</FormLabel>
+                                    <Select onValueChange={(v) => field.onChange(v as BystanderDemeanor)} value={field.value}>
+                                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                      <SelectContent>
+                                        {BYSTANDER_DEMEANORS.map((d) => (
+                                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`bystanders.${index}.availability`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Availability</FormLabel>
+                                    <Select onValueChange={(v) => field.onChange(v as BystanderAvailability)} value={field.value}>
+                                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                      <SelectContent>
+                                        {BYSTANDER_AVAILABILITIES.map((a) => (
+                                          <SelectItem key={a} value={a}>{a === 'on_scene' ? 'On scene' : a === 'phone' ? 'Phone only' : 'Arriving later'}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name={`bystanders.${index}.knowledge`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>What they know</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      rows={3}
+                                      placeholder={'e.g., "Husband: PMH HTN, lisinopril 10mg daily; collapsed in kitchen after complaining of chest pressure; last well 30 min ago; no allergies."'}
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>The AI will not invent clinically pivotal facts beyond what you write here.</FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`bystanders.${index}.guardrails`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Guardrails (optional)</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      rows={2}
+                                      placeholder={'e.g., "Minimizes alcohol use; will only admit heavy drinking if asked directly twice."'}
+                                      value={field.value ?? ''}
+                                      onChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <Button type="button" variant="outline" size="sm" onClick={addBystander}>
+                      <Plus className="mr-2 h-4 w-4" /> Add bystander
+                    </Button>
+                  </CardContent>
                 </Card>
             </div>
         </div>

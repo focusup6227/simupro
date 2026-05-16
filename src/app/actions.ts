@@ -30,6 +30,11 @@ import {
   type HospitalHandoverOutput,
 } from '@/ai/flows/hospital-handover-doctor';
 import {
+  provideDynamicBystanderResponse,
+  type DynamicBystanderResponseInput,
+  type DynamicBystanderResponseOutput,
+} from '@/ai/flows/provide-dynamic-bystander-response';
+import {
   gradeSimulationPerformance as gradeSimulationFlow,
 } from "@/ai/flows/grade-simulation-performance";
 import {
@@ -354,5 +359,19 @@ export async function runHospitalHandover(
     return await getHospitalHandoverDoctorReply(parsed);
   } catch (e) {
     rethrow("runHospitalHandover", e, { userId });
+  }
+}
+
+export async function getBystanderResponse(
+  input: DynamicBystanderResponseInput,
+): Promise<DynamicBystanderResponseOutput> {
+  const userId = await gateAi("getBystanderResponse");
+  try {
+    return await provideDynamicBystanderResponse(input);
+  } catch (e) {
+    rethrow("getBystanderResponse", e, {
+      userId,
+      bystanderRole: input.bystander.role,
+    });
   }
 }
