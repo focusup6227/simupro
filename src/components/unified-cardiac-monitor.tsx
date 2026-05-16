@@ -1435,20 +1435,6 @@ export function UnifiedCardiacMonitor({
                     twelveLeadDisabled={!isTwelveLeadElectrodesApplied}
                   />
                 </TooltipProvider>
-                {isMonitorPowered &&
-                showProtocolQuickMenus &&
-                (onMonitorMedication || onMonitorIntervention || onAction) ? (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <MedicationMenu
-                      onSelect={onMonitorMedication ?? undefined}
-                      disabled={!isMonitorPowered}
-                    />
-                    <InterventionMenu
-                      onSelect={handleMonitorProcedure}
-                      disabled={!isMonitorPowered}
-                    />
-                  </div>
-                ) : null}
               </>
             )}
             {mode === 'twelve_lead' && latestPrintout && (
