@@ -71,6 +71,11 @@
     "zod": "^3.23.8",
     "zustand": "^5.0.13"
   },
+  "overrides": {
+    "workbox-build": "^7.4.1",
+    "serialize-javascript": "^7.0.5",
+    "@rollup/plugin-terser": "^1.0.0"
+  },
   "devDependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "@playwright/test": "^1.51.0",
