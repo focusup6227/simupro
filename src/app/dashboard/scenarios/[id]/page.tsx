@@ -235,6 +235,8 @@ function roleKeyForMandatory(
   return "emt";
 }
 
+const NO_INTERVENTIONS: [] = [];
+
 function monitorMenuOptsFromScenario(s: Scenario) {
   return {
     scenarioMedications: s.monitorMenuMedications ?? [],
@@ -301,7 +303,7 @@ export default function SimulationPage() {
     // contained guided labels ("Treat Hypothermic Shock") that give away the diagnosis.
     // Students should select from the neutral clinical procedure catalog on their own.
     useProtocolStore.getState().setScenarioOverlay(
-      monitorMenuRowsToScenarioOverlay(scenarioMedications, []),
+      monitorMenuRowsToScenarioOverlay(scenarioMedications, NO_INTERVENTIONS),
     );
     return () => {
       useProtocolStore.getState().clearScenarioOverlay();
