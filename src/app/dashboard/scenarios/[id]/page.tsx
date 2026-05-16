@@ -2456,7 +2456,7 @@ export default function SimulationPage() {
         <div
           ref={simulationLogScrollRef}
           onScroll={onSimulationLogScroll}
-          className="max-h-[min(50dvh,36rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(60vh,42rem)]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
         >
           <div className="space-y-4">
             {messages.map((message, messageIndex) => {
@@ -2567,7 +2567,7 @@ export default function SimulationPage() {
           </div>
         ) : null}
         <div
-          className="flex flex-col border-t p-4 lg:min-h-0 lg:flex-1 lg:justify-start"
+          className="flex flex-col border-t p-4 min-h-0 flex-[2] justify-start"
           data-tour={WELCOME_TOUR_ANCHORS.tabs}
         >
           <Tabs
