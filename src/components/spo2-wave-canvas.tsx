@@ -2,17 +2,12 @@
 
 import { parseHeartRateBpm } from '@/lib/vitals-parse';
 import { usePhysiologyStore } from '@/stores/physiology-store';
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 const PLETH_COLOR = '#00FFFF';
-const SAMPLE_COUNT = 256;
-const SWEEP_SEC = 4;
-
-function plethY(value: number, h: number): number {
-  const baseline = h * 0.88;
-  const amplitude = h * 0.72;
-  return baseline - value * amplitude;
-}
+const SPO2_VIEWPORT_PX = 600;
+const SPO2_SWEEP_SEC = 6;
+const BG_COLOR = '#0a0a0a';
 
 /** Dicrotic pulse shape: rapid upstroke → peak → notch → secondary hump → diastolic decay. */
 function samplePlethValue(phase: number): number {
@@ -22,40 +17,33 @@ function samplePlethValue(phase: number): number {
   return Math.max(0, mainPeak + notchDip + dicroticHump);
 }
 
-function drawPlethGlow(
-  c: CanvasRenderingContext2D,
-  ys: Float32Array,
-  w: number,
-  glow: boolean,
-): void {
-  const n = ys.length;
-  if (n < 2) return;
-  c.save();
-  if (glow) {
-    c.shadowBlur = 12;
-    c.shadowColor = PLETH_COLOR;
+/** Build an SVG path `d` for one full sweep of pleth waveform. */
+function buildPlethPath(hrBpm: number, spo2: number, height: number): string {
+  const clampedHr = Math.max(20, Math.min(300, hrBpm));
+  const beatPeriodSec = 60 / clampedHr;
+  const pxPerSec = SPO2_VIEWPORT_PX / SPO2_SWEEP_SEC;
+  const ampScale =
+    spo2 >= 94 ? 1.0
+    : spo2 >= 85 ? 0.6 + 0.4 * ((spo2 - 85) / 9)
+    : spo2 >= 70 ? Math.max(0.1, (spo2 - 70) / 15)
+    : 0.05;
+
+  const baseline = height * 0.88;
+  const amplitude = height * 0.72 * ampScale;
+
+  const n = Math.min(2400, Math.max(400, Math.floor(SPO2_VIEWPORT_PX * 4)));
+  const chunks: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * SPO2_VIEWPORT_PX;
+    const t = x / pxPerSec;
+    const beatIdx = Math.floor(t / beatPeriodSec);
+    const beatPhase = t / beatPeriodSec - beatIdx;
+    const variance = 0.93 + 0.07 * Math.sin(Math.abs(beatIdx) * 1.618);
+    const v = samplePlethValue(Math.max(0, beatPhase)) * variance;
+    const y = baseline - v * amplitude;
+    chunks.push(i === 0 ? `M ${x.toFixed(2)} ${y.toFixed(3)}` : `L ${x.toFixed(2)} ${y.toFixed(3)}`);
   }
-  c.strokeStyle = PLETH_COLOR;
-  c.lineWidth = 2.0;
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-  c.beginPath();
-  c.moveTo(0, ys[0]!);
-  for (let i = 0; i < n - 1; i++) {
-    const i0 = Math.max(0, i - 1);
-    const i3 = Math.min(n - 1, i + 2);
-    const x0 = (i0 / (n - 1)) * w;
-    const x1 = (i / (n - 1)) * w;
-    const x2 = ((i + 1) / (n - 1)) * w;
-    const x3 = (i3 / (n - 1)) * w;
-    const cp1x = x1 + (x2 - x0) / 6;
-    const cp1y = ys[i]! + (ys[i + 1]! - ys[i0]!) / 6;
-    const cp2x = x2 - (x3 - x1) / 6;
-    const cp2y = ys[i + 1]! - (ys[i3]! - ys[i]!) / 6;
-    c.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, ys[i + 1]!);
-  }
-  c.stroke();
-  c.restore();
+  return chunks.join(' ');
 }
 
 function Spo2WaveCanvasImpl({
@@ -65,203 +53,254 @@ function Spo2WaveCanvasImpl({
   height?: number;
   enabled?: boolean;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const reactId = useId().replace(/:/g, '');
+  const filterId = `${reactId}-glow`;
+  const revealId = `${reactId}-reveal`;
+  const eraseId = `${reactId}-erase`;
+
+  const hr = usePhysiologyStore((s) => s.hr);
+  const spo2Raw = usePhysiologyStore((s) => s.spo2);
+
+  const hrBpm = parseHeartRateBpm(hr) ?? 75;
+  const spo2 = useMemo(() => {
+    const v = parseFloat(String(spo2Raw ?? '98'));
+    return Number.isFinite(v) ? v : 98;
+  }, [spo2Raw]);
+
+  const pathD = useMemo(
+    () => (enabled ? buildPlethPath(hrBpm, spo2, height) : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hrBpm, spo2, height, enabled],
+  );
+
+  const [prevPathD, setPrevPathD] = useState(pathD);
+  const pathDRef = useRef(pathD);
+  pathDRef.current = pathD;
+
+  const revealRectRef = useRef<SVGRectElement | null>(null);
+  const eraseRectRef = useRef<SVGRectElement | null>(null);
+  const cursorGRef = useRef<SVGGElement | null>(null);
+  const currPathRef = useRef<SVGPathElement | null>(null);
+
   const phaseRef = useRef(0);
   const lastFrameRef = useRef<number | null>(null);
-  const stripStartMsRef = useRef<number | null>(null);
+  const cycleMsRef = useRef(SPO2_SWEEP_SEC * 1000);
+
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrap = wrapRef.current;
-    if (!canvas || !wrap) return;
-
-    let reduceMotion =
-      typeof window !== 'undefined' &&
-      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-    const mq =
-      typeof window !== 'undefined' && window.matchMedia
-        ? window.matchMedia('(prefers-reduced-motion: reduce)')
-        : null;
-    const onMq = (e: MediaQueryListEvent) => { reduceMotion = e.matches; };
-    mq?.addEventListener('change', onMq);
-
-    const drawIdleBaseline = (
-      c: CanvasRenderingContext2D,
-      wCss: number,
-      h: number,
-      dpr: number,
-    ) => {
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      c.fillStyle = '#0a0a0a';
-      c.fillRect(0, 0, wCss, h);
-      const y0 = plethY(0, h);
-      c.strokeStyle = 'rgba(0,255,255,0.22)';
-      c.lineWidth = 1;
-      c.setLineDash([6, 6]);
-      c.beginPath();
-      c.moveTo(0, y0);
-      c.lineTo(wCss, y0);
-      c.stroke();
-      c.setLineDash([]);
-      c.fillStyle = 'rgba(0,200,200,0.50)';
-      c.font = '9px ui-monospace, monospace';
-      c.fillText('SENSOR OFF', 8, 13);
-    };
-
-    if (!enabled) {
-      const redraw = () => {
-        const dpr = window.devicePixelRatio || 1;
-        const wCss = wrap.clientWidth;
-        canvas.style.width = `${wCss}px`;
-        canvas.style.height = `${height}px`;
-        canvas.width = Math.max(1, Math.floor(wCss * dpr));
-        canvas.height = Math.max(1, Math.floor(height * dpr));
-        const c = canvas.getContext('2d');
-        if (c) drawIdleBaseline(c, wCss, height, dpr);
-      };
-      redraw();
-      const roIdle = new ResizeObserver(redraw);
-      roIdle.observe(wrap);
-      return () => {
-        mq?.removeEventListener('change', onMq);
-        roIdle.disconnect();
-      };
+    if (!enabled || reduceMotion) {
+      lastFrameRef.current = null;
+      return;
     }
 
-    const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = wrap.clientWidth;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${height}px`;
-      canvas.width = Math.max(1, Math.floor(w * dpr));
-      canvas.height = Math.max(1, Math.floor(height * dpr));
-    };
-
-    resizeCanvas();
-    const ro = new ResizeObserver(resizeCanvas);
-    ro.observe(wrap);
-
-    let rafHandle = 0;
-    if (stripStartMsRef.current == null) {
-      stripStartMsRef.current = performance.now();
-    }
-
-    const SWEEP_CYCLE_MS = SWEEP_SEC * 1000;
-
+    let rafId = 0;
     const tick = () => {
-      rafHandle = 0;
-      if (document.visibilityState !== 'visible') return;
+      const now = performance.now();
+      const last = lastFrameRef.current ?? now;
+      lastFrameRef.current = now;
+      const dt = now - last;
+      const cycle = Math.max(1, cycleMsRef.current);
+      let next = phaseRef.current + dt / cycle;
+      let wrapped = false;
+      while (next >= 1) {
+        next -= 1;
+        wrapped = true;
+      }
+      phaseRef.current = next;
 
-      const dpr = window.devicePixelRatio || 1;
-      const wCss = wrap.clientWidth;
-      const h = height;
-      const c = canvas.getContext('2d');
-      if (!c) { scheduleNext(); return; }
+      const sweepX = next * SPO2_VIEWPORT_PX;
 
-      const s = usePhysiologyStore.getState();
-      const hrBpm = parseHeartRateBpm(s.hr) ?? 75;
-      const spo2Raw = parseFloat(String(s.spo2 ?? '98'));
-      const spo2 = Number.isFinite(spo2Raw) ? spo2Raw : 98;
-
-      if (!reduceMotion) {
-        const now = performance.now();
-        const last = lastFrameRef.current ?? now;
-        lastFrameRef.current = now;
-        const dt = now - last;
-        let next = phaseRef.current + dt / SWEEP_CYCLE_MS;
-        while (next >= 1) next -= 1;
-        phaseRef.current = next;
+      if (cursorGRef.current) {
+        cursorGRef.current.setAttribute('transform', `translate(${sweepX.toFixed(2)} 0)`);
+      }
+      if (revealRectRef.current) {
+        revealRectRef.current.setAttribute('x', (sweepX - SPO2_VIEWPORT_PX).toFixed(2));
+      }
+      if (eraseRectRef.current) {
+        eraseRectRef.current.setAttribute('x', sweepX.toFixed(2));
       }
 
-      const sweepX = phaseRef.current * wCss;
-      const simSecAtRightEdge =
-        (performance.now() - (stripStartMsRef.current ?? performance.now())) / 1000;
-
-      // Amplitude scales: full above 94%, dims below 85%, flat at 70% or below
-      const ampScale =
-        spo2 >= 94 ? 1.0
-        : spo2 >= 85 ? 0.6 + 0.4 * ((spo2 - 85) / 9)
-        : spo2 >= 70 ? Math.max(0.1, (spo2 - 70) / 15)
-        : 0.05;
-
-      const beatPeriodSec = 60 / Math.max(20, Math.min(300, hrBpm));
-
-      const buf = new Float32Array(SAMPLE_COUNT);
-      for (let i = 0; i < SAMPLE_COUNT; i++) {
-        const t = simSecAtRightEdge - SWEEP_SEC + (i / (SAMPLE_COUNT - 1)) * SWEEP_SEC;
-        const beatIdx = Math.floor(t / beatPeriodSec);
-        const phase = t / beatPeriodSec - beatIdx;
-        // Slight beat-to-beat cardiogenic variability (perfusion simulation)
-        const variance = 0.93 + 0.07 * Math.sin(Math.abs(beatIdx) * 1.618);
-        buf[i] = plethY(samplePlethValue(Math.max(0, phase)) * variance * ampScale, h);
+      if (wrapped) {
+        const curr = currPathRef.current?.getAttribute('d') ?? pathDRef.current;
+        setPrevPathD(curr);
       }
 
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      c.fillStyle = '#0a0a0a';
-      c.fillRect(0, 0, wCss, h);
-
-      // Faint vertical grid
-      c.strokeStyle = 'rgba(0,255,255,0.09)';
-      c.lineWidth = 1;
-      c.shadowBlur = 0;
-      for (let x = 0; x < wCss; x += 16) {
-        c.beginPath();
-        c.moveTo(x + 0.5, 0);
-        c.lineTo(x + 0.5, h);
-        c.stroke();
-      }
-
-      const allowGlow = !reduceMotion && !document.hidden;
-
-      // Sweep clip: reveal trace up to current sweep position
-      c.save();
-      c.beginPath();
-      c.rect(0, 0, Math.max(0, sweepX), h);
-      c.clip();
-      drawPlethGlow(c, buf, wCss, allowGlow);
-      c.restore();
-
-      // Black blanking bar just ahead of sweep head
-      c.fillStyle = '#000';
-      c.fillRect(sweepX + 1.5, 0, 3, h);
-
-      scheduleNext();
+      rafId = requestAnimationFrame(tick);
     };
 
-    const scheduleNext = () => {
-      if (document.visibilityState !== 'visible' || rafHandle !== 0) return;
-      rafHandle = requestAnimationFrame(tick);
-    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [enabled, reduceMotion]);
 
-    const onVisibility = () => {
-      if (document.visibilityState !== 'visible') {
-        if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = 0; }
-        return;
-      }
-      scheduleNext();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
+  const vw = SPO2_VIEWPORT_PX;
+  const initialSweepX = phaseRef.current * vw;
+  const blankGap = Math.max(6, Math.min(14, vw * 0.02));
 
-    scheduleNext();
+  if (!enabled) {
+    const y0 = height * 0.88;
+    return (
+      <div className="relative w-full overflow-hidden rounded border border-zinc-700/80 bg-black">
+        <span className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-black/80 px-1 py-0.5 font-mono text-[9px] uppercase text-cyan-200 ring-1 ring-zinc-600/80">
+          SpO₂
+        </span>
+        <svg
+          width="100%"
+          height={height}
+          viewBox={`0 0 ${vw} ${height}`}
+          preserveAspectRatio="none"
+          aria-hidden
+          className="block"
+        >
+          <rect width={vw} height={height} fill={BG_COLOR} />
+          <line
+            x1={0} y1={y0} x2={vw} y2={y0}
+            stroke="rgba(0,255,255,0.22)"
+            strokeWidth={1}
+            strokeDasharray="6 6"
+          />
+          <text
+            x={8}
+            y={13}
+            fontFamily="ui-monospace, monospace"
+            fontSize={9}
+            fill="rgba(0,200,200,0.50)"
+          >
+            SENSOR OFF
+          </text>
+        </svg>
+      </div>
+    );
+  }
 
-    return () => {
-      mq?.removeEventListener('change', onMq);
-      document.removeEventListener('visibilitychange', onVisibility);
-      ro.disconnect();
-      if (rafHandle) cancelAnimationFrame(rafHandle);
-    };
-  }, [height, enabled]);
+  const gridLines = [0.25, 0.5, 0.75].map((frac) => ({
+    y: frac * height,
+    opacity: frac === 0.5 ? 0.12 : 0.07,
+  }));
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative w-full overflow-hidden rounded border border-zinc-700/80 bg-black"
-    >
+    <div className="relative w-full overflow-hidden rounded border border-zinc-700/80 bg-[#0a0a0a]">
       <span className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-black/80 px-1 py-0.5 font-mono text-[9px] uppercase text-cyan-200 ring-1 ring-zinc-600/80">
         SpO₂
       </span>
-      <canvas ref={canvasRef} className="block w-full" aria-hidden />
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 ${vw} ${height}`}
+        preserveAspectRatio="none"
+        aria-hidden
+        className="block"
+      >
+        <defs>
+          <filter id={filterId} x="-20%" y="-50%" width="140%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <clipPath id={revealId}>
+            <rect
+              ref={revealRectRef}
+              x={initialSweepX - vw}
+              y={0}
+              width={vw}
+              height={height}
+            />
+          </clipPath>
+          <clipPath id={eraseId}>
+            <rect
+              ref={eraseRectRef}
+              x={initialSweepX}
+              y={0}
+              width={vw}
+              height={height}
+            />
+          </clipPath>
+        </defs>
+
+        <rect width={vw} height={height} fill={BG_COLOR} />
+
+        {gridLines.map(({ y, opacity }) => (
+          <line
+            key={y}
+            x1={0}
+            y1={y}
+            x2={vw}
+            y2={y}
+            stroke={`rgba(0,255,255,${opacity})`}
+            strokeWidth={0.5}
+          />
+        ))}
+
+        {reduceMotion ? (
+          <path
+            d={pathD}
+            fill="none"
+            stroke={PLETH_COLOR}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter={`url(#${filterId})`}
+          />
+        ) : (
+          <>
+            <g clipPath={`url(#${eraseId})`}>
+              <path
+                d={prevPathD}
+                fill="none"
+                stroke={PLETH_COLOR}
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                filter={`url(#${filterId})`}
+              />
+            </g>
+
+            <g clipPath={`url(#${revealId})`}>
+              <path
+                ref={currPathRef}
+                d={pathD}
+                fill="none"
+                stroke={PLETH_COLOR}
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                filter={`url(#${filterId})`}
+              />
+            </g>
+
+            <g
+              ref={cursorGRef}
+              transform={`translate(${initialSweepX.toFixed(2)} 0)`}
+            >
+              <rect
+                x={-(blankGap + 1)}
+                y={0}
+                width={blankGap + 2}
+                height={height}
+                fill={BG_COLOR}
+              />
+              <line
+                x1={0}
+                y1={0}
+                x2={0}
+                y2={height}
+                stroke="rgba(0,255,255,0.30)"
+                strokeWidth={1}
+              />
+            </g>
+          </>
+        )}
+      </svg>
     </div>
   );
 }

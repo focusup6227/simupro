@@ -2456,7 +2456,7 @@ export default function SimulationPage() {
         <div
           ref={simulationLogScrollRef}
           onScroll={onSimulationLogScroll}
-          className="max-h-[min(38dvh,24rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(52vh,26rem)]"
+          className="max-h-[min(50dvh,36rem)] shrink-0 overflow-y-auto overscroll-contain px-4 pb-3 pt-4 sm:max-h-[min(60vh,42rem)]"
         >
           <div className="space-y-4">
             {messages.map((message, messageIndex) => {
@@ -2575,7 +2575,7 @@ export default function SimulationPage() {
             onValueChange={(value) => setActiveTab(value as ActiveTab)}
             className={cn(
               "flex w-full flex-col justify-start gap-2",
-              activeTab === "destination" ? "min-h-0 flex-1" : "shrink-0",
+              ["destination", "treatment", "cardiacArrest"].includes(activeTab) ? "min-h-0 flex-1" : "shrink-0",
             )}
           >
             <TabsList
@@ -2628,7 +2628,7 @@ export default function SimulationPage() {
                 </>
               )}
             </TabsList>
-             <TabsContent value="cardiacArrest">
+             <TabsContent value="cardiacArrest" className="flex min-h-0 flex-1 flex-col outline-none">
                 {(currentUserRole === 'emt' || currentUserRole === 'aemt') ? (
                   <div className="space-y-4">
                     <AedPanel
@@ -2646,7 +2646,7 @@ export default function SimulationPage() {
                   </div>
                 ) : (
                   <>
-                    <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
+                    <ScrollArea className="min-h-[11rem] flex-1 pr-4">
                         <div className="space-y-4 pr-4">
                             <Label>Select cardiac arrest interventions</Label>
                             {!treatmentsMenuEnabled ? (
@@ -2721,8 +2721,8 @@ export default function SimulationPage() {
                 </Button>
               </div>
             </TabsContent>
-            <TabsContent value="treatment">
-               <ScrollArea className="max-h-[min(55vh,22rem)] min-h-[11rem]">
+            <TabsContent value="treatment" className="flex min-h-0 flex-1 flex-col outline-none">
+               <ScrollArea className="min-h-[11rem] flex-1 pr-4">
                 <div className="space-y-4 pr-4">
                   <Label>Select treatments to administer</Label>
                   {!treatmentsMenuEnabled && (
