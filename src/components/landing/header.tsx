@@ -28,6 +28,7 @@ export function LandingHeader() {
           <a href="#how" className="hover:text-white transition">How it works</a>
           <a href="#cockpit" className="hover:text-white transition">Cockpit</a>
           <a href="#pricing" className="hover:text-white transition">Pricing</a>
+          <Link href="/blog" className="hover:text-white transition">Field Notes</Link>
         </nav>
 
         <div className="flex items-center gap-2">
