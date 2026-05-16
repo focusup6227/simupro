@@ -267,6 +267,14 @@
 
 /* ─── end app shell restyle ──────────────────────────────────────────────────── */
 
+/* ─── Monitor alarm flash ──────────────────────────────────────────────────── */
+@keyframes alarmFlash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.alarm-flash { animation: alarmFlash 0.9s ease-in-out infinite; }
+/* ─── end monitor alarm flash ─────────────────────────────────────────────── */
+
 @media print {
   @page {
     margin: 0.5in;

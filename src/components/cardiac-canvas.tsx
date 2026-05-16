@@ -621,21 +621,30 @@ function CardiacCanvasImpl({
         }
 
         if (lsOv.tcp) {
-          // Distinct vertical pacer spikes immediately preceding each QRS (no scrolling yellow line)
+          // Distinct pacer artifact spikes — filled rectangle wider than a line,
+          // with a narrow bright core and a short rebound tail, matching real
+          // EMS monitor (LIFEPAK/Zoll) TCP spike appearance.
           const ppm = Math.max(40, Math.min(120, lsOv.tcpRate));
           const intervalMs = 60000 / ppm;
           const spacingPx = intervalMs / ECG_MS_PER_PIXEL;
-          // Small negative offset so spike appears just before the R-peak
           const preQrsOffset = -4 * (vwDevice / viewWLogical);
-          c.strokeStyle = '#fff';
-          c.lineWidth = 1.6 * (vwDevice / viewWLogical);
+          const scale = vwDevice / viewWLogical;
+          const bodyW = 2.5 * scale;
+          const coreW = 1.0 * scale;
+          const tailW = 4.0 * scale;
           for (let xl = 0; xl < viewWL; xl += spacingPx) {
-            const x = (xl * sxMap + preQrsOffset) + 0.5;
+            const x = xl * sxMap + preQrsOffset;
             if (x > 0 && x < vwDevice) {
-              c.beginPath();
-              c.moveTo(x, 4);
-              c.lineTo(x, height - 4);
-              c.stroke();
+              // Wide white spike body
+              c.fillStyle = '#ffffff';
+              c.fillRect(x - bodyW / 2, 2, bodyW, height - 4);
+              // Bright narrow core (gives impression of a sharp high-amplitude artifact)
+              c.fillStyle = 'rgba(200,240,255,0.95)';
+              c.fillRect(x - coreW / 2, 0, coreW, height);
+              // Short negative-polarity tail immediately after spike
+              // (simulates the post-stimulus artifact rebound on a real monitor)
+              c.fillStyle = 'rgba(255,255,255,0.30)';
+              c.fillRect(x + bodyW, Math.round(height * 0.52), tailW, 2);
             }
           }
         }

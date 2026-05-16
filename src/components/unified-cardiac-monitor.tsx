@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { CardiacCanvas } from '@/components/cardiac-canvas';
 import { CapnoWaveCanvas } from '@/components/capno-wave-canvas';
+import { Spo2WaveCanvas } from '@/components/spo2-wave-canvas';
 import {
   deriveEcgScenarioContext,
 } from '@/lib/ecg-scenario';
@@ -23,6 +24,10 @@ import {
   formatEtco2ForMonitor,
   formatSpo2ForMonitor,
   parseHeartRateBpm,
+  parseRrForMonitor,
+  parseEtco2MmHg,
+  parseBpString,
+  parseRrBpm,
 } from '@/lib/vitals-parse';
 import { useMergedPkDisplay } from '@/hooks/use-merged-pk-display';
 import { useLifeSupportController } from '@/hooks/use-life-support-controller';
@@ -84,6 +89,15 @@ const COLOR_HR = '#00FF00';
 const COLOR_SPO2 = '#00FFFF';
 const COLOR_ETCO2 = '#FFFF00';
 const COLOR_BP = '#FFFFFF';
+const COLOR_RR = '#FFFFFF';
+
+/** Composite EMS monitor alarm thresholds (adult defaults; HR uses age-band logic). */
+const ALARM_THRESHOLDS = {
+  spo2Low: 94,
+  etco2Low: 30, etco2High: 45,
+  rrLow: 8,     rrHigh: 30,
+  bpSysLow: 90, bpSysHigh: 180,
+} as const;
 
 /** PALS-style severe brady / tachy for monitor alarm (tunable). */
 function severeHrAlarmThresholds(
@@ -123,8 +137,13 @@ function playAlarmChirp(actx: AudioContext) {
   }
 }
 
-function vitalRowClass() {
-  return 'relative flex min-h-[4.5rem] flex-col justify-center border-b border-zinc-800/90 px-2 py-2 font-mono ring-1 ring-inset ring-white/[0.04]';
+function vitalRowClass(alarming = false) {
+  return cn(
+    'relative flex min-h-[4.5rem] flex-col justify-center border-b px-2 py-2 font-mono ring-1 ring-inset ring-white/[0.04]',
+    alarming
+      ? 'alarm-flash border-red-500/60 bg-red-950/25'
+      : 'border-zinc-800/90',
+  );
 }
 
 function ChannelLed({ on, color }: { on: boolean; color: string }) {
@@ -140,7 +159,7 @@ function ChannelLed({ on, color }: { on: boolean; color: string }) {
   );
 }
 
-function VitalBlockHr({ displayHr }: { displayHr?: string }) {
+function VitalBlockHr({ displayHr, alarming }: { displayHr?: string; alarming?: boolean }) {
   const {
     hr,
     isMonitorPowered,
@@ -166,7 +185,7 @@ function VitalBlockHr({ displayHr }: { displayHr?: string }) {
   const display = raw === '—' ? raw : (String(parseHeartRateBpm(raw) ?? '') || '—');
 
   return (
-    <div className={vitalRowClass()}>
+    <div className={vitalRowClass(alarming && channelOn)}>
       <span className="absolute left-1 top-1 flex items-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">
         <ChannelLed on={channelOn} color={COLOR_HR} />
         HR
@@ -181,7 +200,7 @@ function VitalBlockHr({ displayHr }: { displayHr?: string }) {
   );
 }
 
-function VitalBlockSpo2({ displaySpo2 }: { displaySpo2?: string }) {
+function VitalBlockSpo2({ displaySpo2, alarming }: { displaySpo2?: string; alarming?: boolean }) {
   const { spo2, isMonitorPowered, isPulseOxApplied } = usePhysiologyStore(
     useShallow((s) => ({
       spo2: s.spo2,
@@ -193,7 +212,7 @@ function VitalBlockSpo2({ displaySpo2 }: { displaySpo2?: string }) {
   const text = channelOn ? formatSpo2ForMonitor(displaySpo2 ?? spo2) || '—' : '—';
 
   return (
-    <div className={vitalRowClass()}>
+    <div className={vitalRowClass(alarming && channelOn)}>
       <span className="absolute left-1 top-1 flex items-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">
         <ChannelLed on={channelOn} color={COLOR_SPO2} />
         SpO₂
@@ -208,7 +227,7 @@ function VitalBlockSpo2({ displaySpo2 }: { displaySpo2?: string }) {
   );
 }
 
-function VitalBlockEtco2({ displayEtco2 }: { displayEtco2?: string }) {
+function VitalBlockEtco2({ displayEtco2, alarming }: { displayEtco2?: string; alarming?: boolean }) {
   const { capnoSensor, isEtco2ChannelOn, etco2, isMonitorPowered } =
     usePhysiologyStore(
       useShallow((s) => ({
@@ -237,7 +256,7 @@ function VitalBlockEtco2({ displayEtco2 }: { displayEtco2?: string }) {
   }
 
   return (
-    <div className={vitalRowClass()}>
+    <div className={vitalRowClass(alarming && live)}>
       <span className="absolute left-1 top-1 flex items-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">
         <ChannelLed on={live} color={COLOR_ETCO2} />
         EtCO₂
@@ -260,7 +279,7 @@ function VitalBlockEtco2({ displayEtco2 }: { displayEtco2?: string }) {
   );
 }
 
-function VitalBlockBp() {
+function VitalBlockBp({ alarming }: { alarming?: boolean }) {
   const st = usePhysiologyStore(
     useShallow((s) => ({
       nibpPhase: s.nibpPhase,
@@ -368,12 +387,40 @@ function VitalBlockBp() {
       (st.bpDisplaySys != null && st.bpDisplayDia != null));
 
   return (
-    <div className={vitalRowClass()}>
+    <div className={vitalRowClass(alarming && bpChannelOn)}>
       <span className="absolute left-1 top-1 flex items-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">
         <ChannelLed on={bpChannelOn} color={COLOR_BP} />
         BP
       </span>
       {inner}
+    </div>
+  );
+}
+
+function VitalBlockRr({ displayRr, alarming }: { displayRr?: string; alarming?: boolean }) {
+  const { isMonitorPowered, capnoSensor, isFourLeadApplied } = usePhysiologyStore(
+    useShallow((s) => ({
+      isMonitorPowered: s.isMonitorPowered,
+      capnoSensor: s.capnoSensor,
+      isFourLeadApplied: s.isFourLeadApplied,
+    })),
+  );
+  // RR is available via capnography (direct CO2 measurement) or 4-lead (impedance pneumography)
+  const channelOn = isMonitorPowered && (capnoSensor != null || isFourLeadApplied);
+  const display = channelOn ? (parseRrForMonitor(displayRr) || '—') : '—';
+
+  return (
+    <div className={vitalRowClass(alarming && channelOn)}>
+      <span className="absolute left-1 top-1 flex items-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+        <ChannelLed on={channelOn} color={COLOR_RR} />
+        RR /min
+      </span>
+      <span
+        className="pt-4 text-right text-3xl font-bold tabular-nums leading-none"
+        style={{ color: COLOR_RR }}
+      >
+        {display}
+      </span>
     </div>
   );
 }
@@ -932,14 +979,24 @@ export function UnifiedCardiacMonitor({
   );
 
   const isMonitorPowered = usePhysiologyStore((s) => s.isMonitorPowered);
-  const { isFourLeadApplied, isMonitorPadsApplied, isEkgChannelOn } =
+  const { isFourLeadApplied, isMonitorPadsApplied, isEkgChannelOn, isPulseOxApplied } =
     usePhysiologyStore(
       useShallow((s) => ({
         isFourLeadApplied: s.isFourLeadApplied,
         isMonitorPadsApplied: s.isMonitorPadsApplied,
         isEkgChannelOn: s.isEkgChannelOn,
+        isPulseOxApplied: s.isPulseOxApplied,
       })),
     );
+
+  const alarmChannelState = usePhysiologyStore(
+    useShallow((s) => ({
+      capnoSensor: s.capnoSensor,
+      isEtco2ChannelOn: s.isEtco2ChannelOn,
+      bpDisplaySys: s.bpDisplaySys,
+      isBeepMuted: s.isBeepMuted,
+    })),
+  );
 
   const baseCtx = useMemo(() => {
     const currentVitals = vitalsForDerive.hr
@@ -1007,6 +1064,72 @@ export function UnifiedCardiacMonitor({
   }, [ctx.kind, onRhythmChange]);
 
   const tileW = useMemo(() => rhythmStripeWidthForContext(ctx), [ctx]);
+
+  const { alarmState, activeAlarmMessages } = useMemo(() => {
+    const state = { hr: false, spo2: false, etco2: false, rr: false, bp: false };
+    const msgs: string[] = [];
+    if (!isMonitorPowered) return { alarmState: state, activeAlarmMessages: msgs };
+
+    const hrChannelOn =
+      ((isFourLeadApplied || isMonitorPadsApplied) && isEkgChannelOn) || isPulseOxApplied;
+    const spo2ChannelOn = isPulseOxApplied;
+    const etco2ChannelOn =
+      alarmChannelState.capnoSensor != null && alarmChannelState.isEtco2ChannelOn;
+    const rrChannelOn = alarmChannelState.capnoSensor != null || isFourLeadApplied;
+    const bpChannelOn = alarmChannelState.bpDisplaySys != null;
+
+    const { brady, tachy } = severeHrAlarmThresholds(scenario?.ageBand);
+    const hrNum = parseHeartRateBpm(merged.hr);
+    if (hrChannelOn && hrNum != null && (hrNum < brady || hrNum > tachy)) {
+      state.hr = true;
+      msgs.push(hrNum < brady ? 'HR LOW' : 'HR HIGH');
+    }
+
+    const spo2Num = merged.spo2 ? parseFloat(String(merged.spo2).replace(/%.*/, '')) : null;
+    if (
+      spo2ChannelOn &&
+      spo2Num != null &&
+      Number.isFinite(spo2Num) &&
+      spo2Num < ALARM_THRESHOLDS.spo2Low
+    ) {
+      state.spo2 = true;
+      msgs.push('SpO₂ LOW');
+    }
+
+    const etco2Num = parseEtco2MmHg(merged.etco2);
+    if (
+      etco2ChannelOn &&
+      (etco2Num < ALARM_THRESHOLDS.etco2Low || etco2Num > ALARM_THRESHOLDS.etco2High)
+    ) {
+      state.etco2 = true;
+      msgs.push(etco2Num < ALARM_THRESHOLDS.etco2Low ? 'EtCO₂ LOW' : 'EtCO₂ HIGH');
+    }
+
+    const rrNum = parseRrBpm(merged.rr);
+    if (rrChannelOn && (rrNum < ALARM_THRESHOLDS.rrLow || rrNum > ALARM_THRESHOLDS.rrHigh)) {
+      state.rr = true;
+      msgs.push(rrNum < ALARM_THRESHOLDS.rrLow ? 'RR LOW' : 'RR HIGH');
+    }
+
+    if (bpChannelOn && alarmChannelState.bpDisplaySys != null) {
+      const sys = alarmChannelState.bpDisplaySys;
+      if (sys < ALARM_THRESHOLDS.bpSysLow || sys > ALARM_THRESHOLDS.bpSysHigh) {
+        state.bp = true;
+        msgs.push(sys < ALARM_THRESHOLDS.bpSysLow ? 'BP LOW' : 'BP HIGH');
+      }
+    }
+
+    return { alarmState: state, activeAlarmMessages: msgs };
+  }, [
+    isMonitorPowered,
+    isFourLeadApplied,
+    isMonitorPadsApplied,
+    isEkgChannelOn,
+    isPulseOxApplied,
+    alarmChannelState,
+    scenario,
+    merged,
+  ]);
 
   const [mode, setMode] = useState<MonitorMode>('four_lead');
   const [acquisitions, setAcquisitions] = useState<EcgAcquisition[]>([]);
@@ -1220,6 +1343,18 @@ export function UnifiedCardiacMonitor({
             className="pointer-events-none absolute inset-0 z-[4] opacity-[0.035] motion-reduce:hidden [background:repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(255,255,255,0.18)_3px)]"
             aria-hidden
           />
+          {activeAlarmMessages.length > 0 && isMonitorPowered && (
+            <div
+              className={cn(
+                'relative z-[2] flex items-center justify-center gap-1 border-b border-red-700/70 bg-red-950/80 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-red-50',
+                alarmChannelState.isBeepMuted ? 'opacity-30' : 'alarm-flash',
+              )}
+              role="alert"
+              aria-live="assertive"
+            >
+              ⚠ {activeAlarmMessages.join(' · ')}
+            </div>
+          )}
         <div className="relative z-[1] grid min-h-[280px] grid-cols-[3fr_1fr] gap-0 divide-x divide-zinc-800/90">
           <div className="relative flex min-w-0 flex-col gap-1 p-2">
             {twelveLeadAcquireBusy ? (
@@ -1271,6 +1406,10 @@ export function UnifiedCardiacMonitor({
                     </div>
                   ) : null}
                 </div>
+                <Spo2WaveCanvas
+                  height={44}
+                  enabled={isPulseOxApplied && isMonitorPowered}
+                />
                 <CapnoWaveCanvas
                   height={52}
                   enabled={capnoLive && isMonitorPowered}
@@ -1370,10 +1509,11 @@ export function UnifiedCardiacMonitor({
           </div>
 
           <div className="flex min-w-[7rem] flex-col gap-0.5 bg-gradient-to-b from-zinc-950/95 to-black/90 p-1 ring-1 ring-inset ring-white/[0.06]">
-            <VitalBlockHr displayHr={merged.hr} />
-            <VitalBlockSpo2 displaySpo2={merged.spo2} />
-            <VitalBlockEtco2 displayEtco2={merged.etco2} />
-            <VitalBlockBp />
+            <VitalBlockHr displayHr={merged.hr} alarming={alarmState.hr} />
+            <VitalBlockSpo2 displaySpo2={merged.spo2} alarming={alarmState.spo2} />
+            <VitalBlockEtco2 displayEtco2={merged.etco2} alarming={alarmState.etco2} />
+            <VitalBlockRr displayRr={merged.rr} alarming={alarmState.rr} />
+            <VitalBlockBp alarming={alarmState.bp} />
             <PulseHeart displayHr={merged.hr} scenario={scenario} />
           </div>
         </div>

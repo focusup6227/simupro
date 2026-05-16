@@ -72,3 +72,14 @@ export function formatEtco2ForMonitor(stored: string | null | undefined): string
   if (s) return s;
   return `${parseEtco2MmHg(null)} mmHg`;
 }
+
+/**
+ * Monitor display: numeric RR only (strips "/min", "unlabored", etc.).
+ * Returns empty string when unparseable so the caller can show "—".
+ */
+export function parseRrForMonitor(rr: string | number | null | undefined): string {
+  if (rr === null || rr === undefined) return '';
+  if (typeof rr === 'number') return Number.isFinite(rr) ? String(Math.round(rr)) : '';
+  const m = String(rr).match(/(\d{1,3})/);
+  return m ? m[1]! : '';
+}
