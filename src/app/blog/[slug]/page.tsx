@@ -2,7 +2,9 @@
 //
 // Static post detail. Wraps in `landing-shell blog-shell` so the navy
 // palette + prose styles activate.
+// Fetches from Supabase first; falls back to static data.
 
+import type * as React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -10,6 +12,7 @@ import { LandingHeader } from "@/components/landing/header";
 import { LandingFooter } from "@/components/landing/footer";
 import { PostThumb } from "@/components/blog/post-thumb";
 import { ProgressBar } from "@/components/blog/progress-bar";
+import { MarkdownBody } from "@/components/blog/markdown-body";
 import {
   getPostBySlug,
   getRelatedPosts,
@@ -17,8 +20,11 @@ import {
   posts,
   type BlogPostSummary,
 } from "@/lib/blog-data";
+import { getPostBySlugFromDB, dbPostToSummary } from "@/lib/blog-db";
 
-export function generateStaticParams() {
+export const revalidate = 60;
+
+export async function generateStaticParams() {
   return posts.map((p) => ({ slug: p.slug }));
 }
 
@@ -28,7 +34,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const dbPost = await getPostBySlugFromDB(slug);
+  const post = dbPost ? dbPostToSummary(dbPost) : getPostBySlug(slug);
   if (!post) return { title: "Post not found" };
   return {
     title: post.title,
@@ -48,7 +55,23 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+
+  const dbPost = await getPostBySlugFromDB(slug);
+
+  let post: BlogPostSummary | undefined;
+  let bodyMarkdown: string | null = null;
+  let bodyJsx: React.ReactNode = null;
+
+  if (dbPost) {
+    post = dbPostToSummary(dbPost);
+    bodyMarkdown = dbPost.body;
+  } else {
+    const staticPost = getPostBySlug(slug);
+    if (!staticPost) notFound();
+    post = staticPost;
+    bodyJsx = staticPost.body;
+  }
+
   if (!post) notFound();
 
   const related = getRelatedPosts(slug, 3);
@@ -127,7 +150,13 @@ export default async function BlogPostPage({
 
       {/* Body */}
       <div className="max-w-3xl mx-auto px-6 lg:px-10 py-12 lg:py-16">
-        <article className="prose-sim">{post.body}</article>
+        <article className="prose-sim">
+          {bodyMarkdown ? (
+            <MarkdownBody markdown={bodyMarkdown} />
+          ) : (
+            bodyJsx
+          )}
+        </article>
       </div>
 
       {/* Related */}

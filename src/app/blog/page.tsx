@@ -3,6 +3,8 @@
 // Marketing page. Same shell as the landing — wraps everything in
 // `landing-shell blog-shell` so the navy palette + prose styles activate
 // without bleeding into the rest of the app.
+// Fetches published posts from Supabase; falls back to static data if the
+// table doesn't exist yet.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -10,13 +12,15 @@ import { LandingHeader } from "@/components/landing/header";
 import { LandingFooter } from "@/components/landing/footer";
 import { PostThumb } from "@/components/blog/post-thumb";
 import {
-  posts,
   getFeaturedPost,
   getNonFeaturedPosts,
   getCategoriesWithCounts,
   formatPostDate,
   type BlogPostSummary,
 } from "@/lib/blog-data";
+import { getPublishedPostsFromDB, dbPostToSummary } from "@/lib/blog-db";
+
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Field Notes",
@@ -24,10 +28,26 @@ export const metadata: Metadata = {
     "Stories, releases, and protocol breakdowns from the SimuPro team. Field-tested writeups on EMS training, protocol rewrites, and our physiology engine.",
 };
 
-export default function BlogIndexPage() {
-  const featured = getFeaturedPost();
-  const rest = getNonFeaturedPosts();
-  const categories = getCategoriesWithCounts();
+export default async function BlogIndexPage() {
+  const dbPosts = await getPublishedPostsFromDB();
+  const hasDbPosts = dbPosts.length > 0;
+
+  const allPosts = hasDbPosts
+    ? dbPosts.map(dbPostToSummary)
+    : [...(getFeaturedPost() ? [getFeaturedPost()!] : []), ...getNonFeaturedPosts()];
+
+  const featured = allPosts.find((p) => p.featured) ?? allPosts[0] ?? null;
+  const rest = allPosts.filter((p) => p !== featured);
+
+  const categories = hasDbPosts
+    ? (() => {
+        const counts = new Map<string, number>();
+        const all = allPosts.length;
+        counts.set("All", all);
+        for (const p of allPosts) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+        return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+      })()
+    : getCategoriesWithCounts();
 
   return (
     <main className="landing-shell blog-shell">

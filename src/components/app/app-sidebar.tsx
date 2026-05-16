@@ -33,6 +33,7 @@ const ADMIN: NavItem[] = [
   { href: "/dashboard/admin/interventions",  label: "Interventions",  icon: Icons.Syringe },
   { href: "/dashboard/admin/support",        label: "Support Tickets",icon: Icons.Msg },
   { href: "/dashboard/admin/qa",             label: "QA",             icon: Icons.CheckCircle },
+  { href: "/dashboard/admin/blog",           label: "Field Notes",    icon: Icons.Book },
 ];
 
 function isActive(pathname: string, href: string) {
