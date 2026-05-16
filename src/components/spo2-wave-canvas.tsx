@@ -8,6 +8,7 @@ import {
   LIVE_STRIP_VIEWPORT_PX,
   sweepDurationSec,
 } from '@/lib/ecg-sweep-geometry';
+import { ECG_MS_PER_PIXEL, ECG_QRS_R_PEAK_PHASE } from '@/lib/ecg-waveform';
 import { readMonitorPhase } from '@/lib/monitor-clock';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 
@@ -28,15 +29,19 @@ function clamp01(x: number): number {
  */
 function samplePlethValue(
   phase: number,
+  mainPeakPhase: number,
   notchPhase: number,
   notchDepth: number,
   dicroticPhase: number,
 ): number {
-  const mainPeak = Math.exp(-Math.pow((phase - 0.25) / 0.11, 2));
+  const mainPeak = Math.exp(-Math.pow((phase - mainPeakPhase) / 0.11, 2));
   const notchDip = -notchDepth * Math.exp(-Math.pow((phase - notchPhase) / 0.022, 2));
   const dicroticHump = 0.22 * Math.exp(-Math.pow((phase - dicroticPhase) / 0.035, 2));
   return Math.max(0, mainPeak + notchDip + dicroticHump);
 }
+
+/** Pulse transit time from R-peak to finger pleth peak (radial/digital). */
+const PTT_MS = 260;
 
 interface PlethParams {
   hrBpm: number;
@@ -74,7 +79,20 @@ function buildPlethPath(p: PlethParams): string {
 
   const clampedHr = Math.max(20, Math.min(300, p.hrBpm));
   const beatPeriodSec = 60 / clampedHr;
-  const pxPerSec = SPO2_VIEWPORT_PX / SPO2_SWEEP_SEC;
+  // Content-time pixel rate (same convention as the ECG strip): 1 second of
+  // patient time maps to `1000 / ECG_MS_PER_PIXEL` px. Using the cursor sweep
+  // duration here would compress ~25 s of pleth content into the 8 s viewport,
+  // making the wave run ~3× faster than the ECG.
+  const pxPerSec = 1000 / ECG_MS_PER_PIXEL;
+
+  // R-peak → finger pulse arrival: phase-shift the whole pleth contour so its
+  // upstroke trails the QRS by a realistic PTT. Clamp the phase offset so the
+  // pulse never wraps past the next R-wave at fast HRs.
+  const pttPhase = Math.min(0.55, PTT_MS / (beatPeriodSec * 1000));
+  const mainPeakPhase = (ECG_QRS_R_PEAK_PHASE + pttPhase) % 1;
+  const peakShift = mainPeakPhase - 0.25;
+  const notchPhaseShifted = p.notchPhase + peakShift;
+  const dicroticPhaseShifted = p.dicroticPhase + peakShift;
 
   // SpO₂ → probe signal quality (oxygenation axis)
   const spo2Scale =
@@ -109,7 +127,13 @@ function buildPlethPath(p: PlethParams): string {
     const respMod = 1 + 0.13 * Math.sin(2 * Math.PI * respPhaseAtT);
 
     const v =
-      samplePlethValue(Math.max(0, beatPhase), p.notchPhase, p.notchDepth, p.dicroticPhase) *
+      samplePlethValue(
+        Math.max(0, beatPhase),
+        mainPeakPhase,
+        notchPhaseShifted,
+        p.notchDepth,
+        dicroticPhaseShifted,
+      ) *
       variance *
       respMod;
     const y = baseline - v * amplitude;
