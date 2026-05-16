@@ -28,6 +28,7 @@ import {
   resetEcgStripWorkerAfterFatal,
 } from '@/lib/worker-pool';
 import { parseHeartRateBpm } from '@/lib/vitals-parse';
+import { publishMonitorPhase } from '@/lib/monitor-clock';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import {
   memo,
@@ -503,6 +504,7 @@ function CardiacCanvasImpl({
           wrappedThisFrame = true;
         }
         phaseRef.current = next;
+        publishMonitorPhase(next, cycle);
       }
 
       void hrBpmRef.current;

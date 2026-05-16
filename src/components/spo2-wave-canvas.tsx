@@ -4,11 +4,17 @@ import { parseHeartRateBpm, parseRrBpm } from '@/lib/vitals-parse';
 import { useAutonomicStore } from '@/stores/autonomic-store';
 import { usePkStore } from '@/stores/pk-store';
 import { usePhysiologyStore } from '@/stores/physiology-store';
+import {
+  LIVE_STRIP_VIEWPORT_PX,
+  sweepDurationSec,
+} from '@/lib/ecg-sweep-geometry';
+import { readMonitorPhase } from '@/lib/monitor-clock';
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 const PLETH_COLOR = '#00FFFF';
-const SPO2_VIEWPORT_PX = 600;
-const SPO2_SWEEP_SEC = 6;
+// Match ECG viewport so cursors are pixel-perfect in sync.
+const SPO2_VIEWPORT_PX = LIVE_STRIP_VIEWPORT_PX;
+const SPO2_SWEEP_SEC = sweepDurationSec(LIVE_STRIP_VIEWPORT_PX);
 const BG_COLOR = '#0a0a0a';
 
 function clamp01(x: number): number {
@@ -200,6 +206,7 @@ function Spo2WaveCanvasImpl({
   const currPathRef   = useRef<SVGPathElement | null>(null);
 
   const phaseRef     = useRef(0);
+  // Fallback dt accumulation when ECG clock isn't publishing
   const lastFrameRef = useRef<number | null>(null);
   const cycleMsRef   = useRef(SPO2_SWEEP_SEC * 1000);
 
@@ -222,14 +229,26 @@ function Spo2WaveCanvasImpl({
     let rafId = 0;
     const tick = () => {
       const now  = performance.now();
-      const last = lastFrameRef.current ?? now;
+
+      // ── Phase: follow ECG clock when fresh, else run own timer ──────
+      const ecg = readMonitorPhase();
+      let next: number;
+      if (ecg.fresh) {
+        cycleMsRef.current = ecg.cycleMs;
+        next = ecg.phase;
+      } else {
+        // Fallback: accumulate dt against own cycle
+        const last = lastFrameRef.current ?? now;
+        const dt   = now - last;
+        const cycle = Math.max(1, cycleMsRef.current);
+        next = phaseRef.current + dt / cycle;
+        while (next >= 1) next -= 1;
+      }
       lastFrameRef.current = now;
-      const dt    = now - last;
-      const cycle = Math.max(1, cycleMsRef.current);
-      let next    = phaseRef.current + dt / cycle;
-      let wrapped = false;
-      while (next >= 1) { next -= 1; wrapped = true; }
+
+      const prevPhase = phaseRef.current;
       phaseRef.current = next;
+      const wrapped = next < prevPhase - 0.5; // large backward jump = true wrap
 
       const sweepX = next * SPO2_VIEWPORT_PX;
 
@@ -251,7 +270,7 @@ function Spo2WaveCanvasImpl({
 
   const vw = SPO2_VIEWPORT_PX;
   const initialSweepX = phaseRef.current * vw;
-  const blankGap = Math.max(6, Math.min(14, vw * 0.02));
+  const blankGap = Math.max(6, Math.min(14, vw * 0.005));
 
   if (!enabled) {
     const y0 = height * 0.88;
