@@ -13,7 +13,14 @@ import {
 import { parseHeartRateBpm, parseRrBpm } from '@/lib/vitals-parse';
 import { usePhysiologyStore } from '@/stores/physiology-store';
 import type { CapnoSensor } from '@/stores/physiology-store';
+import {
+  LIVE_STRIP_VIEWPORT_PX,
+  sweepDurationSec,
+} from '@/lib/ecg-sweep-geometry';
+import { readMonitorPhase } from '@/lib/monitor-clock';
 import { memo, useEffect, useRef } from 'react';
+
+const CAPNO_SWEEP_SEC = sweepDurationSec(LIVE_STRIP_VIEWPORT_PX);
 
 const CAPNO_GLOW = '#FFFF00';
 
@@ -85,7 +92,6 @@ function sensorToWaveStyle(sensor: CapnoSensor): CapnoWaveStyle {
 }
 
 const SAMPLE_COUNT = 256;
-const CYCLES_VISIBLE = 2.25;
 
 export function CapnoWaveCanvasImpl({
   height = 52,
@@ -270,18 +276,26 @@ export function CapnoWaveCanvasImpl({
         perlinAmpMmHg: PERLIN_AMP_MMHG,
       };
 
-      // Advance sweep phase (left-to-right, ~6.5s full sweep for EtCO2)
-      const CAPNO_SWEEP_MS = 6500;
+      // ── Sweep phase: follow ECG shared clock (fallback: own dt timer) ──
       if (!reduceMotion) {
-        const now = performance.now();
-        const last = lastFrameRef.current ?? now;
-        lastFrameRef.current = now;
-        const dt = now - last;
-        let next = phaseRef.current + dt / CAPNO_SWEEP_MS;
-        while (next >= 1) next -= 1;
-        phaseRef.current = next;
+        const ecg = readMonitorPhase();
+        if (ecg.fresh) {
+          phaseRef.current = ecg.phase;
+        } else {
+          const now2 = performance.now();
+          const last = lastFrameRef.current ?? now2;
+          lastFrameRef.current = now2;
+          const dt = now2 - last;
+          let next = phaseRef.current + dt / (CAPNO_SWEEP_SEC * 1000);
+          while (next >= 1) next -= 1;
+          phaseRef.current = next;
+        }
       }
       const sweepX = phaseRef.current * wCss;
+
+      // Breath cycles shown = sweep duration / breath period → cursor reveals
+      // each breath in exactly real time regardless of RR.
+      const cyclesVisible = Math.max(1, (CAPNO_SWEEP_SEC * rr) / 60);
 
       const simSecAtRightEdge =
         (performance.now() - (stripStartMsRef.current ?? performance.now())) / 1000;
@@ -290,7 +304,7 @@ export function CapnoWaveCanvasImpl({
       buildCapnoStripMmHg({
         sampleCount: SAMPLE_COUNT,
         simSecAtRightEdge,
-        cyclesVisible: CYCLES_VISIBLE,
+        cyclesVisible,
         out: buf,
         params,
         waveStyle: ws,
