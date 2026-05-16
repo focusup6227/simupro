@@ -296,9 +296,12 @@ export default function SimulationPage() {
 
   useEffect(() => {
     if (!scenario) return;
-    const { scenarioMedications, scenarioInterventions } = monitorMenuOptsFromScenario(scenario);
+    const { scenarioMedications } = monitorMenuOptsFromScenario(scenario);
+    // Scenario-specific interventions are intentionally excluded — their display names
+    // contained guided labels ("Treat Hypothermic Shock") that give away the diagnosis.
+    // Students should select from the neutral clinical procedure catalog on their own.
     useProtocolStore.getState().setScenarioOverlay(
-      monitorMenuRowsToScenarioOverlay(scenarioMedications, scenarioInterventions),
+      monitorMenuRowsToScenarioOverlay(scenarioMedications, []),
     );
     return () => {
       useProtocolStore.getState().clearScenarioOverlay();
