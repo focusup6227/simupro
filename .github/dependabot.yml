@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # eslint-config-next must stay in sync with the next package version
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # eslint 9 requires config format migration - hold until ready
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
