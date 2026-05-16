@@ -8,7 +8,10 @@ import {
   Icon,
 } from "./svgs";
 
-export function LandingHero() {
+export function LandingHero({ scenarioCount }: { scenarioCount: number }) {
+  const scenarioStat = Number.isFinite(scenarioCount) && scenarioCount > 0
+    ? scenarioCount.toLocaleString()
+    : "180+";
   return (
     <section
       className="relative overflow-hidden field-grain"
@@ -101,7 +104,7 @@ export function LandingHero() {
 
             <div className="mt-12 grid grid-cols-3 gap-6 max-w-[520px]">
               {[
-                { k: "180+", v: "authored scenarios" },
+                { k: scenarioStat, v: "authored scenarios" },
                 { k: "< 30s", v: "first patient response" },
                 { k: "EMT→P", v: "role-scoped grading" },
               ].map((s, i) => (
