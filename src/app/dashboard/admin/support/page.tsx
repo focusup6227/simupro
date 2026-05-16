@@ -1,5 +1,12 @@
 "use client";
 
+// SimuPro Admin · Support — restyled to Mission Board visual language.
+// Functionality preserved 1:1: useCollection<SupportTicket>, update flow
+// fetches existing responses, appends admin response (responder='Admin',
+// createdAt=now), persists JSON, updates status. Uses SupportTicketDialog
+// for the manage UI.
+
+import * as React from "react";
 import { useState } from "react";
 import { useCollection, useSupabase, useMemoSupabase } from "@/supabase";
 import type {
@@ -7,55 +14,58 @@ import type {
   SupportTicketResponse,
   SupportTicketKind,
 } from "@/lib/types";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { SupportTicketDialog } from "@/components/support-ticket-dialog";
 import type { Json } from "@/lib/supabase/database.types";
 import { toDate } from "@/lib/date-utils";
+import { Panel } from "@/components/app/app-primitives";
 
 function formatTicketTime(timestamp: unknown) {
-    if (!timestamp) return 'N/A';
-    const date = toDate(timestamp);
-    return date ? formatDistanceToNow(date, { addSuffix: true }) : 'N/A';
+  if (!timestamp) return "—";
+  const date = toDate(timestamp);
+  return date ? formatDistanceToNow(date, { addSuffix: true }) : "—";
 }
 
 function ticketKindLabel(kind: SupportTicketKind): string {
-    switch (kind) {
-        case 'feature_request':
-            return 'Feature';
-        case 'issue':
-            return 'Issue';
-        default:
-            return 'Support';
-    }
+  switch (kind) {
+    case "feature_request":
+      return "Feature";
+    case "issue":
+      return "Issue";
+    default:
+      return "Support";
+  }
 }
 
-function ticketKindBadgeVariant(kind: SupportTicketKind): 'default' | 'secondary' | 'outline' {
-    switch (kind) {
-        case 'feature_request':
-            return 'secondary';
-        case 'issue':
-            return 'outline';
-        default:
-            return 'default';
-    }
+function ticketKindTag(kind: SupportTicketKind): string {
+  switch (kind) {
+    case "feature_request":
+      return "tag-cyan";
+    case "issue":
+      return "tag-amber";
+    default:
+      return "tag-orange";
+  }
+}
+
+function statusTag(status: SupportTicket["status"]): string {
+  switch (status) {
+    case "new":
+      return "tag-rose";
+    case "in-progress":
+      return "tag-amber";
+    case "resolved":
+      return "tag-emerald";
+    default:
+      return "";
+  }
 }
 
 export default function AdminSupportPage() {
@@ -66,56 +76,48 @@ export default function AdminSupportPage() {
     () =>
       client
         ? {
-            table: 'support_tickets' as const,
-            order: { column: 'created_at', ascending: false },
+            table: "support_tickets" as const,
+            order: { column: "created_at", ascending: false },
           }
         : null,
-    [client]
+    [client],
   );
   const { data: tickets, isLoading } = useCollection<SupportTicket>(ticketsSpec);
 
-  const handleDialogClose = () => {
-    setSelectedTicket(null);
-  };
+  const handleDialogClose = () => setSelectedTicket(null);
 
   const handleFormSubmit = async (
     ticketId: string,
-    values: { response?: string; status: 'new' | 'in-progress' | 'resolved' }
+    values: { response?: string; status: "new" | "in-progress" | "resolved" },
   ) => {
     if (!client) return;
-
     try {
       const { data: row, error: fetchErr } = await client
-        .from('support_tickets')
-        .select('responses')
-        .eq('id', ticketId)
+        .from("support_tickets")
+        .select("responses")
+        .eq("id", ticketId)
         .maybeSingle();
-
       if (fetchErr) throw fetchErr;
-
       const prevRaw = row?.responses;
       const prev: SupportTicketResponse[] = Array.isArray(prevRaw)
         ? (prevRaw as SupportTicketResponse[])
         : [];
-
       let nextResponses: SupportTicketResponse[] = [...prev];
       if (values.response?.trim()) {
         const newResponse: SupportTicketResponse = {
           responder: "Admin",
-          message: values.response!,
+          message: values.response,
           createdAt: new Date(),
         };
         nextResponses = [...prev, newResponse];
       }
-
       const { error } = await client
-        .from('support_tickets')
+        .from("support_tickets")
         .update({
           status: values.status,
           responses: JSON.parse(JSON.stringify(nextResponses)) as Json,
         })
-        .eq('id', ticketId);
-
+        .eq("id", ticketId);
       if (error) throw error;
       handleDialogClose();
     } catch (e: unknown) {
@@ -123,102 +125,106 @@ export default function AdminSupportPage() {
     }
   };
 
-  const statusVariant = (status: SupportTicket['status']) => {
-    switch (status) {
-      case 'new':
-        return 'destructive';
-      case 'in-progress':
-        return 'secondary';
-      case 'resolved':
-        return 'default';
-      default:
-        return 'outline';
-    }
-  };
-
   return (
-    <div className="space-y-8">
+    <div className="p-7 max-w-[1400px] mx-auto space-y-5">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
-        <p className="text-muted-foreground">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5">
+          // ADMIN · SUPPORT · {tickets?.length ?? "—"} TICKETS
+        </div>
+        <h1 className="font-display font-bold text-[30px] text-white leading-none">
+          Support tickets
+        </h1>
+        <p className="text-[13px] text-[var(--text-mute)] mt-2 max-w-3xl">
           View and manage support contact, simulation issue reports, and feature requests.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Incoming Tickets</CardTitle>
-          <CardDescription>
-            Sorted by newest first — type distinguishes general support, in-sim issues, and feature ideas.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>From</TableHead>
-                <TableHead>Message</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+      <Panel
+        title="Incoming tickets"
+        sub="Sorted by newest first — type distinguishes general support, in-sim issues, and feature ideas."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead className="text-[10.5px] uppercase tracking-[0.16em] text-[var(--text-dim)] font-mono">
+              <tr>
+                <th className="text-left font-medium px-5 py-2.5">Type</th>
+                <th className="text-left font-medium px-2 py-2.5">Submitted</th>
+                <th className="text-left font-medium px-2 py-2.5">From</th>
+                <th className="text-left font-medium px-2 py-2.5 max-w-sm">Message</th>
+                <th className="text-left font-medium px-2 py-2.5">Status</th>
+                <th className="text-right font-medium px-5 py-2.5">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Loading tickets...
-                  </TableCell>
-                </TableRow>
+                <tr>
+                  <td colSpan={6} className="h-20 text-center text-[var(--text-mute)]">
+                    Loading tickets…
+                  </td>
+                </tr>
               )}
               {!isLoading && tickets?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                <tr>
+                  <td colSpan={6} className="h-20 text-center text-[var(--text-mute)]">
                     No support tickets found.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
               {!isLoading &&
                 tickets?.map((ticket) => (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="w-[104px]">
-                      <Badge variant={ticketKindBadgeVariant(ticket.ticketKind)}>
+                  <tr key={ticket.id} className="border-t hair">
+                    <td className="px-5 py-3">
+                      <span className={`tag ${ticketKindTag(ticket.ticketKind)}`}>
                         {ticketKindLabel(ticket.ticketKind)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="min-w-[150px]">{formatTicketTime(ticket.createdAt)}</TableCell>
-                    <TableCell>{ticket.userEmail}</TableCell>
-                    <TableCell className="whitespace-pre-wrap max-w-sm">
+                      </span>
+                    </td>
+                    <td className="px-2 py-3 whitespace-nowrap text-[var(--text-mute)] font-mono">
+                      {formatTicketTime(ticket.createdAt)}
+                    </td>
+                    <td className="px-2 py-3 text-[var(--text-mute)] font-mono">
+                      {ticket.userEmail}
+                    </td>
+                    <td className="px-2 py-3 whitespace-pre-wrap max-w-sm">
                       {ticket.scenarioTitle && (
-                        <p className="font-semibold text-xs text-muted-foreground/80 mb-1">
+                        <p className="text-[10.5px] font-mono text-[var(--text-dim)] uppercase tracking-[0.12em] mb-1">
                           Scenario: {ticket.scenarioTitle}
                         </p>
                       )}
-                      <p className="truncate">{ticket.message}</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant(ticket.status)} className="capitalize">{ticket.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setSelectedTicket(ticket)}>
+                      <p className="text-white truncate">{ticket.message}</p>
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className={`tag ${statusTag(ticket.status)} capitalize`}>
+                        {ticket.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTicket(ticket)}
+                        className="cta-secondary h-8 px-3 rounded-md text-[12px] font-medium"
+                      >
                         Manage
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
-      <Dialog open={!!selectedTicket} onOpenChange={(isOpen) => !isOpen && handleDialogClose()}>
+      <Dialog
+        open={!!selectedTicket}
+        onOpenChange={(isOpen) => !isOpen && handleDialogClose()}
+      >
         <DialogContent className="sm:max-w-2xl">
           {selectedTicket && (
             <>
               <DialogHeader>
-                <DialogTitle>Manage Support Ticket</DialogTitle>
-                <DialogDescription>From: {selectedTicket.userEmail}</DialogDescription>
+                <DialogTitle>Manage support ticket</DialogTitle>
+                <DialogDescription>
+                  From: {selectedTicket.userEmail}
+                </DialogDescription>
               </DialogHeader>
               <SupportTicketDialog
                 ticket={selectedTicket}

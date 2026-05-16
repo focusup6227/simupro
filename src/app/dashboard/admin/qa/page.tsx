@@ -1,25 +1,25 @@
 "use client";
 
+// SimuPro Admin · QA — restyled to Mission Board visual language.
+// Functionality preserved 1:1:
+//   - useCollection<AiResponseFeedback> (live)
+//   - useCollection of user_protocol_imports + workplace_protocol_imports
+//     (admin_review_status='open')
+//   - merge + sort protocol queue by created_at desc
+//   - AiFeedbackReviewDialog + AdminProtocolImportReviewDialog
+//   - Update ai_response_feedback on submit (review_status,
+//     admin_preferred_response, admin_review_notes, reviewed_by, reviewed_at)
+
+import * as React from "react";
 import { useMemo, useState } from "react";
-import { useCollection, useMemoSupabase, useSupabase, useUser } from "@/supabase";
+import {
+  useCollection,
+  useMemoSupabase,
+  useSupabase,
+  useUser,
+} from "@/supabase";
 import type { AiResponseFeedback } from "@/lib/types";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import {
   Dialog,
   DialogContent,
@@ -27,27 +27,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import {
   AiFeedbackReviewDialog,
   type AiFeedbackReviewFormValues,
 } from "@/components/ai-feedback-review-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ClipboardCheck, FileWarning } from "lucide-react";
 import {
   AdminProtocolImportReviewDialog,
   type AdminProtocolImportSelection,
 } from "@/components/admin-protocol-import-review-dialog";
 import { useRouter } from "next/navigation";
+import { Panel } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
 function statusBadge(status: AiResponseFeedback["reviewStatus"]) {
   switch (status) {
     case "validated":
-      return <Badge className="bg-amber-600 hover:bg-amber-600">Validated</Badge>;
+      return <span className="tag tag-amber">Validated</span>;
     case "dismissed":
-      return <Badge variant="secondary">Dismissed</Badge>;
+      return <span className="tag">Dismissed</span>;
     default:
-      return <Badge variant="destructive">Pending</Badge>;
+      return <span className="tag tag-rose">Pending</span>;
   }
 }
 
@@ -68,7 +68,8 @@ export default function AdminQAPage() {
   const { user: authUser } = useUser();
   const { toast } = useToast();
   const [selected, setSelected] = useState<AiResponseFeedback | null>(null);
-  const [protocolSelected, setProtocolSelected] = useState<AdminProtocolImportSelection | null>(null);
+  const [protocolSelected, setProtocolSelected] =
+    useState<AdminProtocolImportSelection | null>(null);
 
   const spec = useMemoSupabase(
     () =>
@@ -114,13 +115,21 @@ export default function AdminQAPage() {
 
   const { data: userProtocolQueue, isLoading: loadingUserPi } =
     useCollection<ProtocolQueueRow>(userProtocolQueueSpec);
-  const { data: wpProtocolQueue, isLoading: loadingWpPi } = useCollection<ProtocolQueueRow>(wpProtocolQueueSpec);
+  const { data: wpProtocolQueue, isLoading: loadingWpPi } =
+    useCollection<ProtocolQueueRow>(wpProtocolQueueSpec);
 
   const protocolQueueRows = useMemo(() => {
-    const u = (userProtocolQueue ?? []).map((r) => ({ ...r, scope: "user" as const }));
-    const w = (wpProtocolQueue ?? []).map((r) => ({ ...r, scope: "workplace" as const }));
+    const u = (userProtocolQueue ?? []).map((r) => ({
+      ...r,
+      scope: "user" as const,
+    }));
+    const w = (wpProtocolQueue ?? []).map((r) => ({
+      ...r,
+      scope: "workplace" as const,
+    }));
     return [...u, ...w].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
   }, [userProtocolQueue, wpProtocolQueue]);
 
@@ -129,7 +138,6 @@ export default function AdminQAPage() {
     values: AiFeedbackReviewFormValues,
   ) => {
     if (!client || !authUser) return;
-
     try {
       const { error } = await client
         .from("ai_response_feedback")
@@ -141,9 +149,7 @@ export default function AdminQAPage() {
           reviewed_at: new Date().toISOString(),
         })
         .eq("id", id);
-
       if (error) throw error;
-
       toast({ title: "Review saved", description: "Feedback record updated." });
       setSelected(null);
     } catch (e: unknown) {
@@ -157,147 +163,167 @@ export default function AdminQAPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="p-7 max-w-[1400px] mx-auto space-y-5">
       <div>
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <ClipboardCheck className="h-8 w-8 text-muted-foreground" aria-hidden />
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5">
+          // ADMIN · QA QUEUE
+        </div>
+        <h1 className="font-display font-bold text-[30px] text-white leading-none flex items-center gap-2.5">
+          <Icons.CheckCircle className="w-7 h-7 text-[var(--cyan-soft)]" />
           QA
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          Quality review for learner-reported issues, failed protocol PDF extractions, and AI behavior. Flagged patient
-          replies include full simulation logs for prompt and scenario fixes.
+        <p className="text-[13px] text-[var(--text-mute)] mt-2 max-w-3xl">
+          Quality review for learner-reported issues, failed protocol PDF extractions, and AI behavior. Flagged patient replies include full simulation logs for prompt and scenario fixes.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileWarning className="h-5 w-5 text-amber-600" />
+      <Panel
+        title={
+          <span className="flex items-center gap-2">
+            <Icons.Triangle className="w-4 h-4 text-[var(--warn)]" />
             Failed protocol imports
-          </CardTitle>
-          <CardDescription>
-            Automatic extraction failed; learners are blocked until you re-scrub the PDF, paste valid JSON, or close the
-            ticket with guidance.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="max-w-xs">Error</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          </span>
+        }
+        sub="Automatic extraction failed; learners are blocked until you re-scrub the PDF, paste valid JSON, or close the ticket with guidance."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead className="text-[10.5px] uppercase tracking-[0.16em] text-[var(--text-dim)] font-mono">
+              <tr>
+                <th className="text-left font-medium px-5 py-2.5">When</th>
+                <th className="text-left font-medium px-2 py-2.5">Scope</th>
+                <th className="text-left font-medium px-2 py-2.5">Name</th>
+                <th className="text-left font-medium px-2 py-2.5 max-w-xs">Error</th>
+                <th className="text-right font-medium px-5 py-2.5">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               {(loadingUserPi || loadingWpPi) && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                <tr>
+                  <td colSpan={5} className="h-20 text-center text-[var(--text-mute)]">
                     Loading…
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loadingUserPi && !loadingWpPi && protocolQueueRows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    No failed protocol imports in the queue.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
               {!loadingUserPi &&
                 !loadingWpPi &&
+                protocolQueueRows.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="h-20 text-center text-[var(--text-mute)]"
+                    >
+                      No failed protocol imports in the queue.
+                    </td>
+                  </tr>
+                )}
+              {!loadingUserPi &&
+                !loadingWpPi &&
                 protocolQueueRows.map((r) => (
-                  <TableRow key={`${r.scope}-${r.id}`}>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell>{r.scope === "user" ? "Personal" : "Workplace"}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{r.display_name}</div>
-                      <div className="truncate text-xs text-muted-foreground" title={r.original_filename}>
+                  <tr key={`${r.scope}-${r.id}`} className="border-t hair">
+                    <td className="px-5 py-3 text-[var(--text-mute)] font-mono whitespace-nowrap">
+                      {formatDistanceToNow(new Date(r.created_at), {
+                        addSuffix: true,
+                      })}
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className="tag capitalize">
+                        {r.scope === "user" ? "Personal" : "Workplace"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="font-medium text-white">{r.display_name}</div>
+                      <div
+                        className="truncate text-[11px] text-[var(--text-mute)] font-mono max-w-[220px]"
+                        title={r.original_filename}
+                      >
                         {r.original_filename}
                       </div>
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+                    </td>
+                    <td className="px-2 py-3 max-w-xs truncate text-[var(--text-mute)]">
                       {r.extraction_error ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setProtocolSelected({ scope: r.scope, id: r.id })}
+                        onClick={() =>
+                          setProtocolSelected({ scope: r.scope, id: r.id })
+                        }
+                        className="cta-secondary h-8 px-3 rounded-md text-[12px] font-medium"
                       >
                         Review
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Bad AI replies</CardTitle>
-          <CardDescription>
-            Learners submit these from the simulation Performance panel. Newest first — review to validate, dismiss, or
-            record a better reply.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Scenario</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="max-w-xs">Learner comment</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+      <Panel
+        title="Bad AI replies"
+        sub="Learners submit these from the simulation Performance panel. Newest first — review to validate, dismiss, or record a better reply."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead className="text-[10.5px] uppercase tracking-[0.16em] text-[var(--text-dim)] font-mono">
+              <tr>
+                <th className="text-left font-medium px-5 py-2.5">When</th>
+                <th className="text-left font-medium px-2 py-2.5">Scenario</th>
+                <th className="text-left font-medium px-2 py-2.5">Status</th>
+                <th className="text-left font-medium px-2 py-2.5 max-w-xs">Comment</th>
+                <th className="text-right font-medium px-5 py-2.5">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                <tr>
+                  <td colSpan={5} className="h-20 text-center text-[var(--text-mute)]">
                     Loading…
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
               {!isLoading && rows?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <tr>
+                  <td colSpan={5} className="h-20 text-center text-[var(--text-mute)]">
                     No AI feedback reports yet.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
               {!isLoading &&
                 rows?.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap text-sm">
+                  <tr key={r.id} className="border-t hair">
+                    <td className="px-5 py-3 text-[var(--text-mute)] font-mono whitespace-nowrap">
                       {formatDistanceToNow(r.createdAt, { addSuffix: true })}
-                    </TableCell>
-                    <TableCell className="font-medium">{r.scenarioTitle}</TableCell>
-                    <TableCell>{statusBadge(r.reviewStatus)}</TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+                    </td>
+                    <td className="px-2 py-3 font-medium text-white">
+                      {r.scenarioTitle}
+                    </td>
+                    <td className="px-2 py-3">{statusBadge(r.reviewStatus)}</td>
+                    <td className="px-2 py-3 max-w-xs truncate text-[var(--text-mute)]">
                       {r.userComment}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSelected(r)}>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(r)}
+                        className="cta-secondary h-8 px-3 rounded-md text-[12px] font-medium"
+                      >
                         Review
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
-      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      >
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Review AI feedback</DialogTitle>

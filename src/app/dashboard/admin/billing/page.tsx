@@ -1,23 +1,29 @@
 "use client";
 
+// SimuPro Admin · Billing — restyled to Mission Board visual language.
+// Functionality preserved 1:1: useCollection<User>, search + status filter,
+// copy-to-clipboard for Stripe IDs, formatted renewal date.
+
+import * as React from "react";
 import { useMemo, useState } from "react";
 import { useCollection, useMemoSupabase, useSupabase } from "@/supabase";
 import type { User } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Copy, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Panel } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
-type BillingFilter = "all" | "active" | "trialing" | "canceled" | "past_due" | "paused";
+type BillingFilter =
+  | "all"
+  | "active"
+  | "trialing"
+  | "canceled"
+  | "past_due"
+  | "paused";
 
 const formatDate = (value?: string | Date) => {
-  if (!value) return "N/A";
+  if (!value) return "—";
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
+  if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString();
 };
 
@@ -29,18 +35,19 @@ export default function AdminBillingPage() {
 
   const usersSpec = useMemoSupabase(
     () => (client ? { table: "profiles" as const } : null),
-    [client]
+    [client],
   );
   const { data: users, isLoading } = useCollection<User>(usersSpec);
 
   const filteredUsers = useMemo(() => {
     const list = users ?? [];
-    return list.filter((user) => {
+    return list.filter((u) => {
+      const q = searchTerm.toLowerCase();
       const matchesSearch =
-        searchTerm.trim().length === 0 ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.displayName ?? "").toLowerCase().includes(searchTerm.toLowerCase());
-      const status = (user.premiumStatus ?? "").toLowerCase();
+        q.length === 0 ||
+        u.email.toLowerCase().includes(q) ||
+        (u.displayName ?? "").toLowerCase().includes(q);
+      const status = (u.premiumStatus ?? "").toLowerCase();
       const matchesStatus = statusFilter === "all" ? true : status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -48,7 +55,11 @@ export default function AdminBillingPage() {
 
   const copyText = async (label: string, value?: string) => {
     if (!value) {
-      toast({ variant: "destructive", title: "Nothing to copy", description: `${label} is empty.` });
+      toast({
+        variant: "destructive",
+        title: "Nothing to copy",
+        description: `${label} is empty.`,
+      });
       return;
     }
     await navigator.clipboard.writeText(value);
@@ -56,125 +67,144 @@ export default function AdminBillingPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="p-7 max-w-[1400px] mx-auto space-y-5">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5">
+          // ADMIN · BILLING · STRIPE
+        </div>
+        <h1 className="font-display font-bold text-[30px] text-white leading-none">
+          Billing
+        </h1>
+        <p className="text-[13px] text-[var(--text-mute)] mt-2">
           View Stripe subscription status and copy Stripe identifiers.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Stripe Subscriptions</CardTitle>
-          <CardDescription>Filter by status and inspect per-user billing metadata.</CardDescription>
-          <div className="flex flex-col gap-3 pt-2 md:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                className="pl-10"
-                placeholder="Search by name or email..."
+      <Panel
+        title="Stripe subscriptions"
+        sub="Filter by status and inspect per-user billing metadata"
+        action={
+          <div className="flex gap-2">
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md w-56"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid var(--border-soft)",
+              }}
+            >
+              <Icons.Search className="w-3.5 h-3.5 text-[var(--text-dim)]" />
+              <input
+                className="bg-transparent flex-1 text-[12.5px] text-white placeholder:text-[var(--text-dim)] outline-none"
+                placeholder="Search…"
                 value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select value={statusFilter} onValueChange={(value: BillingFilter) => setStatusFilter(value)}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Filter status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trialing">Trialing</SelectItem>
-                <SelectItem value="past_due">Past Due</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-              </SelectContent>
-            </Select>
+            <select
+              className="fld text-[12.5px]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as BillingFilter)}
+              style={{ minWidth: 130, height: 32, padding: "0 10px" }}
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="trialing">Trialing</option>
+              <option value="past_due">Past due</option>
+              <option value="paused">Paused</option>
+              <option value="canceled">Canceled</option>
+            </select>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Premium</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Renewal</TableHead>
-                <TableHead>Customer ID</TableHead>
-                <TableHead>Subscription ID</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead className="text-[10.5px] uppercase tracking-[0.16em] text-[var(--text-dim)] font-mono">
+              <tr>
+                <th className="text-left font-medium px-5 py-2.5">User</th>
+                <th className="text-left font-medium px-2 py-2.5">Premium</th>
+                <th className="text-left font-medium px-2 py-2.5">Status</th>
+                <th className="text-left font-medium px-2 py-2.5">Renewal</th>
+                <th className="text-left font-medium px-2 py-2.5">Customer ID</th>
+                <th className="text-left font-medium px-5 py-2.5">Subscription ID</th>
+              </tr>
+            </thead>
+            <tbody>
               {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Loading...
-                  </TableCell>
-                </TableRow>
+                <tr>
+                  <td colSpan={6} className="h-24 text-center text-[var(--text-mute)]">
+                    Loading…
+                  </td>
+                </tr>
               )}
               {!isLoading && filteredUsers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                <tr>
+                  <td colSpan={6} className="h-24 text-center text-[var(--text-mute)]">
                     No billing records match this filter.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               )}
               {!isLoading &&
-                filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="font-medium">{user.displayName || "N/A"}</div>
-                      <div className="text-xs text-muted-foreground">{user.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.isPremium ? "default" : "outline"}>
-                        {user.isPremium ? "Premium" : "Free"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{user.premiumStatus ?? "n/a"}</Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(user.premiumCurrentPeriodEnd)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="max-w-[180px] truncate text-xs">
-                          {user.stripeCustomerId ?? "n/a"}
+                filteredUsers.map((u) => (
+                  <tr key={u.id} className="border-t hair">
+                    <td className="px-5 py-3">
+                      <div className="font-medium text-white">
+                        {u.displayName || "—"}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-mute)] font-mono">
+                        {u.email}
+                      </div>
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className={`tag ${u.isPremium ? "tag-amber" : ""}`}>
+                        {u.isPremium ? "Premium" : "Free"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-3">
+                      <span className="tag">{u.premiumStatus ?? "n/a"}</span>
+                    </td>
+                    <td className="px-2 py-3 font-mono text-[var(--text-mute)]">
+                      {formatDate(u.premiumCurrentPeriodEnd)}
+                    </td>
+                    <td className="px-2 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[11px] max-w-[160px] truncate text-[var(--text-mute)]">
+                          {u.stripeCustomerId ?? "n/a"}
                         </span>
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
+                          onClick={() =>
+                            void copyText("Customer ID", u.stripeCustomerId)
+                          }
                           aria-label="Copy customer ID"
-                          onClick={() => void copyText("Customer ID", user.stripeCustomerId)}
+                          className="cta-ghost w-7 h-7 rounded-md inline-flex items-center justify-center"
                         >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                          <Icons.File className="w-3 h-3" />
+                        </button>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="max-w-[180px] truncate text-xs">
-                          {user.stripeSubscriptionId ?? "n/a"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[11px] max-w-[160px] truncate text-[var(--text-mute)]">
+                          {u.stripeSubscriptionId ?? "n/a"}
                         </span>
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
+                          onClick={() =>
+                            void copyText("Subscription ID", u.stripeSubscriptionId)
+                          }
                           aria-label="Copy subscription ID"
-                          onClick={() => void copyText("Subscription ID", user.stripeSubscriptionId)}
+                          className="cta-ghost w-7 h-7 rounded-md inline-flex items-center justify-center"
                         >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                          <Icons.File className="w-3 h-3" />
+                        </button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }
-

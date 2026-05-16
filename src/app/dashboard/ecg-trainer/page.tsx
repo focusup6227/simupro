@@ -1,13 +1,19 @@
 "use client";
 
+// SimuPro ECG Trainer — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - Premium / tester gating via isTesterOrAdminUser + isPremium
+//   - 3 difficulty pools (beginner / intermediate / advanced)
+//   - 7 family filters (sinus / atrial / junctional / av_block / paced / ventricular / arrest)
+//   - pickQuestion logic: family-aware distractors (up to 2 same-family + 1+ other-family)
+//   - LiveStrip rendering for leads II / III / aVF (matches scenario 4-lead monitor)
+//   - Pause/resume with timed pause excluded from msToAnswer
+//   - recordRhythmQuizAttempt with source='trainer'
+//   - Per-family session stats + overall accuracy
+
+import * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Activity, Brain, CheckCircle2, Lock, Pause, Play, RefreshCw, Sparkles, Trophy, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardProfile, useSupabase, useUser } from "@/supabase";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
 import { LiveStrip } from "@/components/ecg-monitor";
@@ -23,6 +29,9 @@ import {
 import { deriveEcgScenarioContext } from "@/lib/ecg-scenario";
 import { rhythmStripeWidthForContext } from "@/lib/ecg-waveform";
 import { recordRhythmQuizAttempt } from "@/lib/rhythm-quiz-attempts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Panel } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
 type Difficulty = "beginner" | "intermediate" | "advanced";
 
@@ -95,9 +104,10 @@ function pickQuestion(pool: EcgRhythmKind[]): {
   );
   const distractors: EcgRhythmKind[] = [];
   while (distractors.length < 3) {
-    const next = sameFamily.length > 0 && distractors.length < 2
-      ? sameFamily.splice(Math.floor(Math.random() * sameFamily.length), 1)[0]
-      : otherFamily.splice(Math.floor(Math.random() * otherFamily.length), 1)[0];
+    const next =
+      sameFamily.length > 0 && distractors.length < 2
+        ? sameFamily.splice(Math.floor(Math.random() * sameFamily.length), 1)[0]
+        : otherFamily.splice(Math.floor(Math.random() * otherFamily.length), 1)[0];
     if (!next) break;
     distractors.push(next);
   }
@@ -196,7 +206,7 @@ export default function EcgTrainerPage() {
     if (!question) return null;
     return deriveEcgScenarioContext({
       forcedRhythm: question.rhythm,
-      currentVitals: { hr: '' },
+      currentVitals: { hr: "" },
     });
   }, [question]);
   const tileW = useMemo(() => (ctx ? rhythmStripeWidthForContext(ctx) : 0), [ctx]);
@@ -215,7 +225,7 @@ export default function EcgTrainerPage() {
       },
     }));
     void recordRhythmQuizAttempt(supabase, authUser?.id, {
-      source: 'trainer',
+      source: "trainer",
       rhythmKind: question.rhythm,
       userAnswer: pick,
       isCorrect: correct,
@@ -233,138 +243,180 @@ export default function EcgTrainerPage() {
     });
   };
 
+  // ── Loading state ──────────────────────────────────────────────────
   if (profileLoading) {
     return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div className="p-7 space-y-4">
+        <Skeleton className="h-8 w-64 bg-white/5" />
+        <Skeleton className="h-32 w-full bg-white/5 rounded-xl" />
+        <Skeleton className="h-64 w-full bg-white/5 rounded-xl" />
       </div>
     );
   }
 
+  // ── Premium-gated state ────────────────────────────────────────────
   if (!isAuthorized) {
     return (
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="size-5" />
-              ECG Trainer is a Premium feature
-            </CardTitle>
-            <CardDescription>
-              Practice rhythm interpretation across the full taxonomy outside of scenarios. Upgrade to unlock unlimited
-              practice, family-specific drills, and progress tracking.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link href="/billing">Upgrade to Premium</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="p-8 max-w-2xl mx-auto">
+        <Panel accent="orange">
+          <div className="p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <span
+                className="w-12 h-12 rounded-md flex items-center justify-center shrink-0"
+                style={{
+                  background: "rgba(251,191,36,0.12)",
+                  color: "var(--premium)",
+                }}
+              >
+                <Icons.Crown className="w-6 h-6" />
+              </span>
+              <div>
+                <div className="text-[10.5px] uppercase tracking-[0.22em] text-[var(--premium)] font-mono mb-1">
+                  // PREMIUM FEATURE
+                </div>
+                <h1 className="font-display font-bold text-[24px] text-white leading-tight">
+                  ECG Trainer
+                </h1>
+              </div>
+            </div>
+            <p className="text-[13.5px] text-[var(--text-mute)] leading-relaxed mb-5">
+              Practice rhythm interpretation across the full taxonomy outside of scenarios.
+              Upgrade to unlock unlimited practice, family-specific drills, and progress tracking.
+            </p>
+            <Link
+              href="/billing"
+              className="cta-primary inline-flex h-11 px-5 rounded-md text-[13.5px] font-semibold items-center gap-2"
+            >
+              <Icons.Crown className="w-3.5 h-3.5" /> Upgrade to Premium
+              <Icons.Arrow className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </Panel>
       </div>
     );
   }
 
   const accuracy = stats.total === 0 ? 0 : Math.round((stats.correct / stats.total) * 100);
 
+  // ── Main UI ────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="p-7 max-w-[1200px] mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Brain className="size-6" />
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+            // RHYTHM DRILL · LIVE STRIPS
+          </div>
+          <h1 className="font-display font-bold text-[30px] text-white leading-none flex items-center gap-2.5">
             ECG Trainer
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[13px] text-[var(--text-mute)] mt-2">
             Practice rhythm identification with family-aware distractors. Every attempt is saved to your performance dashboard.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="gap-1.5">
-            <Trophy className="size-3" />
-            {stats.correct}/{stats.total} ({accuracy}%)
-          </Badge>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
+          <span className="tag tag-emerald">
+            <Icons.Crown className="w-3 h-3" />
+            {stats.correct}/{stats.total} · {accuracy}%
+          </span>
+          <button
+            type="button"
             onClick={togglePause}
             disabled={Boolean(verdict) || !question}
-            className="gap-1.5"
             aria-pressed={stripPaused}
+            className="cta-secondary h-9 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
           >
-            {stripPaused ? (
-              <>
-                <Play className="size-3.5" /> Resume
-              </>
-            ) : (
-              <>
-                <Pause className="size-3.5" /> Pause
-              </>
-            )}
-          </Button>
-          <Button size="sm" variant="outline" onClick={newQuestion}>
-            <RefreshCw className="mr-1.5 size-3.5" />
-            Skip
-          </Button>
+            <Icons.Refresh className="w-3.5 h-3.5" />
+            {stripPaused ? "Resume" : "Pause"}
+          </button>
+          <button
+            type="button"
+            onClick={newQuestion}
+            className="cta-secondary h-9 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-1.5"
+          >
+            <Icons.Refresh className="w-3.5 h-3.5" /> Skip
+          </button>
         </div>
-        </div>
-      </header>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="size-4" />
-              Filters
-            </CardTitle>
-            <div className="flex flex-wrap gap-1.5">
-              {(["beginner", "intermediate", "advanced"] as Difficulty[]).map((d) => (
-                <Button
+      {/* Filters */}
+      <Panel
+        title={
+          <span className="flex items-center gap-2">
+            <Icons.Lightbulb className="w-4 h-4 text-[var(--cyan-soft)]" />
+            Filters
+          </span>
+        }
+        action={
+          <div className="flex flex-wrap gap-1.5">
+            {(["beginner", "intermediate", "advanced"] as Difficulty[]).map((d) => {
+              const active = difficulty === d;
+              return (
+                <button
                   key={d}
-                  size="sm"
-                  variant={difficulty === d ? "default" : "outline"}
+                  type="button"
                   onClick={() => setDifficulty(d)}
-                  className="capitalize"
+                  className="h-7 px-3 rounded-md text-[11.5px] font-medium capitalize transition"
+                  style={{
+                    background: active ? "rgba(255,122,24,0.16)" : "rgba(255,255,255,0.03)",
+                    border: active
+                      ? "1px solid rgba(255,122,24,0.40)"
+                      : "1px solid var(--border-soft)",
+                    color: active ? "var(--orange-soft)" : "var(--text-mute)",
+                  }}
                 >
                   {d}
-                </Button>
-              ))}
-            </div>
+                </button>
+              );
+            })}
           </div>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-1.5">
-          {FAMILIES.map((family) => (
-            <Button
-              key={family}
-              size="sm"
-              variant={familyFilter.has(family) ? "default" : "outline"}
-              onClick={() => toggleFamily(family)}
-            >
-              {RHYTHM_FAMILY_LABEL[family]}
-            </Button>
-          ))}
+        }
+      >
+        <div className="p-4 flex flex-wrap gap-1.5">
+          {FAMILIES.map((family) => {
+            const active = familyFilter.has(family);
+            return (
+              <button
+                key={family}
+                type="button"
+                onClick={() => toggleFamily(family)}
+                className="h-7 px-2.5 rounded-md text-[11.5px] font-medium transition"
+                style={{
+                  background: active ? "rgba(63,184,229,0.12)" : "rgba(255,255,255,0.03)",
+                  border: active
+                    ? "1px solid rgba(63,184,229,0.40)"
+                    : "1px solid var(--border-soft)",
+                  color: active ? "var(--cyan-soft)" : "var(--text-mute)",
+                }}
+              >
+                {RHYTHM_FAMILY_LABEL[family]}
+              </button>
+            );
+          })}
           {familyFilter.size > 0 && (
-            <Button size="sm" variant="ghost" onClick={() => setFamilyFilter(new Set())}>
-              Clear filters
-            </Button>
+            <button
+              type="button"
+              onClick={() => setFamilyFilter(new Set())}
+              className="cta-ghost h-7 px-2 rounded-md text-[11.5px] inline-flex items-center gap-1"
+            >
+              <Icons.X className="w-3 h-3" /> Clear
+            </button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="size-4 text-emerald-500" />
+      {/* Strips + answer panel */}
+      <Panel
+        title={
+          <span className="flex items-center gap-2">
+            <Icons.Heart className="w-4 h-4 text-emerald-400" />
             What rhythm is this?
-          </CardTitle>
-          <CardDescription>
-            Three views: leads II, III, and aVF — same limb set as the scenario 4-lead monitor. Use Pause to freeze the strips (timed pause excluded from your score timing).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+          </span>
+        }
+        sub="Three views: II / III / aVF — same limb set as the scenario 4-lead monitor. Pause freezes strips (excluded from score timing)."
+      >
+        <div className="p-5 space-y-4">
           {ctx && question && (
             <div className="grid gap-3">
               <LiveStrip
@@ -398,78 +450,136 @@ export default function EcgTrainerPage() {
           )}
 
           {question && (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {question.options.map((opt) => {
                 const isPicked = verdict?.chosen === opt;
                 const isCorrect = verdict && opt === question.rhythm;
-                const tone = !verdict
-                  ? "outline"
-                  : isCorrect
-                    ? "default"
+                const baseClass =
+                  "h-10 px-3 rounded-md text-[13px] font-medium inline-flex items-center gap-2 transition text-left justify-start";
+                let extra = "cta-secondary hover:text-white";
+                if (verdict) {
+                  if (isCorrect) {
+                    extra = "";
+                  } else if (isPicked) {
+                    extra = "";
+                  } else {
+                    extra = "cta-secondary opacity-50";
+                  }
+                }
+                const inlineStyle: React.CSSProperties = verdict
+                  ? isCorrect
+                    ? {
+                        background: "rgba(52,211,153,0.14)",
+                        border: "1px solid rgba(52,211,153,0.45)",
+                        color: "#6ee7b7",
+                      }
                     : isPicked
-                      ? "destructive"
-                      : "outline";
+                    ? {
+                        background: "rgba(248,113,113,0.12)",
+                        border: "1px solid rgba(248,113,113,0.45)",
+                        color: "#fda4a4",
+                      }
+                    : {}
+                  : {};
                 return (
-                  <Button
+                  <button
                     key={opt}
-                    variant={tone}
+                    type="button"
                     onClick={() => handleAnswer(opt)}
                     disabled={Boolean(verdict) || stripPaused}
-                    className="justify-start"
+                    className={`${baseClass} ${extra} disabled:cursor-not-allowed`}
+                    style={inlineStyle}
                   >
-                    <Activity className="mr-2 size-3.5 opacity-70" />
+                    <Icons.Heart className="w-3.5 h-3.5 opacity-70" />
                     {RHYTHM_LABEL[opt]}
-                  </Button>
+                  </button>
                 );
               })}
             </div>
           )}
 
           {verdict && question && (
-            <div className="space-y-3 rounded-md border border-border/60 bg-muted/40 p-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
+            <div
+              className="rounded-md p-4 mt-2 space-y-3"
+              style={{
+                background: verdict.correct
+                  ? "rgba(52,211,153,0.06)"
+                  : "rgba(248,113,113,0.06)",
+                border: verdict.correct
+                  ? "1px solid rgba(52,211,153,0.30)"
+                  : "1px solid rgba(248,113,113,0.30)",
+              }}
+            >
+              <div className="flex items-center gap-2 text-[13px] font-semibold">
                 {verdict.correct ? (
                   <>
-                    <CheckCircle2 className="size-4 text-emerald-500" /> Correct
+                    <Icons.CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span className="text-emerald-300">Correct</span>
                   </>
                 ) : (
                   <>
-                    <XCircle className="size-4 text-rose-500" /> Not quite — actual: {RHYTHM_LABEL[question.rhythm]}
+                    <Icons.X className="w-4 h-4 text-rose-400" />
+                    <span className="text-rose-300">
+                      Not quite — actual: {RHYTHM_LABEL[question.rhythm]}
+                    </span>
                   </>
                 )}
               </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
+              <p className="text-[12.5px] text-white/85 leading-relaxed">
                 {RHYTHM_TEACHING_NOTE[question.rhythm]}
               </p>
-              <Button onClick={newQuestion}>Next rhythm</Button>
+              <button
+                type="button"
+                onClick={newQuestion}
+                className="cta-primary h-9 px-4 rounded-md text-[13px] font-semibold inline-flex items-center gap-2"
+              >
+                Next rhythm <Icons.Arrow className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Session breakdown</CardTitle>
-          <CardDescription>Per-family accuracy this session</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Session breakdown */}
+      <Panel title="Session breakdown" sub="Per-family accuracy this session">
+        <div className="p-5 space-y-3">
           {FAMILIES.map((family) => {
             const s = familyStats[family];
             const pct = s.total === 0 ? 0 : Math.round((s.correct / s.total) * 100);
             return (
-              <div key={family} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="font-medium">{RHYTHM_FAMILY_LABEL[family]}</span>
-                  <span className="text-muted-foreground">
+              <div key={family}>
+                <div className="flex justify-between text-[12px] mb-1.5">
+                  <span className="text-white">{RHYTHM_FAMILY_LABEL[family]}</span>
+                  <span className="font-mono tabular-nums text-[var(--text-mute)]">
                     {s.correct}/{s.total} ({pct}%)
                   </span>
                 </div>
-                <Progress value={pct} />
+                <div
+                  className="h-1.5 rounded-full overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.04)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${pct}%`,
+                      background:
+                        pct >= 85
+                          ? "var(--success)"
+                          : pct >= 70
+                          ? "var(--orange)"
+                          : pct >= 50
+                          ? "var(--warn)"
+                          : pct > 0
+                          ? "var(--danger)"
+                          : "transparent",
+                    }}
+                  />
+                </div>
               </div>
             );
           })}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
     </div>
   );
 }
