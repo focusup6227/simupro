@@ -1,52 +1,57 @@
-"use client"
+"use client";
 
-import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { CreditCard, Moon, Star, Sun, Trash2 } from "lucide-react"
-import Link from "next/link"
-import type { Database } from "@/lib/supabase/database.types";
+// SimuPro Settings — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - useDashboardProfile, useAuth, useUser, useSupabase
+//   - react-hook-form + zod UserProfileSchema
+//   - Photo upload via FileReader (base64 dataURL)
+//   - Certification attestation: emt/aemt program completion dates +
+//     maxSelectableClinicalCertRole + effectiveClinicalTierFromProfile
+//     gating + tester role override
+//   - Profile upsert via supabase.from('profiles').update(...)
+//   - Stripe portal: POST /api/stripe/create-portal-session
+//   - Account deletion: DELETE /api/account, auth.signOut, redirect
+//   - Theme toggle via next-themes
+//   - ProtocolImportSettings component preserved
+
+import * as React from "react";
+import { useTheme } from "next-themes";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
 import { useAuth, useUser, useSupabase, useDashboardProfile } from "@/supabase";
+import type { Database } from "@/lib/supabase/database.types";
 import type { User, UserProfile } from "@/lib/types";
+import { UserProfileSchema } from "@/lib/types";
 import {
   certificationTier,
   effectiveClinicalTierFromProfile,
   maxSelectableClinicalCertRole,
 } from "@/lib/certification-attestation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { UserProfileSchema } from "@/lib/types";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { PREMIUM_MONTHLY_DISPLAY, PREMIUM_MONTHLY_TITLE_SUFFIX } from "@/lib/pricing-display";
-import { useEffect, useState } from "react";
+import {
+  PREMIUM_MONTHLY_DISPLAY,
+  PREMIUM_MONTHLY_TITLE_SUFFIX,
+} from "@/lib/pricing-display";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useRouter } from "next/navigation";
+import { Panel } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 import { ProtocolImportSettings } from "@/components/protocol-import-settings";
 
-
 export default function SettingsPage() {
-  const { setTheme } = useTheme()
+  const { setTheme, theme } = useTheme();
   const { user: authUser, isUserLoading } = useUser();
   const auth = useAuth();
   const client = useSupabase();
@@ -65,7 +70,7 @@ export default function SettingsPage() {
       role: "emt",
       emtProgramCompletedOn: "",
       aemtProgramCompletedOn: "",
-    }
+    },
   });
 
   const photoUrlValue = form.watch("photoURL");
@@ -74,13 +79,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (userData) {
-      let defaultRole: 'emt' | 'aemt' | 'paramedic' = 'emt';
-      if (userData.role === 'tester' && userData.testRole) {
+      let defaultRole: "emt" | "aemt" | "paramedic" = "emt";
+      if (userData.role === "tester" && userData.testRole) {
         defaultRole = userData.testRole;
-      } else if (userData.role === 'emt' || userData.role === 'aemt' || userData.role === 'paramedic') {
+      } else if (
+        userData.role === "emt" ||
+        userData.role === "aemt" ||
+        userData.role === "paramedic"
+      ) {
         defaultRole = userData.role;
       }
-
       form.reset({
         displayName: userData.displayName || "",
         photoURL: userData.photoURL || "",
@@ -91,7 +99,8 @@ export default function SettingsPage() {
     }
   }, [userData, form]);
 
-  const mergedEmtForUnlock = watchedEmtDate.trim() || userData?.emtProgramCompletedOn || "";
+  const mergedEmtForUnlock =
+    watchedEmtDate.trim() || userData?.emtProgramCompletedOn || "";
   const mergedAemtForUnlock =
     watchedAemtDate.trim() || userData?.aemtProgramCompletedOn || "";
 
@@ -107,44 +116,51 @@ export default function SettingsPage() {
     : 0;
   const maxTierSelectable = Math.max(
     certificationTier(maxSelectableRole),
-    serverClinicalTier
+    serverClinicalTier,
   );
 
   const isRoleSelectable = (cert: UserProfile["role"]) =>
     certificationTier(cert) <= maxTierSelectable;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (value: string) => void) => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldChange: (value: string) => void,
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        fieldChange(reader.result as string);
-      };
+      reader.onloadend = () => fieldChange(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
   const onSubmit = async (values: UserProfile) => {
     if (!client || !authUser) {
-      toast({ variant: 'destructive', title: 'Error', description: 'User not logged in.' });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "User not logged in.",
+      });
       return;
     }
     if (!userData) {
       toast({
-        variant: 'destructive',
-        title: 'Profile not ready',
-        description: 'Your profile could not be loaded. Refresh the page or try again in a moment.',
+        variant: "destructive",
+        title: "Profile not ready",
+        description:
+          "Your profile could not be loaded. Refresh the page or try again in a moment.",
       });
       return;
     }
-
     try {
       const emtSave =
-        typeof values.emtProgramCompletedOn === "string" && values.emtProgramCompletedOn.trim() !== ""
+        typeof values.emtProgramCompletedOn === "string" &&
+        values.emtProgramCompletedOn.trim() !== ""
           ? values.emtProgramCompletedOn.trim()
           : null;
       const aemtSave =
-        typeof values.aemtProgramCompletedOn === "string" && values.aemtProgramCompletedOn.trim() !== ""
+        typeof values.aemtProgramCompletedOn === "string" &&
+        values.aemtProgramCompletedOn.trim() !== ""
           ? values.aemtProgramCompletedOn.trim()
           : null;
 
@@ -157,7 +173,7 @@ export default function SettingsPage() {
         maxSelectableClinicalCertRole({
           emtCompletedOn: emtSave ?? userData.emtProgramCompletedOn,
           aemtCompletedOn: aemtSave ?? userData.aemtProgramCompletedOn,
-        })
+        }),
       );
 
       if (tierForm > tierServer && tierForm > maxTierFromDates) {
@@ -170,28 +186,32 @@ export default function SettingsPage() {
         return;
       }
 
-      const patch: Database['public']['Tables']['profiles']['Update'] = {
+      const patch: Database["public"]["Tables"]["profiles"]["Update"] = {
         display_name: values.displayName,
         photo_url: values.photoURL || null,
         emt_program_completed_on: emtSave,
         aemt_program_completed_on: aemtSave,
       };
 
-      if (userData.role === 'tester') {
-        patch.test_role = values.role;
-      } else if (userData.role !== 'admin') {
-        patch.role = values.role;
-      }
+      if (userData.role === "tester") patch.test_role = values.role;
+      else if (userData.role !== "admin") patch.role = values.role;
 
-      const { error } = await client.from('profiles').update(patch).eq('id', authUser.id);
+      const { error } = await client
+        .from("profiles")
+        .update(patch)
+        .eq("id", authUser.id);
       if (error) throw error;
-      toast({ title: 'Profile Updated', description: 'Your settings have been saved.' });
+      toast({
+        title: "Profile Updated",
+        description: "Your settings have been saved.",
+      });
     } catch (e: unknown) {
       console.error("Error updating profile: ", e);
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: e instanceof Error ? e.message : "Could not update your profile.",
+        variant: "destructive",
+        title: "Error",
+        description:
+          e instanceof Error ? e.message : "Could not update your profile.",
       });
     }
   };
@@ -199,361 +219,474 @@ export default function SettingsPage() {
   const handleManageSubscription = async () => {
     setIsOpeningPortal(true);
     try {
-      const res = await fetch('/api/stripe/create-portal-session', { method: 'POST' });
+      const res = await fetch("/api/stripe/create-portal-session", {
+        method: "POST",
+      });
       const data: { url?: string; error?: string } = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || 'Could not open billing portal.');
-      }
+      if (!res.ok || !data.url)
+        throw new Error(data.error || "Could not open billing portal.");
       window.location.href = data.url;
     } catch (e: unknown) {
       toast({
-        variant: 'destructive',
-        title: 'Could not open billing portal',
-        description: e instanceof Error ? e.message : 'Please try again.',
+        variant: "destructive",
+        title: "Could not open billing portal",
+        description: e instanceof Error ? e.message : "Please try again.",
       });
     } finally {
       setIsOpeningPortal(false);
     }
   };
 
-  const formatPeriodEnd = (val: User['premiumCurrentPeriodEnd']) => {
+  const formatPeriodEnd = (val: User["premiumCurrentPeriodEnd"]) => {
     if (!val) return null;
     const d = val instanceof Date ? val : new Date(val);
     if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const handleDeleteAccount = async () => {
     if (!authUser || !auth) {
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not delete account.",
-        });
-        return;
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not delete account.",
+      });
+      return;
     }
-
     setIsDeleteAlertOpen(false);
-
     try {
-      const res = await fetch('/api/account', { method: 'DELETE' });
+      const res = await fetch("/api/account", { method: "DELETE" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error((j as { error?: string }).error || `Failed (${res.status})`);
+        throw new Error(
+          (j as { error?: string }).error || `Failed (${res.status})`,
+        );
       }
-
       await auth.signOut();
-
       toast({
         title: "Account Deleted",
         description: "Your account has been permanently deleted.",
       });
-      router.push('/login');
+      router.push("/login");
     } catch (error: unknown) {
-        console.error("Error deleting account:", error);
-        toast({
-            variant: "destructive",
-            title: "Deletion Failed",
-            description: error instanceof Error ? error.message : "An error occurred.",
-        });
+      console.error("Error deleting account:", error);
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: error instanceof Error ? error.message : "An error occurred.",
+      });
     }
   };
 
   const isLoading = isUserLoading || isUserDataLoading;
-
-  const showRoleSelector = userData?.role !== 'admin';
-  const roleSelectorLabel = userData?.role === 'tester' ? "Simulation Role (as Tester)" : "Default Role";
-
+  const showRoleSelector = userData?.role !== "admin";
+  const roleSelectorLabel =
+    userData?.role === "tester" ? "Simulation role (as tester)" : "Default role";
 
   return (
-    <div className="space-y-8">
-       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account and application settings.
+    <div className="p-8 max-w-[1100px] mx-auto">
+      {/* Header */}
+      <div className="mb-7">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5">
+          // PROFILE · BILLING · APPEARANCE
+        </div>
+        <h1 className="font-display font-bold text-[34px] text-white leading-none">
+          Settings
+        </h1>
+        <p className="text-[13.5px] text-[var(--text-mute)] mt-2">
+          Manage your account, certifications, and application preferences.
         </p>
       </div>
 
-       <Card>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>
-                This is how other users will see you on the site.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoading ? (
-                <>
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </>
-              ) : (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Your Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {/* ── Profile ─────────────────────────────────────────────── */}
+        <Panel
+          title="Profile"
+          sub="How other learners and instructors will see you."
+        >
+          <div className="p-5 space-y-5">
+            {isLoading ? (
+              <>
+                <Skeleton className="h-10 w-full bg-white/5" />
+                <Skeleton className="h-20 w-full bg-white/5" />
+                <Skeleton className="h-10 w-full bg-white/5" />
+              </>
+            ) : (
+              <>
+                {/* Photo */}
+                <div>
+                  <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-2 block">
+                    Profile picture
+                  </label>
+                  <div className="flex items-center gap-5">
+                    <div
+                      className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-[24px] font-bold text-white"
+                      style={{
+                        background: photoUrlValue
+                          ? `url(${photoUrlValue}) center/cover`
+                          : "linear-gradient(135deg, #ff8a32 0%, #c8540a 100%)",
+                      }}
+                    >
+                      {!photoUrlValue && (userData?.displayName?.charAt(0) || "U")}
+                    </div>
+                    <label className="cta-secondary h-9 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-1.5 cursor-pointer">
+                      <Icons.Refresh className="w-3.5 h-3.5" /> Upload photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleFileChange(e, (v) => form.setValue("photoURL", v))
+                        }
+                      />
+                    </label>
+                    <div className="text-[11px] text-[var(--text-dim)] font-mono">
+                      PNG or JPG · max 2 MB · square
+                    </div>
+                  </div>
+                </div>
 
-                  <FormField
-                    control={form.control}
-                    name="photoURL"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Profile Picture</FormLabel>
-                         <div className="flex items-center gap-4">
-                            <Avatar className="h-16 w-16">
-                                <AvatarImage src={photoUrlValue || undefined} alt="Profile picture" />
-                                <AvatarFallback>{userData?.displayName?.charAt(0) || 'U'}</AvatarFallback>
-                            </Avatar>
-                            <FormControl>
-                                <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleFileChange(e, field.onChange)}
-                                className="max-w-xs"
-                                />
-                            </FormControl>
-                        </div>
-                        <FormDescription>
-                          Upload a picture for your profile.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
+                {/* Display name + email */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
+                      Display name
+                    </label>
+                    <input
+                      className="fld w-full"
+                      placeholder="Your Name"
+                      {...form.register("displayName")}
+                    />
+                    {form.formState.errors.displayName && (
+                      <p className="text-[11px] text-[var(--danger)] mt-1">
+                        {form.formState.errors.displayName.message}
+                      </p>
                     )}
-                  />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
+                      Email
+                    </label>
+                    <input
+                      className="fld w-full opacity-60"
+                      defaultValue={authUser?.email ?? ""}
+                      disabled
+                    />
+                  </div>
+                </div>
 
-                  {showRoleSelector && (
-                    <>
-                      <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+                {/* Certification attestation + role */}
+                {showRoleSelector && (
+                  <>
+                    <div
+                      className="rounded-md p-4 space-y-4"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid var(--border-soft)",
+                      }}
+                    >
+                      <div>
+                        <p className="text-[13px] font-medium text-white mb-1">
+                          Program completion dates
+                        </p>
+                        <p className="text-[11.5px] text-[var(--text-mute)] leading-relaxed">
+                          You attest these dates accurately reflect when you finished each training program for the tier above EMT. Dates can&apos;t be in the future. AEMT unlocks after EMT date; Paramedic after AEMT date.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm font-medium">Program completion dates</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            You attest these dates accurately reflect when you finished each training program for
-                            the tier above EMT (not licensure verification). Dates cannot be in the future. AEMT becomes
-                            available after your EMT program date; Paramedic after your AEMT program date.
+                          <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
+                            EMT program completed
+                          </label>
+                          <input
+                            type="date"
+                            className="fld w-full"
+                            {...form.register("emtProgramCompletedOn")}
+                          />
+                          <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
+                            Unlock AEMT simulations after this date.
                           </p>
                         </div>
-                        <FormField
-                          control={form.control}
-                          name="emtProgramCompletedOn"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>EMT program completed</FormLabel>
-                              <FormControl>
-                                <Input type="date" className="max-w-xs bg-background" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                Unlock AEMT simulations after this date has passed or is today.
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="aemtProgramCompletedOn"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>AEMT program completed</FormLabel>
-                              <FormControl>
-                                <Input type="date" className="max-w-xs bg-background" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                Unlock Paramedic simulations after this date has passed or is today.
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        <div>
+                          <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
+                            AEMT program completed
+                          </label>
+                          <input
+                            type="date"
+                            className="fld w-full"
+                            {...form.register("aemtProgramCompletedOn")}
+                          />
+                          <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
+                            Unlock Paramedic simulations after this date.
+                          </p>
+                        </div>
                       </div>
-                      <FormField
-                        control={form.control}
-                        name="role"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{roleSelectorLabel}</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select your role" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="emt">EMT</SelectItem>
-                                <SelectItem value="aemt" disabled={!isRoleSelectable("aemt")}>
-                                  AEMT
-                                </SelectItem>
-                                <SelectItem value="paramedic" disabled={!isRoleSelectable("paramedic")}>
-                                  Paramedic
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              {userData?.role === "tester"
-                                ? "This role will be used when you run scenarios from the Tester Dashboard."
-                                : "This is your default role for simulations."}{" "}
-                              {!isRoleSelectable("aemt") && (
-                                <span>Add a valid EMT completion date to choose AEMT.</span>
-                              )}
-                              {isRoleSelectable("aemt") && !isRoleSelectable("paramedic") && (
-                                <span>Add a valid AEMT completion date to choose Paramedic.</span>
-                              )}
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </CardContent>
-            <CardFooter className="border-t px-6 py-4">
-              <Button type="submit" disabled={form.formState.isSubmitting || isLoading}>
-                {form.formState.isSubmitting ? "Saving..." : "Save"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+                    </div>
 
-      <ProtocolImportSettings />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Subscription
-          </CardTitle>
-          <CardDescription>
-            Manage your Premium subscription, payment method, and invoices.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-10 w-full" />
-          ) : userData?.isPremium ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-300/60 bg-yellow-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-yellow-700 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300">
-                  <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
-                  Premium
-                </span>
-                {userData.premiumStatus && (
-                  <span className="text-sm text-muted-foreground">
-                    Status: <span className="font-medium capitalize">{userData.premiumStatus}</span>
-                  </span>
+                    {/* Role selector */}
+                    <div>
+                      <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-2 block">
+                        {roleSelectorLabel}
+                      </label>
+                      <div className="flex rounded-md border border-[var(--border-soft)] bg-white/[0.02] p-0.5">
+                        {[
+                          { value: "emt", label: "EMT" },
+                          { value: "aemt", label: "AEMT" },
+                          { value: "paramedic", label: "Paramedic" },
+                        ].map((opt) => {
+                          const active = form.watch("role") === opt.value;
+                          const disabled = !isRoleSelectable(opt.value as never);
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() =>
+                                form.setValue("role", opt.value as never)
+                              }
+                              className="flex-1 py-2 rounded text-[12.5px] font-medium transition disabled:opacity-30 disabled:pointer-events-none"
+                              style={{
+                                color: active
+                                  ? "white"
+                                  : "var(--text-mute)",
+                                background: active
+                                  ? "rgba(255,122,24,0.12)"
+                                  : "transparent",
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
+                        {!isRoleSelectable("aemt")
+                          ? "Add a valid EMT completion date to choose AEMT."
+                          : !isRoleSelectable("paramedic")
+                          ? "Add a valid AEMT completion date to choose Paramedic."
+                          : userData?.role === "tester"
+                          ? "This role applies when you run scenarios from the Tester Dashboard."
+                          : "This is your default role for simulations."}
+                      </p>
+                    </div>
+                  </>
                 )}
-                {formatPeriodEnd(userData.premiumCurrentPeriodEnd) && (
-                  <span className="text-sm text-muted-foreground">
-                    Renews: <span className="font-medium">{formatPeriodEnd(userData.premiumCurrentPeriodEnd)}</span>
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Open the secure Stripe billing portal to update your payment method, download invoices, or cancel your subscription. Cancellations take effect at the end of the current billing period — your access stays active until then.
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button onClick={() => void handleManageSubscription()} disabled={isOpeningPortal}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  {isOpeningPortal ? 'Opening portal…' : 'Manage Subscription'}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {`You’re currently on the Free plan. Upgrade to Premium (${PREMIUM_MONTHLY_TITLE_SUFFIX}) for the full Premium scenario library, deep-dive AI feedback, and advanced patient realism. Cancel anytime.`}
-              </p>
-              <Button asChild>
-                <Link href="/billing">
-                  <Star className="mr-2 h-4 w-4" />
-                  {`Go Premium — ${PREMIUM_MONTHLY_TITLE_SUFFIX}`}
-                </Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>
-            Customize the look and feel of the application.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <h3 className="text-lg font-medium">Theme</h3>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => setTheme("light")}>
-              <Sun className="mr-2" /> Light
-            </Button>
-            <Button variant="outline" onClick={() => setTheme("dark")}>
-              <Moon className="mr-2" /> Dark
-            </Button>
-            <Button variant="outline" onClick={() => setTheme("system")}>
-              System
-            </Button>
+              </>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle>Danger Zone</CardTitle>
-          <CardDescription>
-            These actions are permanent and cannot be undone.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Delete Account</p>
-                <p className="text-sm text-muted-foreground">
-                  Permanently delete your account and all associated data.
+        {/* ── Protocol imports ──────────────────────────────────── */}
+        <Panel
+          title="Protocol imports"
+          sub="Your saved EMS protocol sources (workplace + personal)"
+        >
+          <div className="p-5">
+            <ProtocolImportSettings />
+          </div>
+        </Panel>
+
+        {/* ── Subscription ──────────────────────────────────────── */}
+        <Panel
+          title={
+            <span className="flex items-center gap-2">
+              <Icons.Card className="w-4 h-4 text-[var(--orange-soft)]" />
+              Subscription
+            </span>
+          }
+          sub="Manage your Premium subscription, payment method, and invoices."
+          accent={userData?.isPremium ? "orange" : undefined}
+        >
+          <div className="p-5">
+            {isLoading ? (
+              <Skeleton className="h-12 w-full bg-white/5" />
+            ) : userData?.isPremium ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="tag tag-amber">
+                    <Icons.Crown className="w-3 h-3" /> Premium
+                  </span>
+                  {userData.premiumStatus && (
+                    <span className="text-[12.5px] text-[var(--text-mute)]">
+                      Status:{" "}
+                      <span className="text-white font-medium capitalize">
+                        {userData.premiumStatus}
+                      </span>
+                    </span>
+                  )}
+                  {formatPeriodEnd(userData.premiumCurrentPeriodEnd) && (
+                    <span className="text-[12.5px] text-[var(--text-mute)]">
+                      Renews:{" "}
+                      <span className="text-white font-medium">
+                        {formatPeriodEnd(userData.premiumCurrentPeriodEnd)}
+                      </span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-[12.5px] text-[var(--text-mute)] leading-relaxed">
+                  Open the secure Stripe portal to update your payment method, download invoices, or cancel. Access stays active through the end of your current billing period.
                 </p>
-              </div>
-              <Button variant="destructive" onClick={() => setIsDeleteAlertOpen(true)}>
-                <Trash2 className="mr-2" />
-                Delete Account
-              </Button>
-            </div>
-        </CardContent>
-      </Card>
-
-       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your
-                    account and remove all your data from our servers.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                    onClick={() => void handleDeleteAccount()}
-                    className="bg-destructive hover:bg-destructive/90"
+                <button
+                  type="button"
+                  onClick={() => void handleManageSubscription()}
+                  disabled={isOpeningPortal}
+                  className="cta-secondary h-10 px-4 rounded-md text-[13px] font-medium inline-flex items-center gap-2"
                 >
-                    Yes, delete my account
-                </AlertDialogAction>
-            </AlertDialogFooter>
+                  <Icons.Card className="w-3.5 h-3.5" />
+                  {isOpeningPortal ? "Opening portal…" : "Manage subscription"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-[12.5px] text-[var(--text-mute)] leading-relaxed">
+                  You&apos;re currently on the Free plan. Upgrade to Premium ({PREMIUM_MONTHLY_TITLE_SUFFIX}) for the full Premium scenario library, deep-dive AI feedback, and advanced patient realism. Cancel anytime.
+                </p>
+                <Link
+                  href="/billing"
+                  className="cta-primary h-10 px-4 rounded-md text-[13.5px] font-semibold inline-flex items-center gap-2"
+                >
+                  <Icons.Crown className="w-3.5 h-3.5" />
+                  Go Premium — {PREMIUM_MONTHLY_DISPLAY}
+                </Link>
+              </div>
+            )}
+          </div>
+        </Panel>
+
+        {/* ── Appearance ────────────────────────────────────────── */}
+        <Panel title="Appearance" sub="Customize the look and feel of the app.">
+          <div className="p-5">
+            <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-2 block">
+              Theme
+            </label>
+            <div className="flex gap-2">
+              {[
+                { v: "dark", l: "Dark", icon: <Icons.Refresh className="w-4 h-4" /> },
+                { v: "light", l: "Light", icon: <Icons.Refresh className="w-4 h-4" /> },
+                {
+                  v: "system",
+                  l: "System",
+                  icon: <Icons.Settings className="w-4 h-4" />,
+                },
+              ].map((t) => {
+                const active = theme === t.v;
+                return (
+                  <button
+                    key={t.v}
+                    type="button"
+                    onClick={() => setTheme(t.v)}
+                    className={`flex-1 max-w-[140px] p-3 rounded-md text-[12px] font-medium inline-flex flex-col items-center gap-1.5 ${
+                      active ? "text-white" : "text-[var(--text-mute)]"
+                    }`}
+                    style={{
+                      background: active
+                        ? "rgba(255,122,24,0.08)"
+                        : "rgba(255,255,255,0.02)",
+                      border: active
+                        ? "1px solid rgba(255,122,24,0.30)"
+                        : "1px solid var(--border-soft)",
+                    }}
+                  >
+                    <span className="w-4 h-4">{t.icon}</span>
+                    {t.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Panel>
+
+        {/* ── Save bar ──────────────────────────────────────────── */}
+        <div
+          className="sticky bottom-3 z-20 flex items-center justify-between gap-3 p-3.5 rounded-xl"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(11,31,68,0.92) 0%, rgba(11,31,68,0.96) 100%)",
+            border: "1px solid var(--border)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div className="text-[12.5px] text-[var(--text-mute)]">
+            {form.formState.isDirty
+              ? "Unsaved changes"
+              : "All changes saved."}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => userData && form.reset()}
+              disabled={!form.formState.isDirty}
+              className="cta-ghost h-9 px-3 rounded-md text-[12.5px] disabled:opacity-30 disabled:pointer-events-none"
+            >
+              Discard
+            </button>
+            <button
+              type="submit"
+              disabled={form.formState.isSubmitting || isLoading}
+              className="cta-primary h-9 px-4 rounded-md text-[13px] font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <Icons.Check className="w-3.5 h-3.5" />
+              {form.formState.isSubmitting ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* ── Danger zone ─────────────────────────────────────────── */}
+      <div
+        className="app-panel mt-5 relative overflow-hidden"
+        style={{ borderColor: "rgba(248,113,113,0.30)" }}
+      >
+        <div className="p-5 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.22em] text-[var(--danger)] font-mono mb-1">
+              // DANGER ZONE
+            </div>
+            <div className="font-display font-semibold text-[15px] text-white">
+              Delete account
+            </div>
+            <p className="text-[12.5px] text-[var(--text-mute)] mt-1">
+              Permanently delete your account and all associated data. This cannot be undone.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsDeleteAlertOpen(true)}
+            className="h-10 px-4 rounded-md text-[13px] font-semibold inline-flex items-center gap-2"
+            style={{
+              background: "rgba(248,113,113,0.10)",
+              border: "1px solid rgba(248,113,113,0.40)",
+              color: "#fda4a4",
+            }}
+          >
+            <Icons.X className="w-3.5 h-3.5" /> Delete account
+          </button>
+        </div>
+      </div>
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDeleteAccount()}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Yes, delete my account
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

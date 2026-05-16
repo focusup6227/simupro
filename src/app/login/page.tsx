@@ -1,24 +1,38 @@
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import AppLogo from '@/components/app-logo';
-import { useSupabase } from '@/supabase/provider';
-import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+// SimuPro Login — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - signInWithPassword
+//   - Toast on success/failure
+//   - Detects unverified-email errors and offers resend
+//   - Supabase config-missing alert
+//   - Redirect to /dashboard on success
+//   - Link to /forgot-password and /signup
+
+import * as React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSupabase } from "@/supabase/provider";
+import { useToast } from "@/hooks/use-toast";
+import { Icons } from "@/components/app/icons";
+import {
+  AuthShell,
+  AuthEyebrow,
+  AuthTitle,
+  AuthSub,
+  AuthField,
+  AuthDisclaimer,
+} from "@/components/app/auth-shell";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = useSupabase();
   const { toast } = useToast();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showResend, setShowResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -29,7 +43,8 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Authentication service not available. Please try again later.",
+        description:
+          "Authentication service not available. Please try again later.",
       });
       return;
     }
@@ -37,19 +52,18 @@ export default function LoginPage() {
     setShowResend(false);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      router.push('/dashboard');
+      if (error) throw error;
+      toast({ title: "Login Successful", description: "Welcome back!" });
+      router.push("/dashboard");
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "An unexpected error occurred.";
+      const msg =
+        error instanceof Error ? error.message : "An unexpected error occurred.";
       const isUnverified = /confirm|verify|email.*not.*confirmed/i.test(msg);
-      if (isUnverified) {
-        setShowResend(true);
-      }
+      if (isUnverified) setShowResend(true);
       toast({
         variant: "destructive",
         title: "Login Failed",
@@ -65,112 +79,170 @@ export default function LoginPage() {
     setIsResending(true);
     try {
       const origin =
-        typeof window !== 'undefined'
+        typeof window !== "undefined"
           ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? '';
+          : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "";
       const { error } = await supabase.auth.resend({
-        type: 'signup',
+        type: "signup",
         email,
         options: { emailRedirectTo: `${origin}/auth/callback` },
       });
       if (error) throw error;
-      toast({ title: 'Verification email sent', description: `Check ${email} for the link.` });
+      toast({
+        title: "Verification email sent",
+        description: `Check ${email} for the link.`,
+      });
     } catch (e: unknown) {
       toast({
-        variant: 'destructive',
-        title: 'Could not resend',
-        description: e instanceof Error ? e.message : 'Please try again.',
+        variant: "destructive",
+        title: "Could not resend",
+        description: e instanceof Error ? e.message : "Please try again.",
       });
     } finally {
       setIsResending(false);
     }
   };
 
-
-
   return (
-    <main className="flex items-center justify-center min-h-screen p-4" style={{ background: '#04102b' }}>
-      <div className="w-full max-w-md">
-        {/* Brand mark */}
-        <div className="flex flex-col items-center mb-8">
-          <Link href="/" className="flex items-center gap-3 mb-2">
-            <AppLogo />
-          </Link>
-          <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
-            EMS Simulation &amp; Training
-          </p>
-        </div>
+    <AuthShell>
+      <div className="max-w-sm w-full mx-auto">
+        <AuthEyebrow>// WELCOME BACK</AuthEyebrow>
+        <AuthTitle>Sign in</AuthTitle>
+        <AuthSub>Pick up where you left off.</AuthSub>
 
-        <div className="rounded-2xl p-8" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back</h1>
-            <p className="text-sm mt-1" style={{ color: '#8595c0' }}>Enter your credentials to access your training</p>
+        {!supabase && (
+          <div
+            className="mt-6 rounded-md p-3 text-[12.5px] flex items-start gap-2.5"
+            style={{
+              background: "rgba(248,113,113,0.06)",
+              border: "1px solid rgba(248,113,113,0.30)",
+              color: "#fda4a4",
+            }}
+          >
+            <Icons.X className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-white mb-1">
+                Supabase not configured
+              </div>
+              <div className="text-[var(--text-mute)] leading-relaxed">
+                Add{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  NEXT_PUBLIC_SUPABASE_URL
+                </code>{" "}
+                +{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  _ANON_KEY
+                </code>{" "}
+                to{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  .env.local
+                </code>{" "}
+                and restart.
+              </div>
+            </div>
           </div>
+        )}
 
-          <div className="space-y-5">
-            {!supabase && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Supabase is not configured in this environment</AlertTitle>
-                <AlertDescription>
-                  Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code>, then restart{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run dev</code>.
-                </AlertDescription>
-              </Alert>
-            )}
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#8595c0' }}>Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#8595c0' }}>Password</Label>
-                  <Link href="/forgot-password" className="text-xs hover:text-white transition" style={{ color: '#3fb8e5' }}>
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-              <Button
-                type="submit"
-                className="w-full min-h-11 font-semibold"
-                size="lg"
-                disabled={isLoading}
-                style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}
+        <form onSubmit={handleSignIn} className="space-y-3 mt-7">
+          <AuthField label="Email" htmlFor="email">
+            <div className="flex items-center gap-2 fld">
+              <Icons.Mail className="w-4 h-4 text-[var(--text-dim)] shrink-0" />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="bg-transparent flex-1 outline-none"
+              />
+            </div>
+          </AuthField>
+
+          <AuthField
+            label="Password"
+            htmlFor="password"
+            rightSlot={
+              <Link
+                href="/forgot-password"
+                className="text-[11px] text-[var(--cyan-soft)] hover:text-white"
               >
-                {isLoading ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-            {showResend && (
-              <div className="rounded-lg border p-3 text-sm" style={{ borderColor: 'rgba(245,185,94,0.4)', background: 'rgba(245,185,94,0.06)', color: '#f5b95e' }}>
-                <p>Looks like your email isn&apos;t verified yet.</p>
-                <button
-                  type="button"
-                  className="mt-1 font-medium underline underline-offset-4 disabled:opacity-50"
-                  onClick={() => void handleResendVerification()}
-                  disabled={isResending}
-                >
-                  {isResending ? 'Sending…' : 'Resend verification email'}
-                </button>
-              </div>
+                Forgot?
+              </Link>
+            }
+          >
+            <div className="flex items-center gap-2 fld">
+              <Icons.Lock className="w-4 h-4 text-[var(--text-dim)] shrink-0" />
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="bg-transparent flex-1 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="w-4 h-4 text-[var(--text-dim)] hover:text-white cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <Icons.Eye className="w-4 h-4" />
+              </button>
+            </div>
+          </AuthField>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full mt-2 h-11 rounded-md cta-primary text-[13.5px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {isLoading ? (
+              <>
+                <Icons.Refresh className="w-3.5 h-3.5 animate-spin" />
+                Signing in…
+              </>
+            ) : (
+              <>
+                Sign in <Icons.Arrow className="w-3.5 h-3.5" />
+              </>
             )}
-          </div>
+          </button>
+        </form>
 
-          <div className="mt-6 text-center text-sm" style={{ color: '#8595c0' }}>
-            No account?{' '}
-            <Link href="/signup" className="font-medium text-white hover:underline">
-              Sign up free
-            </Link>
+        {showResend && (
+          <div
+            className="mt-4 rounded-md p-3 text-[12.5px]"
+            style={{
+              background: "rgba(245,185,94,0.08)",
+              border: "1px solid rgba(245,185,94,0.30)",
+              color: "#fcd66b",
+            }}
+          >
+            <p>Looks like your email isn&apos;t verified yet.</p>
+            <button
+              type="button"
+              className="mt-1 font-medium underline underline-offset-2 disabled:opacity-50"
+              onClick={() => void handleResendVerification()}
+              disabled={isResending}
+            >
+              {isResending ? "Sending…" : "Resend verification email"}
+            </button>
           </div>
-        </div>
+        )}
 
-        <p className="mt-6 text-center text-[11px] font-mono" style={{ color: 'rgba(143,220,246,0.35)' }}>
-          Training only · Not medical advice · Not clinical decision support
+        <p className="text-center text-[12px] text-[var(--text-mute)] mt-5">
+          New to SimuPro?{" "}
+          <Link href="/signup" className="text-[var(--cyan-soft)] hover:text-white">
+            Create a free account
+          </Link>
         </p>
+
+        <AuthDisclaimer />
       </div>
-    </main>
+    </AuthShell>
   );
 }

@@ -1,34 +1,22 @@
 "use client";
 
+// SimuPro Admin Overview — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - exactCount helpers for all 9 admin metrics
+//   - Promise.all parallel fetch
+//   - Manual refresh
+//   - Stat-card to admin sub-pages routing
+//   - "How counts work" explanatory section
+
+import * as React from "react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSupabase } from "@/supabase";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Activity,
-  ArrowRight,
-  BookOpen,
-  Crown,
-  FileEdit,
-  Flag,
-  HeartPulse,
-  MessageSquare,
-  RefreshCw,
-  Syringe,
-  UserPlus,
-  Users,
-} from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Panel, Stat } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
 type Db = SupabaseClient<Database>;
 
@@ -46,14 +34,14 @@ type AdminMetrics = {
   interventions: number;
 };
 
-function isoDaysAgo(days: number): string {
+function isoDaysAgo(days: number) {
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
 
 async function exactCount(
   client: Db,
   table: keyof Database["public"]["Tables"],
-  apply?: (q: ReturnType<Db["from"]>) => ReturnType<Db["from"]>
+  apply?: (q: ReturnType<Db["from"]>) => ReturnType<Db["from"]>,
 ): Promise<number> {
   let q = client.from(table).select("*", { count: "exact", head: true });
   if (apply) q = apply(q) as typeof q;
@@ -76,7 +64,6 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     const since7d = isoDaysAgo(7);
-
     try {
       const [
         totalUsers,
@@ -102,12 +89,13 @@ export default function AdminDashboardPage() {
           q.eq("review_status", "pending"),
         ),
         exactCount(client, "simulation_sessions", (q) =>
-          q.eq("status", "completed").gte("start_time", since7d)
+          q.eq("status", "completed").gte("start_time", since7d),
         ),
-        exactCount(client, "simulation_sessions", (q) => q.eq("status", "in-progress")),
+        exactCount(client, "simulation_sessions", (q) =>
+          q.eq("status", "in-progress"),
+        ),
         exactCount(client, "interventions"),
       ]);
-
       setMetrics({
         totalUsers,
         premiumUsers,
@@ -137,195 +125,245 @@ export default function AdminDashboardPage() {
   const statCards = metrics
     ? [
         {
-          title: "Registered users",
-          value: metrics.totalUsers,
-          hint: `${metrics.newUsers7d.toLocaleString()} new in last 7 days`,
-          icon: Users,
+          label: "Registered users",
+          value: metrics.totalUsers.toLocaleString(),
+          sub: `↑ ${metrics.newUsers7d.toLocaleString()} in 7d`,
+          accent: "cyan" as const,
+          icon: <Icons.Users />,
           href: "/dashboard/admin/users",
         },
         {
-          title: "Premium (active flag)",
-          value: metrics.premiumUsers,
-          hint:
+          label: "Premium users",
+          value: metrics.premiumUsers.toLocaleString(),
+          sub:
             metrics.totalUsers > 0
-              ? `${Math.round((metrics.premiumUsers / metrics.totalUsers) * 100)}% of users`
+              ? `${Math.round(
+                  (metrics.premiumUsers / metrics.totalUsers) * 100,
+                )}% conv`
               : "—",
-          icon: Crown,
+          accent: "amber" as const,
+          icon: <Icons.Crown />,
           href: "/dashboard/admin/billing",
         },
         {
-          title: "Support — new",
-          value: metrics.ticketsNew,
-          hint:
+          label: "Support · new",
+          value: metrics.ticketsNew.toLocaleString(),
+          sub:
             metrics.ticketsInProgress > 0
               ? `${metrics.ticketsInProgress} in progress`
               : "None in progress",
-          icon: MessageSquare,
+          accent: metrics.ticketsNew > 0 ? ("orange" as const) : ("mute" as const),
+          icon: <Icons.Msg />,
           href: "/dashboard/admin/support",
         },
         {
-          title: "QA — AI feedback pending",
-          value: metrics.aiFeedbackPending,
-          hint: "Learner-flagged patient replies to review",
-          icon: Flag,
+          label: "QA · AI feedback",
+          value: metrics.aiFeedbackPending.toLocaleString(),
+          sub: "learner-flagged replies",
+          accent:
+            metrics.aiFeedbackPending > 0 ? ("orange" as const) : ("mute" as const),
+          icon: <Icons.CheckCircle />,
           href: "/dashboard/admin/qa",
         },
         {
-          title: "Simulations completed",
-          value: metrics.simsCompleted7d,
-          hint: "Last 7 days (by start time)",
-          icon: Activity,
+          label: "Sims completed · 7d",
+          value: metrics.simsCompleted7d.toLocaleString(),
+          sub: "by start time, UTC",
+          accent: "emerald" as const,
+          icon: <Icons.Play />,
           href: "/dashboard/admin/users",
         },
         {
-          title: "Simulations in progress",
-          value: metrics.simsInProgress,
-          hint: "Active sessions now",
-          icon: Activity,
+          label: "Sims in progress",
+          value: metrics.simsInProgress.toLocaleString(),
+          sub: "active sessions now",
+          accent: "cyan" as const,
+          icon: <Icons.Play />,
           href: "/dashboard/scenarios",
         },
         {
-          title: "Scenarios published",
-          value: metrics.scenariosPublished,
-          hint: `${metrics.scenariosDraft} draft`,
-          icon: BookOpen,
+          label: "Scenarios published",
+          value: metrics.scenariosPublished.toLocaleString(),
+          sub: `${metrics.scenariosDraft} draft`,
+          accent: "cyan" as const,
+          icon: <Icons.Heart />,
           href: "/dashboard/admin/scenarios",
         },
         {
-          title: "Interventions",
-          value: metrics.interventions,
-          hint: "Library size",
-          icon: Syringe,
+          label: "Interventions",
+          value: metrics.interventions.toLocaleString(),
+          sub: "library size",
+          accent: "mute" as const,
+          icon: <Icons.Syringe />,
           href: "/dashboard/admin/interventions",
         },
       ]
     : [];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="p-7">
+      {/* Header */}
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin overview</h1>
-          <p className="text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+            // STAFF VIEW · LAST REFRESH NOW
+          </div>
+          <h1 className="font-display font-bold text-[30px] text-white leading-none">
+            Admin overview
+          </h1>
+          <p className="text-[13px] text-[var(--text-mute)] mt-2">
             Snapshot of users, content, support load, and training activity.
           </p>
         </div>
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
-          disabled={loading || !client}
           onClick={() => void load()}
+          disabled={loading || !client}
+          className="cta-secondary h-9 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
         >
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <Icons.Refresh
+            className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+          />
           Refresh
-        </Button>
+        </button>
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Could not load metrics</AlertTitle>
-          <AlertDescription className="font-mono text-xs">{error}</AlertDescription>
-        </Alert>
+        <div
+          className="app-panel mb-5 p-4 flex items-start gap-3"
+          style={{ borderColor: "rgba(248,113,113,0.30)" }}
+        >
+          <span
+            className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+            style={{ background: "rgba(248,113,113,0.18)", color: "var(--danger)" }}
+          >
+            <Icons.X className="w-4 h-4" />
+          </span>
+          <div>
+            <div className="text-[13px] font-semibold text-white">
+              Could not load metrics
+            </div>
+            <pre className="text-[11px] font-mono text-[var(--text-mute)] mt-1 whitespace-pre-wrap">
+              {error}
+            </pre>
+          </div>
+        </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Metric grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
         {loading &&
-          Array.from({ length: 9 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-28" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-9 w-16 mb-2" />
-                <Skeleton className="h-3 w-full" />
-              </CardContent>
-            </Card>
+          Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl bg-white/5" />
           ))}
-
         {!loading &&
-          statCards.map((item) => (
-            <Card key={item.title} className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-                <item.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold tabular-nums">
-                  {item.value.toLocaleString()}
+          statCards.map((s) => (
+            <Link
+              key={s.label}
+              href={s.href}
+              className="block group focus-visible:outline-none"
+            >
+              <div className="relative">
+                <Stat
+                  label={s.label}
+                  value={s.value}
+                  sub={s.sub}
+                  accent={s.accent}
+                  icon={s.icon}
+                />
+                <div className="absolute right-4 bottom-4 text-[var(--text-dim)] group-hover:text-white transition opacity-0 group-hover:opacity-100">
+                  <Icons.Arrow className="w-3.5 h-3.5" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{item.hint}</p>
-                <Button variant="link" className="h-auto p-0 mt-2 text-xs" asChild>
-                  <Link href={item.href}>
-                    Open <ArrowRight className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </Link>
           ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileEdit className="h-5 w-5" />
-            Quick links
-          </CardTitle>
-          <CardDescription>Jump to common admin tasks.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/dashboard/admin/users">
-              <Users className="mr-2 h-4 w-4" />
-              Users
-            </Link>
-          </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/dashboard/admin/billing">
-              <Crown className="mr-2 h-4 w-4" />
-              Billing
-            </Link>
-          </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/dashboard/admin/scenarios">
-              <HeartPulse className="mr-2 h-4 w-4" />
-              Scenarios
-            </Link>
-          </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/dashboard/admin/interventions">
-              <Syringe className="mr-2 h-4 w-4" />
-              Interventions
-            </Link>
-          </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/dashboard/admin/support">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Support
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Quick links + How counts work */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
+        <Panel
+          title={
+            <span className="flex items-center gap-2">
+              <Icons.Clipboard className="w-4 h-4 text-[var(--cyan-soft)]" />
+              Quick links
+            </span>
+          }
+          sub="Jump to common admin tasks."
+        >
+          <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { l: "Users", href: "/dashboard/admin/users", i: <Icons.Users /> },
+              {
+                l: "Billing",
+                href: "/dashboard/admin/billing",
+                i: <Icons.Crown />,
+              },
+              {
+                l: "Scenarios",
+                href: "/dashboard/admin/scenarios",
+                i: <Icons.Heart />,
+              },
+              {
+                l: "Interventions",
+                href: "/dashboard/admin/interventions",
+                i: <Icons.Syringe />,
+              },
+              {
+                l: "Support",
+                href: "/dashboard/admin/support",
+                i: <Icons.Msg />,
+              },
+              {
+                l: "QA · feedback",
+                href: "/dashboard/admin/qa",
+                i: <Icons.CheckCircle />,
+              },
+            ].map((q) => (
+              <Link
+                key={q.href}
+                href={q.href}
+                className="cta-secondary h-10 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-2"
+              >
+                <span className="w-4 h-4">{q.i}</span>
+                {q.l}
+              </Link>
+            ))}
+          </div>
+        </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            How counts work
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            Numbers come from live Supabase counts (RLS applies). &quot;Premium&quot; is users with{" "}
-            <code className="text-foreground">is_premium = true</code>; billing details are on the Billing page.
-          </p>
-          <p>
-            &quot;Simulations completed (7d)&quot; uses sessions with status{" "}
-            <code className="text-foreground">completed</code> and <code className="text-foreground">start_time</code>{" "}
-            in the last 7 days (UTC).
-          </p>
-        </CardContent>
-      </Card>
+        <Panel
+          title={
+            <span className="flex items-center gap-2">
+              <Icons.Lightbulb className="w-4 h-4 text-[var(--orange-soft)]" />
+              How counts work
+            </span>
+          }
+        >
+          <div className="px-5 py-4 space-y-3 text-[12.5px] text-[var(--text-mute)] leading-relaxed">
+            <p>
+              Numbers come from live Supabase counts (RLS applies).{" "}
+              <span className="text-white font-medium">Premium</span> is users with{" "}
+              <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded text-white">
+                is_premium = true
+              </code>
+              ; billing details are on the Billing page.
+            </p>
+            <p>
+              <span className="text-white font-medium">Sims completed · 7d</span>{" "}
+              uses sessions with status{" "}
+              <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded text-white">
+                completed
+              </code>{" "}
+              and{" "}
+              <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded text-white">
+                start_time
+              </code>{" "}
+              in the last 7 days (UTC).
+            </p>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }

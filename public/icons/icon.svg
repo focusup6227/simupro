@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SimuPro">
-  <rect width="512" height="512" rx="96" fill="#0ea5e9"/>
-  <path fill="#ffffff" d="M256 120c-48 0-88 36-94 82h-42v72h42c6 46 46 82 94 82s88-36 94-82h42v-72h-42c-6-46-46-82-94-82zm0 48c26 0 48 22 48 48s-22 48-48 48-48-22-48-48 22-48 48-48z"/>
-  <path fill="#e0f2fe" d="M168 320h176v64c0 26-22 48-48 48H216c-26 0-48-22-48-48v-64z" opacity=".9"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="SimuPro">
+  <rect width="512" height="512" rx="96" fill="#04102b"/>
+  <g transform="translate(256,256)">
+    <rect x="-52" y="-184" width="104" height="368" rx="40" fill="#04102b" stroke="#16d1ff" stroke-width="18" transform="rotate(0)"/>
+    <rect x="-52" y="-184" width="104" height="368" rx="40" fill="#04102b" stroke="#16d1ff" stroke-width="18" transform="rotate(60)"/>
+    <rect x="-52" y="-184" width="104" height="368" rx="40" fill="#04102b" stroke="#16d1ff" stroke-width="18" transform="rotate(120)"/>
+  </g>
 </svg>

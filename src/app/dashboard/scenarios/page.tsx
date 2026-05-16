@@ -1,20 +1,22 @@
-
 "use client";
 
+// SimuPro Scenario Library — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - useCollection<ScenarioCardRow> for scenarios
+//   - useCollection<SimulationSession> for in-progress sessions
+//   - Favorites toggle backed by `scenario_favorites` table
+//   - Completed-set from `simulation_sessions` (status=completed)
+//   - Tag / difficulty / tier / favorites / search filters
+//   - filterScenariosForLearnerBrowse + countLearnerBrowseableScenarios
+//   - pickScenarioOfTheDay (same daily UTC pick)
+//   - isLegacyScenarioId badge
+//   - Premium gating → /billing redirect for free users
+//   - handleRandomScenario logic (excludes tutorial, prefers accessible)
+
+import * as React from "react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowRight, CalendarDays, CheckCircle2, Heart, PlayCircle, Shuffle, Search, Star, X } from "lucide-react";
 import {
   useCollection,
   useSupabase,
@@ -22,25 +24,36 @@ import {
   useUser,
   useDashboardProfile,
 } from "@/supabase";
-import type { ScenarioCardRow, SimulationSession, User } from "@/lib/types";
+import type { ScenarioCardRow, SimulationSession } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { pickScenarioOfTheDay } from "@/lib/scenario-of-the-day";
 import { filterScenariosForLearnerBrowse } from "@/lib/scenario-catalog-visibility";
 import { isLegacyScenarioId } from "@/lib/scenarios-data";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
+import { Panel, DiffPill } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
 export default function ScenariosPage() {
   const client = useSupabase();
   const router = useRouter();
   const { user: authUser, isUserLoading } = useUser();
-
   const { data: userData, isLoading: isUserDataLoading } = useDashboardProfile();
 
+  // ── Local filter state (same as original) ──────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [difficulty, setDifficulty] = useState("all");
   const [tier, setTier] = useState<"all" | "free" | "premium">("all");
@@ -49,24 +62,26 @@ export default function ScenariosPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
 
+  // ── Load favorites + completed sets (same as original) ─────────────
   useEffect(() => {
     if (!client || !authUser) return;
     let active = true;
     void (async () => {
-      const { data } = await client
-        .from('scenario_favorites')
-        .select('scenario_id')
-        .eq('user_id', authUser.id);
+      const { data: favRows } = await client
+        .from("scenario_favorites")
+        .select("scenario_id")
+        .eq("user_id", authUser.id);
       if (!active) return;
-      if (data) setFavoriteIds(new Set(data.map((r) => r.scenario_id)));
+      if (favRows) setFavoriteIds(new Set(favRows.map((r) => r.scenario_id)));
 
       const { data: sessions } = await client
-        .from('simulation_sessions')
-        .select('scenario_id')
-        .eq('user_id', authUser.id)
-        .eq('status', 'completed');
+        .from("simulation_sessions")
+        .select("scenario_id")
+        .eq("user_id", authUser.id)
+        .eq("status", "completed");
       if (!active) return;
-      if (sessions) setCompletedIds(new Set(sessions.map((r) => r.scenario_id)));
+      if (sessions)
+        setCompletedIds(new Set(sessions.map((r) => r.scenario_id)));
     })();
     return () => {
       active = false;
@@ -81,78 +96,52 @@ export default function ScenariosPage() {
         next.delete(scenarioId);
         setFavoriteIds(next);
         await client
-          .from('scenario_favorites')
+          .from("scenario_favorites")
           .delete()
-          .eq('user_id', authUser.id)
-          .eq('scenario_id', scenarioId);
+          .eq("user_id", authUser.id)
+          .eq("scenario_id", scenarioId);
       } else {
         next.add(scenarioId);
         setFavoriteIds(next);
         await client
-          .from('scenario_favorites')
+          .from("scenario_favorites")
           .insert({ user_id: authUser.id, scenario_id: scenarioId });
       }
     },
-    [client, authUser, favoriteIds]
+    [client, authUser, favoriteIds],
   );
-  
+
+  // ── Scenarios fetch (same as original) ─────────────────────────────
   const scenariosQuery = useMemoSupabase(
     () =>
       client
         ? ({
-            table: 'scenarios' as const,
-            eq: { status: 'published' },
+            table: "scenarios" as const,
+            eq: { status: "published" },
             live: false,
             columns:
-              'id, title, description, status, is_premium, category, difficulty, tags',
+              "id, title, description, status, is_premium, category, difficulty, tags",
           } as const)
         : null,
-    [client]
+    [client],
   );
-  const { data: scenarios, isLoading } = useCollection<ScenarioCardRow>(scenariosQuery);
+  const { data: scenarios, isLoading } =
+    useCollection<ScenarioCardRow>(scenariosQuery);
 
   const inProgressSpec = useMemoSupabase(
     () =>
       client && authUser
         ? {
-            table: 'simulation_sessions' as const,
-            eq: { user_id: authUser.id, status: 'in-progress' },
+            table: "simulation_sessions" as const,
+            eq: { user_id: authUser.id, status: "in-progress" },
           }
         : null,
-    [client, authUser]
+    [client, authUser],
   );
-  const { data: inProgressSessions } = useCollection<SimulationSession>(inProgressSpec);
+  const { data: inProgressSessions } =
+    useCollection<SimulationSession>(inProgressSpec);
 
-  const handleRandomScenario = () => {
-    if (!filteredScenarios || filteredScenarios.length === 0) return;
-    const nonTutorialScenarios = filteredScenarios.filter(s => s.id !== 'welcome-tutorial');
-    if (nonTutorialScenarios.length === 0) {
-        if (filteredScenarios.length > 0) {
-             router.push(`/dashboard/scenarios/${filteredScenarios[0].id}`);
-        }
-        return;
-    };
-    const locked = (scenario: ScenarioCardRow) => {
-      if (!scenario.isPremium) return false;
-      if (!userData) return true;
-      if (isTesterOrAdminUser(userData)) return false;
-      return !userData.isPremium;
-    };
-
-    const accessible = nonTutorialScenarios.filter(s => !locked(s));
-    const fallback = nonTutorialScenarios.filter(s => !s.isPremium);
-    const candidates = accessible.length > 0 ? accessible : fallback;
-
-    if (candidates.length === 0) {
-      router.push('/billing');
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    const randomScenario = candidates[randomIndex];
-    router.push(`/dashboard/scenarios/${randomScenario.id}`);
-  };
-
+  // ── Browse-able set (premium / staff visibility) ───────────────────
   const isStaff = Boolean(userData && isTesterOrAdminUser(userData));
 
   const browseScenarios = useMemo(
@@ -163,34 +152,48 @@ export default function ScenariosPage() {
   const allTags = useMemo(() => {
     if (!browseScenarios.length) return [];
     const tags = new Set<string>();
-    browseScenarios.forEach(s => s.tags.forEach(tag => tags.add(tag)));
+    browseScenarios.forEach((s) => s.tags.forEach((tag) => tags.add(tag)));
     return Array.from(tags).sort();
   }, [browseScenarios]);
 
   const scenarioOfTheDay = useMemo(
     () => pickScenarioOfTheDay(browseScenarios),
-    [browseScenarios]
+    [browseScenarios],
   );
 
+  // ── Apply filters ──────────────────────────────────────────────────
   const filteredScenarios = useMemo(() => {
     if (!browseScenarios.length) return [];
     const q = searchTerm.trim().toLowerCase();
-    return browseScenarios.filter(scenario => {
-      if (scenario.id === 'welcome-tutorial') return false;
-
+    return browseScenarios.filter((scenario) => {
+      if (scenario.id === "welcome-tutorial") return false;
       const searchMatch =
         q.length === 0 ||
         scenario.title.toLowerCase().includes(q) ||
         (scenario.description ?? "").toLowerCase().includes(q);
-      const difficultyMatch = difficulty === 'all' || scenario.difficulty === difficulty;
+      const difficultyMatch =
+        difficulty === "all" || scenario.difficulty === difficulty;
       const tierMatch =
-        tier === 'all' ||
-        (tier === 'premium' ? !!scenario.isPremium : !scenario.isPremium);
-      const tagsMatch = selectedTags.length === 0 || selectedTags.every(tag => scenario.tags.includes(tag));
-      const favoritesMatch = !favoritesOnly || favoriteIds.has(scenario.id);
-      return searchMatch && difficultyMatch && tierMatch && tagsMatch && favoritesMatch;
+        tier === "all" ||
+        (tier === "premium" ? !!scenario.isPremium : !scenario.isPremium);
+      const tagsMatch =
+        selectedTags.length === 0 ||
+        selectedTags.every((tag) => scenario.tags.includes(tag));
+      const favoritesMatch =
+        !favoritesOnly || favoriteIds.has(scenario.id);
+      return (
+        searchMatch && difficultyMatch && tierMatch && tagsMatch && favoritesMatch
+      );
     });
-  }, [browseScenarios, searchTerm, difficulty, tier, selectedTags, favoritesOnly, favoriteIds]);
+  }, [
+    browseScenarios,
+    searchTerm,
+    difficulty,
+    tier,
+    selectedTags,
+    favoritesOnly,
+    favoriteIds,
+  ]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -200,10 +203,45 @@ export default function ScenariosPage() {
     setSelectedTags([]);
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+  const toggleTag = (tag: string) =>
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
+
+  const activeFilterCount =
+    (searchTerm ? 1 : 0) +
+    (difficulty !== "all" ? 1 : 0) +
+    (tier !== "all" ? 1 : 0) +
+    (favoritesOnly ? 1 : 0) +
+    selectedTags.length;
+
+  // ── Random / start (same as original) ──────────────────────────────
+  const handleRandomScenario = () => {
+    if (!filteredScenarios || filteredScenarios.length === 0) return;
+    const nonTutorial = filteredScenarios.filter(
+      (s) => s.id !== "welcome-tutorial",
+    );
+    if (nonTutorial.length === 0) {
+      if (filteredScenarios.length > 0) {
+        router.push(`/dashboard/scenarios/${filteredScenarios[0].id}`);
+      }
+      return;
+    }
+    const locked = (scenario: ScenarioCardRow) => {
+      if (!scenario.isPremium) return false;
+      if (!userData) return true;
+      if (isTesterOrAdminUser(userData)) return false;
+      return !userData.isPremium;
+    };
+    const accessible = nonTutorial.filter((s) => !locked(s));
+    const fallback = nonTutorial.filter((s) => !s.isPremium);
+    const candidates = accessible.length > 0 ? accessible : fallback;
+    if (candidates.length === 0) {
+      router.push("/billing");
+      return;
+    }
+    const randomScenario = candidates[Math.floor(Math.random() * candidates.length)];
+    router.push(`/dashboard/scenarios/${randomScenario.id}`);
   };
 
   const handleStartScenario = (scenario: ScenarioCardRow) => {
@@ -212,259 +250,377 @@ export default function ScenariosPage() {
       !!userData &&
       !isTesterOrAdminUser(userData) &&
       !userData.isPremium;
-
     if (scenario.isPremium && (!userData || isLocked)) {
-      router.push('/billing');
+      router.push("/billing");
       return;
     }
-
     router.push(`/dashboard/scenarios/${scenario.id}`);
   };
-  
+
   const isLoadingData = isLoading || isUserLoading || isUserDataLoading;
 
+  // ── Render ─────────────────────────────────────────────────────────
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Scenario Library</h1>
-              <p className="text-muted-foreground">
-                Choose a scenario to test your skills, or start a random one.
-              </p>
-            </div>
-            <Button 
-                onClick={handleRandomScenario} 
-                disabled={isLoadingData || !filteredScenarios || filteredScenarios.length === 0}
-            >
-                <Shuffle className="mr-2" /> Start Random Scenario 
-            </Button>
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5">
+            // SCENARIO LIBRARY · {browseScenarios.length} PUBLISHED
           </div>
+          <h1 className="font-display font-bold text-[34px] text-white leading-none">
+            Pick a call.
+          </h1>
+          <p className="text-[13.5px] text-[var(--text-mute)] mt-2">
+            Filter by chief complaint, scope, or rhythm family — or roll the dice on a random one.
+          </p>
+        </div>
+        <button
+          onClick={handleRandomScenario}
+          disabled={
+            isLoadingData ||
+            !filteredScenarios ||
+            filteredScenarios.length === 0
+          }
+          className="h-10 px-4 rounded-lg cta-secondary text-[13.5px] font-medium inline-flex items-center gap-2 disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <Icons.Shuffle className="w-4 h-4" />
+          Start random scenario
+        </button>
+      </div>
 
-        {!isLoadingData && inProgressSessions && inProgressSessions.length > 0 && (
-          <Card className="border-primary/40 bg-primary/5">
-            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <PlayCircle className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold">Pick up where you left off</p>
-                  <p className="text-sm text-muted-foreground">
-                    You have {inProgressSessions.length} simulation{inProgressSessions.length === 1 ? "" : "s"} in progress.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {inProgressSessions.slice(0, 3).map((session) => (
-                  <Button
-                    key={session.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/scenarios/${session.scenarioId}`)}
-                  >
-                    Resume: {session.scenarioTitle}
-                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {!isLoadingData && scenarioOfTheDay && (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                  <CalendarDays className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold">Scenario of the day</p>
-                  <p className="text-sm text-muted-foreground">
-                    Same pick for everyone each UTC day (excludes tutorial).
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium">
-                    {scenarioOfTheDay.title}
-                    {isLegacyScenarioId(scenarioOfTheDay.id) && (
-                      <Badge variant="outline" className="font-normal text-muted-foreground">
-                        Legacy
-                      </Badge>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" onClick={() => handleStartScenario(scenarioOfTheDay)}>
-                  Start scenario
-                  <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:flex-wrap">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Search by title or description..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                aria-label="Search scenarios"
+      {/* Resume + Scenario of the day */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {!isLoadingData &&
+          inProgressSessions &&
+          inProgressSessions.length > 0 && (
+            <div className="app-panel relative overflow-hidden">
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(255,122,24,0.12) 0%, transparent 60%)",
+                }}
               />
-            </div>
-            <Select value={difficulty} onValueChange={setDifficulty}>
-              <SelectTrigger className="w-full md:w-[180px]" aria-label="Filter by difficulty">
-                <SelectValue placeholder="All Difficulties" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="Beginner">Beginner</SelectItem>
-                <SelectItem value="Intermediate">Intermediate</SelectItem>
-                <SelectItem value="Advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={tier} onValueChange={(v: "all" | "free" | "premium") => setTier(v)}>
-              <SelectTrigger className="w-full md:w-[150px]" aria-label="Filter by tier">
-                <SelectValue placeholder="All tiers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tiers</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button
-              type="button"
-              variant={favoritesOnly ? "default" : "outline"}
-              onClick={() => setFavoritesOnly((v) => !v)}
-              aria-pressed={favoritesOnly}
-              aria-label="Show favorites only"
-              className="w-full md:w-auto"
-            >
-              <Heart className={cn("mr-2 h-4 w-4", favoritesOnly && "fill-current")} />
-              Favorites
-            </Button>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-auto justify-start">
-                  Tags {selectedTags.length > 0 && `(${selectedTags.length})`}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0" align="end">
-                <Command>
-                  <CommandInput placeholder="Filter tags..." />
-                  <CommandList>
-                    <CommandEmpty>No tags found.</CommandEmpty>
-                    <CommandGroup>
-                      {allTags.map(tag => (
-                        <CommandItem key={tag} onSelect={() => toggleTag(tag)} className={cn("cursor-pointer", selectedTags.includes(tag) && "bg-accent")}>
-                          {tag}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            <Button variant="ghost" onClick={clearFilters}>
-                <X className="mr-2 h-4 w-4" /> Clear
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isLoadingData && Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="flex flex-col overflow-hidden">
-                  <CardHeader>
-                      <Skeleton className="h-6 w-3/4 rounded-md" />
-                      <Skeleton className="h-4 w-full mt-2 rounded-md" />
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                      <div className="flex flex-wrap gap-2">
-                          <Skeleton className="h-6 w-16 rounded-full" />
-                          <Skeleton className="h-6 w-20 rounded-full" />
-                      </div>
-                  </CardContent>
-                  <CardFooter>
-                      <Button className="w-full" disabled>
-                          Loading...
-                      </Button>
-                  </CardFooter>
-              </Card>
-          ))}
-          {!isLoadingData && filteredScenarios?.map((scenario) => (
-              <Card key={scenario.id} className="flex flex-col overflow-hidden relative">
-                <button
-                  type="button"
-                  aria-label={favoriteIds.has(scenario.id) ? "Remove from favorites" : "Add to favorites"}
-                  aria-pressed={favoriteIds.has(scenario.id)}
-                  onClick={() => void toggleFavorite(scenario.id)}
-                  className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background/80 text-muted-foreground transition hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <div className="relative z-10 p-4 flex items-start gap-3">
+                <span
+                  className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+                  style={{
+                    background: "rgba(255,122,24,0.18)",
+                    color: "var(--orange-soft)",
+                  }}
                 >
-                  <Heart
-                    className={cn(
-                      "h-4 w-4 transition",
-                      favoriteIds.has(scenario.id) && "fill-rose-500 text-rose-500"
-                    )}
-                  />
-                </button>
-                <CardHeader>
-                  <div className="flex justify-between items-start gap-2 pr-9">
-                      <CardTitle className="flex flex-wrap items-center gap-2">
-                        <span className="min-w-0">{scenario.title}</span>
-                        {isLegacyScenarioId(scenario.id) && (
-                          <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
-                            Legacy
-                          </Badge>
-                        )}
-                        {scenario.isPremium && (
-                          <Star
-                            className="h-4 w-4 shrink-0 text-yellow-500 fill-yellow-500"
-                            aria-label="Premium scenario"
-                          />
-                        )}
-                        {completedIds.has(scenario.id) && (
-                          <CheckCircle2
-                            className="h-4 w-4 text-emerald-500"
-                            aria-label="Previously completed"
-                          />
-                        )}
-                      </CardTitle>
+                  <Icons.Play className="w-4 h-4" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-white">
+                    Pick up where you left off
                   </div>
-                  <CardDescription className="line-clamp-2 pt-2">{scenario.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{scenario.difficulty}</Badge>
-                    {scenario.tags.map(tag => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
+                  <div className="text-[12px] text-[var(--text-mute)] mt-0.5">
+                    You have {inProgressSessions.length} simulation
+                    {inProgressSessions.length === 1 ? "" : "s"} in progress.
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {inProgressSessions.slice(0, 3).map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() =>
+                          router.push(`/dashboard/scenarios/${s.scenarioId}`)
+                        }
+                        className="cta-secondary h-8 px-3 rounded-md text-[12px] inline-flex items-center gap-1.5 max-w-full"
+                      >
+                        <span className="truncate">Resume: {s.scenarioTitle}</span>
+                        <Icons.Arrow className="w-3 h-3 shrink-0" />
+                      </button>
                     ))}
                   </div>
-                </CardContent>
-                <CardFooter>
-                    <Button className="w-full" onClick={() => handleStartScenario(scenario)}>
-                      {scenario.isPremium ? 'Upgrade / Start' : 'Start Simulation'}{' '}
-                      <ArrowRight className="ml-2" />
-                    </Button>
-                </CardFooter>
-              </Card>
-            )
-          )}
-          {!isLoadingData && filteredScenarios?.length === 0 && (
-              <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">
-                  <p>No scenarios match your filters.</p>
-                  <p className="text-xs">Try clearing some filters to see more results.</p>
+                </div>
               </div>
+            </div>
           )}
-        </div>
+
+        {!isLoadingData && scenarioOfTheDay && (
+          <div className="app-panel relative overflow-hidden">
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(63,184,229,0.12) 0%, transparent 60%)",
+              }}
+            />
+            <div className="relative z-10 p-4 flex items-start gap-3">
+              <span
+                className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+                style={{
+                  background: "rgba(63,184,229,0.18)",
+                  color: "var(--cyan-soft)",
+                }}
+              >
+                <Icons.Calendar className="w-4 h-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-white truncate">
+                  Scenario of the day · {scenarioOfTheDay.title}
+                </div>
+                <div className="text-[12px] text-[var(--text-mute)] mt-0.5">
+                  Same pick for everyone today (UTC).
+                </div>
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  {isLegacyScenarioId(scenarioOfTheDay.id) && (
+                    <span className="tag">Legacy</span>
+                  )}
+                  <button
+                    onClick={() => handleStartScenario(scenarioOfTheDay)}
+                    className="cta-primary h-8 px-3 rounded-md text-[12px] font-semibold inline-flex items-center gap-1.5"
+                  >
+                    Start scenario <Icons.Arrow className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </>
+
+      {/* Filter bar */}
+      <div className="app-panel mb-5 p-3 flex flex-wrap items-center gap-2">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-md flex-1 min-w-[280px]"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid var(--border-soft)",
+          }}
+        >
+          <Icons.Search className="w-4 h-4 text-[var(--text-dim)]" />
+          <input
+            className="bg-transparent flex-1 text-[13px] text-white placeholder:text-[var(--text-dim)] outline-none"
+            placeholder="Search by title or description…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Search scenarios"
+          />
+        </div>
+
+        <select
+          className="fld appearance-none pr-8"
+          style={{ minWidth: 160 }}
+          value={difficulty}
+          onChange={(e) => setDifficulty(e.target.value)}
+          aria-label="Filter by difficulty"
+        >
+          <option value="all">All difficulties</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
+
+        <select
+          className="fld"
+          style={{ minWidth: 130 }}
+          value={tier}
+          onChange={(e) => setTier(e.target.value as "all" | "free" | "premium")}
+          aria-label="Filter by tier"
+        >
+          <option value="all">All tiers</option>
+          <option value="free">Free</option>
+          <option value="premium">Premium</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={() => setFavoritesOnly((v) => !v)}
+          aria-pressed={favoritesOnly}
+          className={cn(
+            "fld inline-flex items-center gap-2 cursor-pointer",
+            favoritesOnly && "text-rose-300 border-rose-400/30",
+          )}
+        >
+          <Icons.Heart
+            className={cn("w-4 h-4", favoritesOnly && "fill-current")}
+          />
+          Favorites
+        </button>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="fld inline-flex items-center gap-2 cursor-pointer">
+              Tags
+              {selectedTags.length > 0 && (
+                <span className="font-mono text-[11px] text-[var(--orange-soft)]">
+                  ({selectedTags.length})
+                </span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[220px] p-0 border-[var(--border)] bg-[#0b1f44] text-[var(--text)]"
+            align="end"
+          >
+            <Command>
+              <CommandInput placeholder="Filter tags…" />
+              <CommandList>
+                <CommandEmpty>No tags found.</CommandEmpty>
+                <CommandGroup>
+                  {allTags.map((tag) => (
+                    <CommandItem
+                      key={tag}
+                      onSelect={() => toggleTag(tag)}
+                      className={cn(
+                        "cursor-pointer",
+                        selectedTags.includes(tag) &&
+                          "bg-orange-500/10 text-[var(--orange-soft)]",
+                      )}
+                    >
+                      {tag}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="cta-ghost h-9 px-2 rounded-md text-[12.5px] inline-flex items-center gap-1.5"
+          >
+            <Icons.X className="w-3.5 h-3.5" /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* Active tag chips */}
+      {selectedTags.length > 0 && (
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-dim)] font-mono">
+            // active
+          </span>
+          {selectedTags.map((t) => (
+            <button
+              key={t}
+              onClick={() => toggleTag(t)}
+              className="tag tag-cyan cursor-pointer"
+            >
+              {t}{" "}
+              <span className="w-3 h-3 opacity-70">
+                <Icons.X className="w-3 h-3" />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Scenario grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoadingData &&
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="app-panel p-5 h-[210px]">
+              <Skeleton className="h-5 w-3/4 mb-3 bg-white/5" />
+              <Skeleton className="h-4 w-full mb-1.5 bg-white/5" />
+              <Skeleton className="h-4 w-4/5 mb-4 bg-white/5" />
+              <Skeleton className="h-9 w-full bg-white/5" />
+            </div>
+          ))}
+
+        {!isLoadingData &&
+          filteredScenarios.map((s) => {
+            const isFav = favoriteIds.has(s.id);
+            const isDone = completedIds.has(s.id);
+            const isLegacy = isLegacyScenarioId(s.id);
+            return (
+              <div
+                key={s.id}
+                className="app-panel p-5 relative flex flex-col"
+              >
+                {/* favorite */}
+                <button
+                  type="button"
+                  aria-label={
+                    isFav ? "Remove from favorites" : "Add to favorites"
+                  }
+                  aria-pressed={isFav}
+                  onClick={() => void toggleFavorite(s.id)}
+                  className="absolute right-3 top-3 w-7 h-7 rounded-full flex items-center justify-center transition"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    color: isFav ? "var(--danger)" : "var(--text-dim)",
+                  }}
+                >
+                  <Icons.Heart
+                    className={cn("w-3.5 h-3.5", isFav && "fill-current")}
+                  />
+                </button>
+
+                {/* Title */}
+                <div className="pr-9 mb-2 flex items-center gap-1.5 flex-wrap">
+                  <span className="font-display font-semibold text-[15.5px] text-white leading-tight">
+                    {s.title}
+                  </span>
+                  {isLegacy && <span className="tag">Legacy</span>}
+                  {s.isPremium && (
+                    <Icons.Crown
+                      className="w-3.5 h-3.5 text-[var(--premium)]"
+                      aria-label="Premium scenario"
+                    />
+                  )}
+                  {isDone && (
+                    <Icons.CheckCircle
+                      className="w-3.5 h-3.5 text-[var(--success)]"
+                      aria-label="Previously completed"
+                    />
+                  )}
+                </div>
+
+                <p className="text-[12.5px] text-[var(--text-mute)] leading-relaxed mb-4 line-clamp-2 flex-1">
+                  {s.description}
+                </p>
+
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {s.difficulty && (
+                    <DiffPill level={s.difficulty as never} />
+                  )}
+                  {s.tags.map((t) => (
+                    <span key={t} className="tag">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => handleStartScenario(s)}
+                  className={cn(
+                    "h-9 rounded-md text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5 mt-auto",
+                    s.isPremium ? "cta-secondary" : "cta-primary",
+                  )}
+                >
+                  {s.isPremium ? (
+                    <>
+                      <Icons.Crown className="w-3.5 h-3.5" />
+                      Upgrade &amp; start
+                    </>
+                  ) : (
+                    <>
+                      Start scenario <Icons.Arrow className="w-3 h-3" />
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+
+        {!isLoadingData && filteredScenarios.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3 text-center py-16">
+            <div className="text-[14px] text-[var(--text-mute)] mb-1">
+              No scenarios match your filters.
+            </div>
+            <div className="text-[12px] text-[var(--text-dim)] font-mono">
+              Try clearing some filters to see more results.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

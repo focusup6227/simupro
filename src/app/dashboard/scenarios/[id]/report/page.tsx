@@ -1,17 +1,35 @@
-
 "use client";
 
+// SimuPro Post-Run Report — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - useDoc/useCollection for scenario, session, user, insights
+//   - processSimulationResults action (auto-fires when no insight exists)
+//   - Tutorial-completion flag on profile update
+//   - chart data (assessment / treatment scores) — kept via recharts
+//   - relevant mandatory + suggested actions by role
+//   - protocol audit (wins + deviations)
+//   - premium deep-dive feedback (whatWentWell / criticalIssues / actionableTips / protocolReferences / drillSuggestions)
+//   - action log table
+//   - print
+//   - re-process / retry analysis
+
+import * as React from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { processSimulationResults } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Lightbulb, Home, CheckCircle, XCircle, AlertTriangle, Hospital, RefreshCw, ListOrdered, Loader, Star, BookOpen, Target, Dumbbell, Printer, ClipboardCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   useUser,
   useSupabase,
@@ -19,19 +37,28 @@ import {
   useMemoSupabase,
   useCollection,
 } from "@/supabase";
-import type { Scenario, SimulationSession, Insight, User, UserRole, CertificationActions, UserAction, ProtocolDeviation, ProtocolWin } from "@/lib/types";
+import type {
+  Scenario,
+  SimulationSession,
+  Insight,
+  User,
+  CertificationActions,
+  UserAction,
+  ProtocolDeviation,
+  ProtocolWin,
+} from "@/lib/types";
 import type { Json } from "@/lib/supabase/database.types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Panel, DiffPill } from "@/components/app/app-primitives";
+import { Icons } from "@/components/app/icons";
 
-const DEVIATION_KIND_LABEL: Record<ProtocolDeviation['kind'], string> = {
-  scope: 'Scope Violation',
-  dosage: 'Dosage Error',
-  indication: 'Indication Error',
-  contraindication: 'Contraindication',
-  other: 'Other',
+const DEVIATION_KIND_LABEL: Record<ProtocolDeviation["kind"], string> = {
+  scope: "Scope Violation",
+  dosage: "Dosage Error",
+  indication: "Indication Error",
+  contraindication: "Contraindication",
+  other: "Other",
 };
-
 
 export default function ReportPage() {
   const router = useRouter();
@@ -41,42 +68,44 @@ export default function ReportPage() {
   const { user: authUser } = useUser();
   const client = useSupabase();
 
-  const scenarioId = (params?.id as string) || '';
-  const sessionId = searchParams?.get('sessionId') ?? null;
-  const userIdFromQuery = searchParams?.get('userId') ?? null;
+  const scenarioId = (params?.id as string) || "";
+  const sessionId = searchParams?.get("sessionId") ?? null;
+  const userIdFromQuery = searchParams?.get("userId") ?? null;
 
   const [isProcessing, setIsProcessing] = useState(false);
-
   const reportForUserId = userIdFromQuery || authUser?.id;
 
+  // ── Data fetches (unchanged) ───────────────────────────────────────
   const sessionSpec = useMemoSupabase(
     () =>
       client && reportForUserId && sessionId
         ? ({
-            table: 'simulation_sessions',
+            table: "simulation_sessions",
             eq: { user_id: reportForUserId, id: sessionId },
           } as const)
         : null,
-    [client, reportForUserId, sessionId]
+    [client, reportForUserId, sessionId],
   );
-  const { data: sessionRows, isLoading: isLoadingSession } = useCollection<SimulationSession>(sessionSpec);
+  const { data: sessionRows, isLoading: isLoadingSession } =
+    useCollection<SimulationSession>(sessionSpec);
   const session = sessionRows?.[0];
 
   const scenarioSpec = useMemoSupabase(
     () =>
       client && scenarioId
-        ? ({ table: 'scenarios', id: scenarioId, live: false } as const)
+        ? ({ table: "scenarios", id: scenarioId, live: false } as const)
         : null,
-    [client, scenarioId]
+    [client, scenarioId],
   );
-  const { data: scenario, isLoading: isLoadingScenario } = useDoc<Scenario>(scenarioSpec);
+  const { data: scenario, isLoading: isLoadingScenario } =
+    useDoc<Scenario>(scenarioSpec);
 
   const userSpec = useMemoSupabase(
     () =>
       client && reportForUserId
-        ? ({ table: 'profiles', id: reportForUserId } as const)
+        ? ({ table: "profiles", id: reportForUserId } as const)
         : null,
-    [client, reportForUserId]
+    [client, reportForUserId],
   );
   const { data: user, isLoading: isLoadingUser } = useDoc<User>(userSpec);
 
@@ -84,28 +113,36 @@ export default function ReportPage() {
     () =>
       client && sessionId
         ? ({
-            table: 'session_insights',
+            table: "session_insights",
             eq: { session_id: sessionId },
           } as const)
         : null,
-    [client, sessionId]
+    [client, sessionId],
   );
-  const { data: insights, isLoading: isLoadingInsights, error: insightError } = useCollection<Insight>(insightsSpec);
-  const insight = insights?.find((i) => i.id === 'ai_feedback') ?? insights?.[0];
+  const {
+    data: insights,
+    isLoading: isLoadingInsights,
+    error: insightError,
+  } = useCollection<Insight>(insightsSpec);
+  const insight =
+    insights?.find((i) => i.id === "ai_feedback") ?? insights?.[0];
 
-  const simulationFailed = session?.status === 'failed';
+  const simulationFailed = session?.status === "failed";
 
   const userRoleForSession = useMemo(() => {
     if (session?.userRole) return session.userRole;
-    if (user?.role === 'tester') return user.testRole || 'emt';
+    if (user?.role === "tester") return user.testRole || "emt";
     return user?.role;
   }, [session, user]);
 
+  // ── Process results (unchanged) ────────────────────────────────────
   const handleProcessResults = useCallback(async () => {
     if (!session || !scenario || !user || !reportForUserId || !sessionId || !client) return;
-
     setIsProcessing(true);
-    toast({ title: 'Analyzing Performance...', description: 'Please wait while the AI grades your simulation.' });
+    toast({
+      title: "Analyzing Performance...",
+      description: "Please wait while the AI grades your simulation.",
+    });
 
     try {
       const insightData = await processSimulationResults({
@@ -113,57 +150,59 @@ export default function ReportPage() {
         scenarioId,
       });
 
-      const { error: upsertError } = await client.from('session_insights').upsert(
+      const { error: upsertError } = await client.from("session_insights").upsert(
         {
           session_id: sessionId,
-          id: 'ai_feedback',
+          id: "ai_feedback",
           assessment_score: insightData.assessmentScore,
           treatment_score: insightData.treatmentScore,
           ai_feedback: insightData.aiFeedback,
           reasoning: insightData.reasoning,
           premium_feedback: insightData.premiumFeedback ?? null,
-          protocol_deviations: (insightData.protocolDeviations ?? []) as unknown as Json,
-          protocol_wins: (insightData.protocolWins ?? []) as unknown as Json,
+          protocol_deviations:
+            (insightData.protocolDeviations ?? []) as unknown as Json,
+          protocol_wins:
+            (insightData.protocolWins ?? []) as unknown as Json,
         },
-        { onConflict: 'session_id,id' }
+        { onConflict: "session_id,id" },
       );
       if (upsertError) throw upsertError;
 
-      if (scenario.id === 'welcome-tutorial') {
+      if (scenario.id === "welcome-tutorial") {
         const { error: profileErr } = await client
-          .from('profiles')
+          .from("profiles")
           .update({ has_completed_tutorial: true })
-          .eq('id', reportForUserId);
+          .eq("id", reportForUserId);
         if (profileErr) console.error(profileErr);
       }
 
-      toast({ title: 'Analysis Complete!', description: 'Your performance report is ready.' });
-    } catch (err: unknown) {
-      console.error('Error processing simulation results:', err);
       toast({
-        variant: 'destructive',
-        title: 'Error Generating Report',
-        description: err instanceof Error ? err.message : 'Could not process your simulation data.',
+        title: "Analysis Complete!",
+        description: "Your performance report is ready.",
+      });
+    } catch (err: unknown) {
+      console.error("Error processing simulation results:", err);
+      toast({
+        variant: "destructive",
+        title: "Error Generating Report",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Could not process your simulation data.",
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [
-    session,
-    scenario,
-    user,
-    reportForUserId,
-    sessionId,
-    scenarioId,
-    toast,
-    client,
-  ]);
+  }, [session, scenario, user, reportForUserId, sessionId, scenarioId, toast, client]);
 
   useEffect(() => {
-    const isDataLoaded = !isLoadingSession && !isLoadingScenario && !isLoadingUser && !isLoadingInsights;
-
+    const isDataLoaded =
+      !isLoadingSession &&
+      !isLoadingScenario &&
+      !isLoadingUser &&
+      !isLoadingInsights;
     if (isDataLoaded && session && !insight && !isProcessing) {
-       void handleProcessResults();
+      void handleProcessResults();
     }
   }, [
     isLoadingSession,
@@ -176,250 +215,430 @@ export default function ReportPage() {
     handleProcessResults,
   ]);
 
+  // ── Derived data ───────────────────────────────────────────────────
   const chartData = [
     { name: "Assessment", value: insight?.assessmentScore ?? 0 },
     { name: "Treatment", value: insight?.treatmentScore ?? 0 },
   ];
-
   const chartConfig = {
-    value: { label: "Score", color: "hsl(var(--chart-1))" },
-  };
+    value: { label: "Score", color: "var(--orange)" },
+  } as const;
 
   const relevantMandatoryActions = useMemo(() => {
     if (!scenario || !userRoleForSession) return [];
     const role =
-      userRoleForSession === 'admin' || userRoleForSession === 'student' || userRoleForSession === 'tester'
-        ? 'emt'
+      userRoleForSession === "admin" ||
+      userRoleForSession === "student" ||
+      userRoleForSession === "tester"
+        ? "emt"
         : userRoleForSession;
     return scenario.mandatoryActions[role as keyof CertificationActions] || [];
   }, [scenario, userRoleForSession]);
 
   const relevantSuggestedActions = useMemo(() => {
-     if (!scenario || !userRoleForSession) return [];
+    if (!scenario || !userRoleForSession) return [];
     const role =
-      userRoleForSession === 'admin' || userRoleForSession === 'student' || userRoleForSession === 'tester'
-        ? 'emt'
+      userRoleForSession === "admin" ||
+      userRoleForSession === "student" ||
+      userRoleForSession === "tester"
+        ? "emt"
         : userRoleForSession;
     return scenario.suggestedActions[role as keyof CertificationActions] || [];
   }, [scenario, userRoleForSession]);
 
-  const isLoadingInitialData = isLoadingSession || isLoadingScenario || isLoadingUser;
-
-  if (!sessionId || !reportForUserId) {
-    return (
-      <div className="p-8 text-center">
-        Missing session or user. Open this report from your dashboard history.
-      </div>
-    );
-  }
-
-  if (isLoadingInitialData) {
-      return (
-          <div className="max-w-4xl mx-auto space-y-8 p-8">
-              <Skeleton className="h-10 w-3/4" />
-              <Skeleton className="h-6 w-1/2" />
-              <div className="grid md:grid-cols-3 gap-6">
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                  <Skeleton className="h-64 w-full" />
-                  <Skeleton className="h-64 w-full" />
-              </div>
-              <Skeleton className="h-40 w-full" />
-          </div>
-      );
-  }
-
-  if (isProcessing) {
-     return (
-        <div className="max-w-4xl mx-auto p-8 flex flex-col items-center justify-center min-h-[60vh]">
-            <Loader className="h-16 w-16 animate-spin text-primary mb-6" />
-            <h2 className="text-2xl font-bold tracking-tight mb-2">Analyzing Performance...</h2>
-            <p className="text-muted-foreground text-center">
-                The AI is grading your simulation. Please wait a moment, and do not navigate away from this page.
-            </p>
-        </div>
-    );
-  }
-
-  if ((!isLoadingSession || !isLoadingScenario) && (!session || !scenario)) {
-    return <div className="p-8 text-center">Could not load report data. Please try again.</div>;
-  }
-
-  const renderActionDetails = (action: UserAction) => {
-    if (action.assessment !== 'None') {
-      return `Assessment: ${action.assessment}`;
-    }
-    if (action.treatments.length > 0) {
-      return `Treatments: ${action.treatments.join(', ')}`;
-    }
-    if (action.destination) {
-      return `Destination: ${action.destination} (Mode: ${action.transportMode})`;
-    }
-    return 'No specific details.';
-  };
+  const isLoadingInitialData =
+    isLoadingSession || isLoadingScenario || isLoadingUser;
 
   const isLoadingInsightsData = isLoadingInsights && !insight;
 
   const protocolWins: ProtocolWin[] = Array.isArray(insight?.protocolWins)
     ? (insight!.protocolWins as ProtocolWin[])
     : [];
-  const protocolDeviations: ProtocolDeviation[] = Array.isArray(insight?.protocolDeviations)
+  const protocolDeviations: ProtocolDeviation[] = Array.isArray(
+    insight?.protocolDeviations,
+  )
     ? (insight!.protocolDeviations as ProtocolDeviation[])
     : [];
-  const showProtocolAudit = protocolWins.length > 0 || protocolDeviations.length > 0;
+  const showProtocolAudit =
+    protocolWins.length > 0 || protocolDeviations.length > 0;
 
-  return (
-    <div className="mx-auto w-full min-w-0 max-w-4xl space-y-8 p-4 md:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Simulation Report</h1>
-          <p className="text-muted-foreground capitalize">Scenario: {scenario?.title} (as {userRoleForSession})</p>
+  const overallScore = insight
+    ? Math.round((insight.assessmentScore + insight.treatmentScore) / 2)
+    : null;
+
+  const overallAccent = overallScore == null
+    ? "var(--text-mute)"
+    : simulationFailed || overallScore < 50
+    ? "var(--danger)"
+    : overallScore >= 85
+    ? "var(--success)"
+    : overallScore >= 70
+    ? "var(--orange-soft)"
+    : "var(--warn)";
+
+  const overallLabel = simulationFailed
+    ? "// patient deceased"
+    : overallScore == null
+    ? "// pending"
+    : overallScore >= 85
+    ? "// strong"
+    : overallScore >= 70
+    ? "// solid"
+    : overallScore >= 50
+    ? "// room to grow"
+    : "// review";
+
+  const renderActionDetails = (action: UserAction) => {
+    if (action.assessment !== "None") return `Assessment: ${action.assessment}`;
+    if (action.treatments.length > 0)
+      return `Treatments: ${action.treatments.join(", ")}`;
+    if (action.destination)
+      return `Destination: ${action.destination} (Mode: ${action.transportMode})`;
+    return "No specific details.";
+  };
+
+  // ── Early returns ──────────────────────────────────────────────────
+  if (!sessionId || !reportForUserId) {
+    return (
+      <div className="p-8 text-center text-[14px] text-[var(--text-mute)]">
+        Missing session or user. Open this report from your dashboard history.
+      </div>
+    );
+  }
+
+  if (isLoadingInitialData) {
+    return (
+      <div className="p-8">
+        <Skeleton className="h-6 w-48 mb-3 bg-white/5" />
+        <Skeleton className="h-9 w-80 mb-7 bg-white/5" />
+        <div className="grid grid-cols-[420px_1fr] gap-5 mb-5">
+          <Skeleton className="h-48 rounded-xl bg-white/5" />
+          <Skeleton className="h-48 rounded-xl bg-white/5" />
         </div>
-        <Button
-          variant="outline"
-          onClick={() => window.print()}
-          data-print-hide
-          aria-label="Print report"
-        >
-          <Printer className="mr-2 h-4 w-4" />
-          Print
-        </Button>
+        <Skeleton className="h-64 rounded-xl bg-white/5" />
+      </div>
+    );
+  }
+
+  if (isProcessing) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh]">
+        <Icons.Refresh className="h-12 w-12 text-[var(--orange-soft)] mb-6 animate-spin" />
+        <h2 className="font-display font-bold text-[24px] text-white mb-2">
+          Analyzing Performance...
+        </h2>
+        <p className="text-[13.5px] text-[var(--text-mute)] text-center max-w-md">
+          The AI is grading your simulation. Please wait a moment, and do not navigate away from this page.
+        </p>
+      </div>
+    );
+  }
+
+  if (!session || !scenario) {
+    return (
+      <div className="p-8 text-center text-[14px] text-[var(--text-mute)]">
+        Could not load report data. Please try again.
+      </div>
+    );
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────
+  return (
+    <div className="p-8 mx-auto w-full max-w-[1200px]">
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4 mb-7 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-mute)] font-mono mb-1.5 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+            // SESSION {sessionId.slice(0, 6)} ·{" "}
+            {simulationFailed ? "FAILED" : "COMPLETED"}
+            {session?.timeElapsed
+              ? ` · ${Math.floor(session.timeElapsed / 60)}m ${session.timeElapsed % 60}s`
+              : ""}
+          </div>
+          <h1 className="font-display font-bold text-[34px] text-white leading-none mb-2">
+            {scenario.title}
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            {scenario.difficulty && (
+              <DiffPill level={scenario.difficulty as never} />
+            )}
+            {userRoleForSession && (
+              <span className="tag uppercase">{String(userRoleForSession)}</span>
+            )}
+            <span className="tag">{scenario.patientProfile}</span>
+            {simulationFailed ? (
+              <span className="tag tag-rose">
+                <Icons.X className="w-3 h-3" /> simulation failed
+              </span>
+            ) : (
+              <span className="tag tag-emerald">
+                <Icons.CheckCircle className="w-3 h-3" /> patient handoff complete
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2" data-print-hide>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            aria-label="Print report"
+            className="h-10 px-3 rounded-lg cta-secondary text-[13px] font-medium inline-flex items-center gap-2"
+          >
+            <Icons.Printer className="w-3.5 h-3.5" /> Print
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/scenarios")}
+            className="h-10 px-3 rounded-lg cta-secondary text-[13px] font-medium inline-flex items-center gap-2"
+          >
+            <Icons.Refresh className="w-3.5 h-3.5" /> Try another
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="h-10 px-4 rounded-lg cta-primary text-[13.5px] font-semibold inline-flex items-center gap-2"
+          >
+            Dashboard <Icons.Arrow className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
-       {simulationFailed && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertTitle>Simulation Failed</AlertTitle>
-          <AlertDescription>
-            The patient has died. Review the scenario objectives and your actions to understand what went wrong.
-          </AlertDescription>
-        </Alert>
+      {simulationFailed && (
+        <div
+          className="app-panel mb-5 p-4 flex items-start gap-3 relative overflow-hidden"
+          style={{ borderColor: "rgba(248,113,113,0.30)" }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(248,113,113,0.12) 0%, transparent 60%)",
+            }}
+          />
+          <span
+            className="w-9 h-9 rounded-md flex items-center justify-center shrink-0 relative z-10"
+            style={{ background: "rgba(248,113,113,0.18)", color: "var(--danger)" }}
+          >
+            <Icons.X className="w-4 h-4" />
+          </span>
+          <div className="relative z-10">
+            <div className="text-[13px] font-semibold text-white">
+              Simulation failed
+            </div>
+            <div className="text-[12px] text-[var(--text-mute)] mt-0.5">
+              The patient has died. Review the scenario objectives and your actions to understand what went wrong.
+            </div>
+          </div>
+        </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assessment</CardTitle>
-            <CardDescription>Accuracy Score</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingInsightsData ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-bold">{insight?.assessmentScore ?? 0}%</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Treatment</CardTitle>
-            <CardDescription>Appropriateness Score</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {isLoadingInsightsData ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-bold">{insight?.treatmentScore ?? 0}%</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Time Elapsed</CardTitle>
-            <CardDescription>Total Simulation Time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-bold">{session?.timeElapsed || 0}s</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── Score hero + Objectives ──────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5 mb-5">
+        {/* Overall score */}
+        <div className="app-panel-2 p-6 relative overflow-hidden">
+          <div
+            className="absolute -top-16 -right-16 w-[18rem] h-[18rem] rounded-full pointer-events-none"
+            style={{
+              background: `radial-gradient(circle, ${overallAccent}33 0%, transparent 60%)`,
+              filter: "blur(30px)",
+            }}
+          />
+          <div className="relative z-10 flex items-center gap-6">
+            <div className="relative w-36 h-36 shrink-0">
+              <svg viewBox="0 0 100 100" width="100%" height="100%">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.06)"
+                  strokeWidth="7"
+                />
+                {overallScore != null && (
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke={overallAccent}
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 44}
+                    strokeDashoffset={2 * Math.PI * 44 * (1 - overallScore / 100)}
+                    transform="rotate(-90 50 50)"
+                  />
+                )}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {isLoadingInsightsData ? (
+                  <Skeleton className="h-10 w-16 bg-white/5" />
+                ) : (
+                  <>
+                    <span className="font-display font-bold text-[44px] text-white leading-none">
+                      {overallScore ?? "—"}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-mute)] mt-1">
+                      overall
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div>
+              <div
+                className="text-[11px] uppercase tracking-[0.22em] font-mono mb-1"
+                style={{ color: overallAccent }}
+              >
+                {overallLabel}
+              </div>
+              <div className="space-y-2 text-[12.5px] mt-2">
+                <div className="flex justify-between gap-6">
+                  <span className="text-[var(--text-mute)]">Assessment</span>
+                  <span className="font-mono tabular-nums text-white">
+                    {isLoadingInsightsData ? "—" : insight?.assessmentScore ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-6">
+                  <span className="text-[var(--text-mute)]">Treatment</span>
+                  <span className="font-mono tabular-nums text-white">
+                    {isLoadingInsightsData ? "—" : insight?.treatmentScore ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-6">
+                  <span className="text-[var(--text-mute)]">Time elapsed</span>
+                  <span className="font-mono tabular-nums text-white">
+                    {session?.timeElapsed ?? 0}s
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingInsightsData ? <Skeleton className="h-[250px] w-full" /> : (
-                <ChartContainer config={chartConfig} className="h-[250px] w-full min-w-0">
+        {/* Score breakdown chart */}
+        <Panel title="Performance breakdown" sub="Assessment vs. treatment scores">
+          <div className="px-5 pt-4 pb-5">
+            {isLoadingInsightsData ? (
+              <Skeleton className="h-[200px] w-full bg-white/5" />
+            ) : (
+              <ChartContainer config={chartConfig} className="h-[220px] w-full">
                 <BarChart accessibilityLayer data={chartData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
-                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
-                    <Bar dataKey="value" fill="var(--color-value)" radius={8} />
+                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    stroke="#8595c0"
+                    fontSize={12}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                    stroke="#8595c0"
+                    fontSize={11}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dashed" />}
+                  />
+                  <Bar dataKey="value" fill="var(--orange)" radius={6} />
                 </BarChart>
-                </ChartContainer>
+              </ChartContainer>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle>Scenario Objectives</CardTitle>
-                <CardDescription>Key actions and failures for your role: <span className="capitalize font-bold">{userRoleForSession}</span></CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2"><Hospital className="text-blue-500"/>Appropriate Destination</h4>
-                    <p className="text-sm text-muted-foreground">
-                        <span className="font-bold">{scenario?.destination}:</span> {scenario?.destinationRationale}
-                    </p>
-                </div>
-                <div>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2"><CheckCircle className="text-green-500"/>Mandatory Actions</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                        {relevantMandatoryActions.map((action, i) => <li key={i}>{action}</li>)}
-                         {relevantMandatoryActions.length === 0 && <li>No mandatory actions for your role.</li>}
-                    </ul>
-                </div>
-                 <div>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2"><AlertTriangle className="text-yellow-500"/>Suggested Actions</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                        {relevantSuggestedActions.map((action, i) => <li key={i}>{action}</li>)}
-                         {relevantSuggestedActions.length === 0 && <li>No suggested actions for your role.</li>}
-                    </ul>
-                </div>
-                <div>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2"><XCircle className="text-red-500"/>Critical Failures</h4>
-                     <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                        {scenario?.criticalFailures.map((failure, i) => <li key={i}>{failure}</li>)}
-                    </ul>
-                </div>
-            </CardContent>
-        </Card>
+          </div>
+        </Panel>
       </div>
 
+      {/* ── AI Feedback ──────────────────────────────────────────── */}
+      <Panel title="AI coaching" sub="Personalized improvement notes" className="mb-5">
+        <div className="px-5 py-4">
+          {isLoadingInsightsData ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full bg-white/5" />
+              <Skeleton className="h-4 w-full bg-white/5" />
+              <Skeleton className="h-4 w-3/4 bg-white/5" />
+            </div>
+          ) : insight?.aiFeedback ? (
+            <div className="flex gap-3">
+              <span className="w-4 h-4 mt-0.5 text-[var(--cyan-soft)] shrink-0">
+                <Icons.Lightbulb className="w-4 h-4" />
+              </span>
+              <p className="text-[13.5px] text-white/85 leading-relaxed whitespace-pre-wrap">
+                {insight.aiFeedback}
+              </p>
+            </div>
+          ) : insightError ? (
+            <div className="flex flex-col gap-2">
+              <div className="text-[13px] text-[var(--danger)] font-medium">
+                Error loading feedback
+              </div>
+              <pre className="text-[11px] bg-black/30 p-3 rounded font-mono text-[var(--text-mute)] overflow-x-auto">
+                {insightError.message}
+              </pre>
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-[13px] text-[var(--text-mute)]">
+                Could not generate AI feedback for this session.
+              </p>
+              {(!session?.status || session.status === "in-progress") && (
+                <button
+                  type="button"
+                  onClick={() => void handleProcessResults()}
+                  disabled={isProcessing}
+                  className="cta-secondary mt-4 h-9 px-3 rounded-md text-[12.5px] font-medium inline-flex items-center gap-1.5"
+                >
+                  <Icons.Refresh className="w-3.5 h-3.5" /> Retry analysis
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </Panel>
 
+      {/* ── Protocol audit (if any) ──────────────────────────────── */}
       {showProtocolAudit && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
-              Protocol Audit (NASEMSO)
-            </CardTitle>
-            <CardDescription>
-              Three-Point Check (ID, dosage, indication) against the protocol source of truth.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <Panel
+          title="Protocol audit · NASEMSO"
+          sub="Three-Point Check (ID, dosage, indication) against the protocol source of truth"
+          className="mb-5"
+        >
+          <div className="px-5 py-4 space-y-5">
             {protocolWins.length > 0 && (
-              <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:border-green-900/40 dark:bg-green-950/30">
-                <h4 className="mb-3 flex items-center gap-2 font-semibold text-green-900 dark:text-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <div
+                className="rounded-md p-4 relative"
+                style={{
+                  background: "rgba(52,211,153,0.06)",
+                  border: "1px solid rgba(52,211,153,0.25)",
+                }}
+              >
+                <h4 className="text-[13px] font-semibold text-emerald-200 flex items-center gap-2 mb-3">
+                  <Icons.CheckCircle className="w-4 h-4 text-emerald-300" />
                   Protocol-aligned actions
                 </h4>
                 <ul className="space-y-3">
                   {protocolWins.map((win, i) => (
-                    <li key={`win-${i}`} className="text-sm">
-                      <p className="font-medium text-foreground">
-                        <span className="font-mono text-xs text-muted-foreground mr-2">
+                    <li key={`win-${i}`} className="text-[12.5px]">
+                      <p className="text-white">
+                        <span className="font-mono text-[10.5px] text-[var(--text-mute)] mr-2">
                           t={win.actionTime}s
                         </span>
                         {win.treatment}
                       </p>
                       {win.expected && (
-                        <p className="text-sm text-muted-foreground">{win.expected}</p>
+                        <p className="text-[12px] text-[var(--text-mute)] mt-0.5">
+                          {win.expected}
+                        </p>
                       )}
                       {win.observed && win.observed !== win.expected && (
-                        <p className="text-xs text-muted-foreground">{win.observed}</p>
+                        <p className="text-[11.5px] text-[var(--text-dim)] mt-0.5">
+                          {win.observed}
+                        </p>
                       )}
                       {win.reference && (
-                        <p className="text-xs text-muted-foreground/80 font-mono">
+                        <p className="text-[11px] text-[var(--text-faint)] font-mono mt-0.5">
                           {win.reference}
                         </p>
                       )}
@@ -431,36 +650,42 @@ export default function ReportPage() {
 
             {protocolDeviations.length > 0 ? (
               <div>
-                <h4 className="mb-3 flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <h4 className="text-[13px] font-semibold text-amber-200 flex items-center gap-2 mb-3">
+                  <Icons.Refresh className="w-4 h-4" />
                   Protocol deviations
                 </h4>
-                <ul className="space-y-4">
+                <ul className="space-y-3">
                   {protocolDeviations.map((dev, i) => (
                     <li
                       key={`dev-${i}`}
-                      className="rounded-md border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/40 dark:bg-amber-950/20"
+                      className="rounded-md p-3"
+                      style={{
+                        background: "rgba(245,185,94,0.06)",
+                        border: "1px solid rgba(245,185,94,0.25)",
+                      }}
                     >
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="border-amber-400 text-amber-800 dark:text-amber-200">
-                          {DEVIATION_KIND_LABEL[dev.kind] ?? 'Other'}
-                        </Badge>
-                        <span className="font-mono text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="tag tag-amber">
+                          {DEVIATION_KIND_LABEL[dev.kind] ?? "Other"}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-[var(--text-mute)]">
                           t={dev.actionTime}s
                         </span>
-                        <span className="text-sm font-medium text-foreground">{dev.treatment}</span>
+                        <span className="text-[12.5px] font-medium text-white">
+                          {dev.treatment}
+                        </span>
                       </div>
-                      <div className="space-y-1 text-sm">
+                      <div className="space-y-1 text-[12.5px]">
                         <p>
-                          <span className="font-semibold text-foreground">Expected:</span>{' '}
-                          <span className="text-muted-foreground">{dev.expected}</span>
+                          <span className="text-white font-semibold">Expected:</span>{" "}
+                          <span className="text-[var(--text-mute)]">{dev.expected}</span>
                         </p>
                         <p>
-                          <span className="font-semibold text-foreground">Observed:</span>{' '}
-                          <span className="text-muted-foreground">{dev.observed}</span>
+                          <span className="text-white font-semibold">Observed:</span>{" "}
+                          <span className="text-[var(--text-mute)]">{dev.observed}</span>
                         </p>
                         {dev.reference && (
-                          <p className="text-xs text-muted-foreground/80 font-mono">
+                          <p className="text-[11px] text-[var(--text-faint)] font-mono mt-1">
                             {dev.reference}
                           </p>
                         )}
@@ -471,175 +696,264 @@ export default function ReportPage() {
               </div>
             ) : (
               protocolWins.length > 0 && (
-                <p className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-200">
+                <p
+                  className="rounded-md p-3 text-[12.5px] text-emerald-200"
+                  style={{
+                    background: "rgba(52,211,153,0.06)",
+                    border: "1px solid rgba(52,211,153,0.25)",
+                  }}
+                >
                   No protocol deviations detected — protocol-aligned care.
                 </p>
               )
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>AI-Powered Feedback</CardTitle>
-          <CardDescription>Personalized suggestions for improvement from our AI educator.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingInsightsData ? (
-             <div className="space-y-2 p-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-            </div>
-          ) : insight?.aiFeedback ? (
-            <Alert>
-              <Lightbulb className="h-4 w-4" />
-              <AlertTitle>Improvement Suggestions</AlertTitle>
-              <AlertDescription className="whitespace-pre-wrap">
-                {insight.aiFeedback}
-              </AlertDescription>
-            </Alert>
-          ) : insightError ? (
-            <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error Loading Feedback</AlertTitle>
-                <AlertDescription>
-                    There was a problem loading the AI feedback. It might be a permission issue.
-                    <pre className="mt-2 text-xs bg-muted p-2 rounded">{insightError.message}</pre>
-                </AlertDescription>
-            </Alert>
-          ) : (
-             <div className="text-center p-8">
-                <p className="text-muted-foreground">Could not generate AI feedback for this session.</p>
-                 {(!session?.status || session.status === 'in-progress') && (
-                    <Button variant="secondary" className="mt-4" onClick={() => void handleProcessResults()} disabled={isProcessing}>
-                        <RefreshCw className="mr-2"/>
-                        Retry Analysis
-                    </Button>
-                )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* ── Premium feedback ─────────────────────────────────────── */}
       {insight?.premiumFeedback && (
-        <Card className="border-yellow-300/60 dark:border-yellow-500/40">
-          <div className="h-1 w-full bg-gradient-to-r from-yellow-300 via-yellow-500 to-amber-400" />
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-              Premium Deep-Dive Coaching
-            </CardTitle>
-            <CardDescription>
-              Structured analysis available because you ran a Premium scenario.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2">
-            {insight.premiumFeedback.whatWentWell && insight.premiumFeedback.whatWentWell.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  What Went Well
-                </h4>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {insight.premiumFeedback.whatWentWell.map((item, i) => <li key={i}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-            {insight.premiumFeedback.criticalIssues && insight.premiumFeedback.criticalIssues.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  Critical Issues
-                </h4>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {insight.premiumFeedback.criticalIssues.map((item, i) => <li key={i}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-            {insight.premiumFeedback.actionableTips && insight.premiumFeedback.actionableTips.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <Target className="h-4 w-4 text-yellow-500" />
-                  Actionable Tips
-                </h4>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {insight.premiumFeedback.actionableTips.map((item, i) => <li key={i}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-            {insight.premiumFeedback.protocolReferences && insight.premiumFeedback.protocolReferences.length > 0 && (
-              <div>
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <BookOpen className="h-4 w-4 text-blue-500" />
-                  Protocol References
-                </h4>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {insight.premiumFeedback.protocolReferences.map((item, i) => <li key={i}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-            {insight.premiumFeedback.drillSuggestions && insight.premiumFeedback.drillSuggestions.length > 0 && (
-              <div className="md:col-span-2">
-                <h4 className="mb-2 flex items-center gap-2 font-semibold">
-                  <Dumbbell className="h-4 w-4 text-purple-500" />
-                  Suggested Drills
-                </h4>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {insight.premiumFeedback.drillSuggestions.map((item, i) => <li key={i}>{item}</li>)}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Panel
+          accent="orange"
+          title={
+            <span className="flex items-center gap-2">
+              <Icons.Crown className="w-4 h-4 text-[var(--premium)]" />
+              Premium deep-dive coaching
+            </span>
+          }
+          sub="Structured analysis available because you ran a Premium scenario"
+          className="mb-5"
+        >
+          <div className="px-5 py-4 grid gap-5 md:grid-cols-2">
+            {insight.premiumFeedback.whatWentWell &&
+              insight.premiumFeedback.whatWentWell.length > 0 && (
+                <FeedbackList
+                  title="What went well"
+                  color="var(--success)"
+                  icon={<Icons.CheckCircle className="w-4 h-4" />}
+                  items={insight.premiumFeedback.whatWentWell}
+                />
+              )}
+            {insight.premiumFeedback.criticalIssues &&
+              insight.premiumFeedback.criticalIssues.length > 0 && (
+                <FeedbackList
+                  title="Critical issues"
+                  color="var(--danger)"
+                  icon={<Icons.X className="w-4 h-4" />}
+                  items={insight.premiumFeedback.criticalIssues}
+                />
+              )}
+            {insight.premiumFeedback.actionableTips &&
+              insight.premiumFeedback.actionableTips.length > 0 && (
+                <FeedbackList
+                  title="Actionable tips"
+                  color="var(--premium)"
+                  icon={<Icons.Lightbulb className="w-4 h-4" />}
+                  items={insight.premiumFeedback.actionableTips}
+                />
+              )}
+            {insight.premiumFeedback.protocolReferences &&
+              insight.premiumFeedback.protocolReferences.length > 0 && (
+                <FeedbackList
+                  title="Protocol references"
+                  color="var(--cyan-soft)"
+                  icon={<Icons.Book className="w-4 h-4" />}
+                  items={insight.premiumFeedback.protocolReferences}
+                />
+              )}
+            {insight.premiumFeedback.drillSuggestions &&
+              insight.premiumFeedback.drillSuggestions.length > 0 && (
+                <div className="md:col-span-2">
+                  <FeedbackList
+                    title="Suggested drills"
+                    color="var(--cyan-electric)"
+                    icon={<Icons.Heart className="w-4 h-4" />}
+                    items={insight.premiumFeedback.drillSuggestions}
+                  />
+                </div>
+              )}
+          </div>
+        </Panel>
       )}
 
-       <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ListOrdered /> Action Log</CardTitle>
-            <CardDescription>A detailed log of every action you took during the simulation.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {isLoadingInsightsData ? (
-                <div className="space-y-2">
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                </div>
-            ) : session?.actions && session.actions.length > 0 ? (
-                <div className="overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[80px]">Time</TableHead>
-                            <TableHead>Details</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {session.actions.map((action, index) => (
-                            <TableRow key={index}>
-                                <TableCell className="font-mono">{action.time}s</TableCell>
-                                <TableCell className="whitespace-pre-wrap">{renderActionDetails(action)}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                </div>
-            ) : (
-                <p className="text-muted-foreground text-center p-8">No actions were logged for this session.</p>
-            )}
-        </CardContent>
-      </Card>
+      {/* ── Objectives ───────────────────────────────────────────── */}
+      <Panel
+        title="Scenario objectives"
+        sub={
+          <>
+            Key actions and failures for your role:{" "}
+            <span className="font-mono uppercase text-white">
+              {String(userRoleForSession ?? "")}
+            </span>
+          </>
+        }
+        className="mb-5"
+      >
+        <div className="px-5 py-4 grid gap-5 md:grid-cols-2">
+          <div>
+            <h4 className="text-[12.5px] font-semibold text-white mb-2 flex items-center gap-2">
+              <Icons.Hospital className="w-4 h-4 text-[var(--cyan-soft)]" />
+              Appropriate destination
+            </h4>
+            <p className="text-[12.5px] text-[var(--text-mute)] leading-relaxed">
+              <span className="text-white font-medium">
+                {scenario?.destination}:
+              </span>{" "}
+              {scenario?.destinationRationale}
+            </p>
+          </div>
+          <ObjectiveList
+            title="Mandatory actions"
+            color="var(--success)"
+            icon={<Icons.CheckCircle className="w-4 h-4" />}
+            items={relevantMandatoryActions}
+            emptyLabel="No mandatory actions for your role."
+          />
+          <ObjectiveList
+            title="Suggested actions"
+            color="var(--warn)"
+            icon={<Icons.Refresh className="w-4 h-4" />}
+            items={relevantSuggestedActions}
+            emptyLabel="No suggested actions for your role."
+          />
+          <ObjectiveList
+            title="Critical failures"
+            color="var(--danger)"
+            icon={<Icons.X className="w-4 h-4" />}
+            items={scenario?.criticalFailures ?? []}
+          />
+        </div>
+      </Panel>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:gap-4" data-print-hide>
-        <Button variant="outline" onClick={() => router.push('/dashboard/scenarios')}>
-            <RefreshCw className="mr-2" /> Try Another Scenario
-        </Button>
-         <Button onClick={() => router.push('/dashboard')}>
-            <Home className="mr-2" /> Back to Dashboard
-        </Button>
+      {/* ── Action log ───────────────────────────────────────────── */}
+      <Panel title="Action log" sub="Every action you took during the simulation" className="mb-5">
+        <div className="px-2 py-1">
+          {isLoadingInsightsData ? (
+            <div className="space-y-2 p-3">
+              <Skeleton className="h-8 w-full bg-white/5" />
+              <Skeleton className="h-8 w-full bg-white/5" />
+              <Skeleton className="h-8 w-full bg-white/5" />
+            </div>
+          ) : session?.actions && session.actions.length > 0 ? (
+            session.actions.map((action, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 px-3 py-2 border-b hair last:border-b-0"
+              >
+                <span className="font-mono tabular-nums text-[11px] text-[var(--text-dim)] w-12 shrink-0 mt-0.5">
+                  t={action.time}s
+                </span>
+                <span className="text-[12.5px] text-white/85 leading-snug whitespace-pre-wrap">
+                  {renderActionDetails(action)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-center text-[13px] text-[var(--text-mute)] py-8">
+              No actions were logged for this session.
+            </p>
+          )}
+        </div>
+      </Panel>
+
+      {/* ── Footer actions (print-hidden ones already in header) ── */}
+      <div
+        className="flex flex-col gap-3 sm:flex-row sm:justify-between mt-7"
+        data-print-hide
+      >
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/scenarios")}
+          className="cta-secondary h-10 px-4 rounded-md text-[13px] font-medium inline-flex items-center justify-center gap-2"
+        >
+          <Icons.Refresh className="w-3.5 h-3.5" />
+          Try another scenario
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="cta-primary h-10 px-4 rounded-md text-[13.5px] font-semibold inline-flex items-center justify-center gap-2"
+        >
+          <Icons.Dashboard className="w-3.5 h-3.5" />
+          Back to dashboard
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+function FeedbackList({
+  title,
+  color,
+  icon,
+  items,
+}: {
+  title: string;
+  color: string;
+  icon: React.ReactNode;
+  items: string[];
+}) {
+  return (
+    <div>
+      <h4
+        className="text-[12.5px] font-semibold mb-2 flex items-center gap-2"
+        style={{ color }}
+      >
+        {icon}
+        {title}
+      </h4>
+      <ul className="space-y-1.5 text-[12.5px] text-white/85 leading-relaxed">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span
+              className="w-1 h-1 rounded-full mt-2 shrink-0"
+              style={{ background: color }}
+            />
+            <span className="flex-1">{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ObjectiveList({
+  title,
+  color,
+  icon,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  color: string;
+  icon: React.ReactNode;
+  items: string[];
+  emptyLabel?: string;
+}) {
+  return (
+    <div>
+      <h4
+        className="text-[12.5px] font-semibold mb-2 flex items-center gap-2"
+        style={{ color }}
+      >
+        {icon}
+        {title}
+      </h4>
+      <ul className="space-y-1.5 text-[12.5px] text-[var(--text-mute)] leading-relaxed">
+        {items.length === 0 && emptyLabel && (
+          <li className="text-[var(--text-dim)] italic">{emptyLabel}</li>
+        )}
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span
+              className="w-1 h-1 rounded-full mt-2 shrink-0"
+              style={{ background: color }}
+            />
+            <span className="flex-1">{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -316,3 +316,367 @@
     page-break-inside: avoid;
   }
 }
+/* ──────────────────────────────────────────────────────────────────────
+   SimuPro landing — globals.css additions
+
+   APPEND this block to the END of `simupro/src/app/globals.css`.
+   All rules are scoped under `.landing-shell` so they don't bleed
+   into your dashboard / app UI.
+   ────────────────────────────────────────────────────────────────────── */
+
+.landing-shell {
+  /* navy field */
+  --navy-900: #04102b;
+  --navy-800: #07183e;
+  --navy-700: #0c2356;
+  --navy-600: #12326f;
+  --navy-500: #1b4690;
+
+  /* dual glow */
+  --orange:        #ff7a18;
+  --orange-soft:   #ffb56b;
+  --cyan:          #3fb8e5;
+  --cyan-soft:     #8fdcf6;
+  --cyan-electric: #16d1ff;
+
+  background: var(--navy-900);
+  color: #fff;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.landing-shell .font-display { font-family: var(--font-display), var(--font-inter), sans-serif; letter-spacing: -0.02em; }
+.landing-shell .font-mono    { font-family: var(--font-mono), ui-monospace, monospace; }
+
+/* grainy navy field */
+.landing-shell .field-grain { position: relative; isolation: isolate; }
+.landing-shell .field-grain::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 220px 220px;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  z-index: 0;
+}
+
+/* orange ring glow */
+.landing-shell .ring-glow {
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle, transparent 58%, rgba(255,122,24,0.55) 60%, rgba(255,122,24,0.95) 64%, rgba(255,122,24,0.55) 68%, transparent 72%);
+  box-shadow:
+    0 0 60px 12px rgba(255,122,24,0.45),
+    inset 0 0 80px 8px rgba(255,180,90,0.35);
+  filter: drop-shadow(0 0 22px rgba(255,122,24,0.55));
+}
+.landing-shell .ring-glow-cyan {
+  background:
+    radial-gradient(circle, transparent 58%, rgba(63,184,229,0.55) 60%, rgba(22,209,255,0.95) 64%, rgba(63,184,229,0.55) 68%, transparent 72%);
+  box-shadow:
+    0 0 60px 12px rgba(63,184,229,0.45),
+    inset 0 0 80px 8px rgba(143,220,246,0.35);
+  filter: drop-shadow(0 0 22px rgba(63,184,229,0.55));
+}
+
+/* electric cyan / orange stroke text */
+.landing-shell .cyan-glow-stroke {
+  filter:
+    drop-shadow(0 0 4px rgba(22,209,255,0.95))
+    drop-shadow(0 0 12px rgba(63,184,229,0.65))
+    drop-shadow(0 0 24px rgba(63,184,229,0.35));
+}
+.landing-shell .orange-glow-stroke {
+  filter:
+    drop-shadow(0 0 4px rgba(255,150,80,0.95))
+    drop-shadow(0 0 12px rgba(255,122,24,0.65))
+    drop-shadow(0 0 24px rgba(255,122,24,0.35));
+}
+.landing-shell .white-glow {
+  filter:
+    drop-shadow(0 0 8px rgba(255,255,255,0.6))
+    drop-shadow(0 0 22px rgba(255,255,255,0.25));
+}
+
+/* CTAs */
+.landing-shell .cta-primary {
+  background: linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%);
+  color: #1a0d02;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.18) inset,
+    0 10px 30px -8px rgba(255,122,24,0.55);
+  transition: filter 120ms ease;
+}
+.landing-shell .cta-primary:hover { filter: brightness(1.06); }
+.landing-shell .cta-secondary {
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.10);
+  transition: background 120ms ease;
+}
+.landing-shell .cta-secondary:hover { background: rgba(255,255,255,0.08); }
+
+/* navy panels */
+.landing-shell .panel-navy {
+  background: linear-gradient(180deg, rgba(11,28,72,0.85) 0%, rgba(7,20,52,0.85) 100%);
+  border: 1px solid rgba(143,220,246,0.10);
+  backdrop-filter: blur(10px);
+}
+.landing-shell .panel-navy-warm {
+  background: linear-gradient(180deg, rgba(60,28,10,0.55) 0%, rgba(40,16,4,0.55) 100%);
+  border: 1px solid rgba(255,180,90,0.20);
+  backdrop-filter: blur(10px);
+}
+
+/* siren blip */
+@keyframes sirenBlip {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.landing-shell .siren-blip { animation: sirenBlip 1.4s ease-in-out infinite; }
+
+/* hairline cyan */
+.landing-shell .hairline-cyan {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(63,184,229,0.45) 50%, transparent 100%);
+}
+
+/* ring pulse */
+@keyframes ringPulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.02); opacity: 0.85; }
+}
+.landing-shell .ring-pulse { animation: ringPulse 5s ease-in-out infinite; transform-origin: center; }
+
+/* ekg line animation (optional) */
+@keyframes ekgFlow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -420; }
+}
+.landing-shell .ekg-line {
+  stroke-dasharray: 420 0;
+}
+/* ──────────────────────────────────────────────────────────────────────
+   SimuPro app shell — globals.css additions
+
+   APPEND to the END of `simupro/src/app/globals.css`.
+   All rules are scoped under `.app-shell` so they don't bleed into
+   anything outside the new dashboard shell.
+   ────────────────────────────────────────────────────────────────────── */
+
+.app-shell {
+  /* Deeper, calmer field than the landing (which uses #04102b + grain).
+     App screens get less saturation, no grain by default, fewer glows. */
+  --bg-deep:     #04102b;
+  --bg:          #061732;
+  --bg-soft:     #0a1d40;
+  --panel:       #0b1f44;
+  --panel-2:     #0e2550;
+  --panel-3:     #122a59;
+  --border:      #1c305e;
+  --border-soft: #142554;
+  --border-hair: rgba(143, 220, 246, 0.07);
+
+  --text:        #eaf0fb;
+  --text-mute:   #8595c0;
+  --text-dim:    #5a6a93;
+  --text-faint:  #3b4870;
+
+  --orange:      #ff7a18;
+  --orange-soft: #ffb56b;
+  --orange-deep: #c8540a;
+  --cyan:        #3fb8e5;
+  --cyan-soft:   #8fdcf6;
+  --cyan-electric:#16d1ff;
+
+  --success:     #34d399;
+  --warn:        #f5b95e;
+  --danger:      #f87171;
+  --premium:     #fbbf24;
+
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell .font-display { font-family: var(--font-display), var(--font-inter), sans-serif; letter-spacing: -0.018em; }
+.app-shell .font-mono    { font-family: var(--font-mono), ui-monospace, monospace; }
+
+/* ── Layouts ─────────────────────────────────────────────────────────── */
+.app-shell .app-bg { background: var(--bg-deep); }
+
+/* ── Panels ──────────────────────────────────────────────────────────── */
+.app-shell .app-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+.app-shell .app-panel-2 {
+  background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+/* Hairlines */
+.app-shell .hair { border-color: var(--border-hair) !important; }
+
+/* ── CTAs ────────────────────────────────────────────────────────────── */
+.app-shell .cta-primary {
+  background: linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%);
+  color: #1a0d02;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.16) inset,
+    0 8px 22px -10px rgba(255,122,24,0.55);
+  transition: filter 120ms ease;
+}
+.app-shell .cta-primary:hover { filter: brightness(1.06); }
+.app-shell .cta-secondary {
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  border: 1px solid var(--border);
+  transition: background 120ms ease;
+}
+.app-shell .cta-secondary:hover { background: rgba(255,255,255,0.06); }
+.app-shell .cta-ghost {
+  background: transparent;
+  color: var(--text-mute);
+  border: 1px solid transparent;
+  transition: color 120ms ease, background 120ms ease;
+}
+.app-shell .cta-ghost:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.app-shell .sb-nav {
+  background: linear-gradient(180deg, #050f29 0%, #04102b 100%);
+  border-right: 1px solid var(--border-soft);
+}
+.app-shell .sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text-mute);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 120ms ease, background 120ms ease;
+}
+.app-shell .sb-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.app-shell .sb-item.active {
+  color: var(--text);
+  background: linear-gradient(90deg, rgba(255,122,24,0.10) 0%, rgba(255,122,24,0.03) 100%);
+  border-color: rgba(255,122,24,0.22);
+}
+.app-shell .sb-item.active::before {
+  content: '';
+  width: 3px;
+  height: 18px;
+  background: var(--orange);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255,122,24,0.65);
+  margin-left: -10px;
+  margin-right: 7px;
+}
+.app-shell .sb-badge {
+  background: rgba(255,122,24,0.18);
+  color: var(--orange-soft);
+  border: 1px solid rgba(255,122,24,0.30);
+  font-size: 10px;
+  padding: 0 6px;
+  height: 16px;
+  border-radius: 4px;
+  line-height: 16px;
+  margin-left: auto;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+.app-shell .sb-section {
+  padding: 14px 14px 6px;
+  font-size: 10px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────────────── */
+.app-shell .topbar {
+  height: 56px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(4,16,43,0.85);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────────── */
+.app-shell .fld {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+}
+.app-shell .fld:focus { outline: none; border-color: var(--cyan); }
+.app-shell .fld::placeholder { color: var(--text-dim); }
+
+/* ── Tags ────────────────────────────────────────────────────────────── */
+.app-shell .tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+.app-shell .tag-orange { background: rgba(255,122,24,0.10); border-color: rgba(255,122,24,0.30); color: var(--orange-soft); }
+.app-shell .tag-cyan   { background: rgba(63,184,229,0.10); border-color: rgba(63,184,229,0.30); color: var(--cyan-soft); }
+.app-shell .tag-emerald{ background: rgba(52,211,153,0.10); border-color: rgba(52,211,153,0.30); color: #6ee7b7; }
+.app-shell .tag-rose   { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.30); color: #fda4a4; }
+.app-shell .tag-amber  { background: rgba(251,191,36,0.10); border-color: rgba(251,191,36,0.30); color: #fcd66b; }
+
+/* ── Sparkline ───────────────────────────────────────────────────────── */
+.app-shell .spark-path {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Brand logo glow ring (small) ────────────────────────────────────── */
+.app-shell .logo-ring-sm {
+  width: 30px; height: 30px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, transparent 56%, rgba(255,122,24,0.65) 60%, rgba(255,122,24,0.95) 64%, rgba(255,122,24,0.55) 68%, transparent 72%);
+  box-shadow:
+    0 0 18px 4px rgba(255,122,24,0.40),
+    inset 0 0 22px 4px rgba(255,180,90,0.30);
+  position: relative;
+  flex-shrink: 0;
+}
+.app-shell .logo-ring-sm::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: var(--bg-deep);
+  border-radius: 9999px;
+}
+
+/* ── Pulse for live dots ─────────────────────────────────────────────── */
+@keyframes appShellPulseDot {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.app-shell .live-dot { animation: appShellPulseDot 1.6s ease-in-out infinite; }
+
+/* ── Custom scrollbar inside panels ──────────────────────────────────── */
+.app-shell .scrl::-webkit-scrollbar { width: 8px; height: 8px; }
+.app-shell .scrl::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.app-shell .scrl::-webkit-scrollbar-track { background: transparent; }

@@ -1,31 +1,45 @@
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from "@/components/ui/button";
+// SimuPro Sign Up — restyled to Mission Board visual language.
+// Functionality preserved 1:1 from the original page:
+//   - First name + last name + email + password + role
+//   - supabase.auth.signUp with emailRedirectTo callback
+//   - Profile upsert via userToProfileInsert helper
+//   - Detects "needs email verification" path (no session in signUp response)
+//   - Renders confirmation view with resend link
+//   - Detects "already registered" error
+//   - Supabase config-missing alert
+//   - Redirect to /dashboard on auto-login signup
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import AppLogo from '@/components/app-logo';
-import { useSupabase } from '@/supabase/provider';
-import { useToast } from '@/hooks/use-toast';
-import type { UserRole } from '@/lib/types';
-import { userToProfileInsert } from '@/lib/db-mappers';
-import { Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import * as React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSupabase } from "@/supabase/provider";
+import { useToast } from "@/hooks/use-toast";
+import type { UserRole } from "@/lib/types";
+import { userToProfileInsert } from "@/lib/db-mappers";
+import { Icons } from "@/components/app/icons";
+import {
+  AuthShell,
+  AuthEyebrow,
+  AuthTitle,
+  AuthSub,
+  AuthField,
+  AuthDisclaimer,
+} from "@/components/app/auth-shell";
 
 export default function SignUpPage() {
   const router = useRouter();
   const supabase = useSupabase();
   const { toast } = useToast();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('emt');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<UserRole>("emt");
   const [isLoading, setIsLoading] = useState(false);
   const [needsEmailVerify, setNeedsEmailVerify] = useState<string | null>(null);
 
@@ -44,17 +58,14 @@ export default function SignUpPage() {
     try {
       const displayName = `${firstName} ${lastName}`;
       const origin =
-        typeof window !== 'undefined'
+        typeof window !== "undefined"
           ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? '';
+          : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "";
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: displayName,
-            role,
-          },
+          data: { full_name: displayName, role },
           emailRedirectTo: `${origin}/auth/callback`,
         },
       });
@@ -68,14 +79,14 @@ export default function SignUpPage() {
 
       if (!user) {
         toast({
-          title: 'Check your email',
-          description: 'Confirm your email address to finish sign-up.',
+          title: "Check your email",
+          description: "Confirm your email address to finish sign-up.",
         });
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
-      const { error: profileError } = await supabase.from('profiles').upsert(
+      const { error: profileError } = await supabase.from("profiles").upsert(
         userToProfileInsert({
           id: user.id,
           email: user.email ?? email,
@@ -85,19 +96,18 @@ export default function SignUpPage() {
           isAdmin: false,
           hasCompletedTutorial: false,
         }),
-        { onConflict: 'id' }
+        { onConflict: "id" },
       );
       if (profileError) throw profileError;
 
       toast({
-        title: 'Account Created',
-        description: 'Your account has been successfully created.',
+        title: "Account Created",
+        description: "Your account has been successfully created.",
       });
-
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.toLowerCase().includes('already') || msg.includes('registered')) {
+      if (msg.toLowerCase().includes("already") || msg.includes("registered")) {
         toast({
           variant: "destructive",
           title: "Sign-up Failed",
@@ -115,176 +125,265 @@ export default function SignUpPage() {
     }
   };
 
+  const resendVerification = async () => {
+    if (!supabase || !needsEmailVerify) return;
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? "";
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: needsEmailVerify,
+      options: { emailRedirectTo: `${origin}/auth/callback` },
+    });
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Could not resend",
+        description: error.message,
+      });
+    } else {
+      toast({ title: "Verification email sent" });
+    }
+  };
 
-
+  // ── Confirmation view ──────────────────────────────────────────────
   if (needsEmailVerify) {
     return (
-      <main className="flex items-center justify-center min-h-screen p-4" style={{ background: '#04102b' }}>
-        <div className="w-full max-w-md">
-          <div className="flex flex-col items-center mb-8">
-            <Link href="/" className="flex items-center gap-3 mb-2">
-              <AppLogo />
+      <AuthShell>
+        <div className="max-w-sm w-full mx-auto text-center">
+          <div
+            className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center"
+            style={{
+              background: "rgba(255,122,24,0.12)",
+              border: "1px solid rgba(255,122,24,0.30)",
+              color: "var(--orange-soft)",
+            }}
+          >
+            <Icons.Mail className="w-6 h-6" />
+          </div>
+          <AuthEyebrow>// CHECK YOUR EMAIL</AuthEyebrow>
+          <AuthTitle>Verify to continue</AuthTitle>
+          <AuthSub>
+            We sent a verification link to{" "}
+            <span className="font-medium text-white">{needsEmailVerify}</span>. Click it to activate your account.
+          </AuthSub>
+
+          <div
+            className="mt-6 rounded-md p-3 text-[12.5px] flex items-start gap-2.5 text-left"
+            style={{
+              background: "rgba(63,184,229,0.06)",
+              border: "1px solid rgba(63,184,229,0.30)",
+            }}
+          >
+            <Icons.CheckCircle className="w-4 h-4 mt-0.5 shrink-0 text-[var(--cyan-soft)]" />
+            <p className="text-[var(--cyan-soft)] leading-relaxed">
+              Once verified, you&apos;ll be redirected here automatically. You can close this tab in the meantime.
+            </p>
+          </div>
+
+          <p className="text-[12.5px] text-[var(--text-mute)] mt-5 text-left">
+            Didn&apos;t get it? Check spam, or{" "}
+            <button
+              type="button"
+              className="underline underline-offset-2 text-[var(--cyan-soft)] hover:text-white"
+              onClick={() => void resendVerification()}
+            >
+              resend the verification email
+            </button>
+            .
+          </p>
+
+          <div className="mt-6 flex flex-col sm:flex-row gap-2">
+            <Link
+              href="/login"
+              className="cta-primary h-10 rounded-md text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 flex-1"
+            >
+              Back to log in
             </Link>
-            <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
-              EMS Simulation &amp; Training
-            </p>
+            <button
+              type="button"
+              onClick={() => setNeedsEmailVerify(null)}
+              className="cta-ghost h-10 rounded-md text-[12.5px] font-medium inline-flex items-center justify-center flex-1"
+            >
+              Use a different email
+            </button>
           </div>
-          <div className="rounded-2xl p-8 space-y-5" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full" style={{ background: 'rgba(255,122,24,0.12)' }}>
-                <Mail className="h-6 w-6" style={{ color: '#ff7a18' }} />
-              </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Check your email</h1>
-              <p className="text-sm" style={{ color: '#8595c0' }}>
-                We sent a verification link to{' '}
-                <span className="font-medium text-white">{needsEmailVerify}</span>.
-                Click it to activate your account.
-              </p>
-            </div>
-            <div className="flex items-start gap-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'rgba(63,184,229,0.25)', background: 'rgba(63,184,229,0.06)', color: '#8fdbf6' }}>
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#3fb8e5' }} />
-              <p>Once verified, you&apos;ll be redirected here automatically. You can close this tab in the meantime.</p>
-            </div>
-            <p className="text-sm" style={{ color: '#8595c0' }}>
-              Didn&apos;t get it? Check spam, or{' '}
-              <button
-                type="button"
-                className="underline underline-offset-4 hover:text-white transition"
-                style={{ color: '#3fb8e5' }}
-                onClick={async () => {
-                  if (!supabase) return;
-                  const origin =
-                    typeof window !== 'undefined'
-                      ? window.location.origin
-                      : process.env.NEXT_PUBLIC_SITE_ORIGIN ?? '';
-                  const { error } = await supabase.auth.resend({
-                    type: 'signup',
-                    email: needsEmailVerify,
-                    options: { emailRedirectTo: `${origin}/auth/callback` },
-                  });
-                  if (error) {
-                    toast({
-                      variant: 'destructive',
-                      title: 'Could not resend',
-                      description: error.message,
-                    });
-                  } else {
-                    toast({ title: 'Verification email sent' });
-                  }
-                }}
-              >
-                resend the verification email
-              </button>
-              .
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild className="w-full" style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}>
-                <Link href="/login">Back to log in</Link>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                style={{ color: '#8595c0' }}
-                onClick={() => setNeedsEmailVerify(null)}
-              >
-                Use a different email
-              </Button>
-            </div>
-          </div>
+
+          <AuthDisclaimer />
         </div>
-      </main>
+      </AuthShell>
     );
   }
 
+  // ── Form view ──────────────────────────────────────────────────────
   return (
-    <main className="flex items-center justify-center min-h-screen p-4 py-10" style={{ background: '#04102b' }}>
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <Link href="/" className="flex items-center gap-3 mb-2">
-            <AppLogo />
-          </Link>
-          <p className="text-[11px] uppercase tracking-[0.22em] font-mono mt-2" style={{ color: 'rgba(143,220,246,0.7)' }}>
-            EMS Simulation &amp; Training
-          </p>
-        </div>
+    <AuthShell>
+      <div className="max-w-sm w-full mx-auto">
+        <AuthEyebrow>// CREATE ACCOUNT</AuthEyebrow>
+        <AuthTitle>Free forever — no card.</AuthTitle>
+        <AuthSub>You can upgrade to Premium anytime later.</AuthSub>
 
-        <div className="rounded-2xl p-8" style={{ background: '#0b1f44', border: '1px solid #1c305e' }}>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Create your account</h1>
-            <p className="text-sm mt-1" style={{ color: '#8595c0' }}>Free forever · No card required</p>
+        {!supabase && (
+          <div
+            className="mt-6 rounded-md p-3 text-[12.5px] flex items-start gap-2.5"
+            style={{
+              background: "rgba(248,113,113,0.06)",
+              border: "1px solid rgba(248,113,113,0.30)",
+              color: "#fda4a4",
+            }}
+          >
+            <Icons.X className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-white mb-1">
+                Supabase not configured
+              </div>
+              <div className="text-[var(--text-mute)] leading-relaxed">
+                Add{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  NEXT_PUBLIC_SUPABASE_URL
+                </code>{" "}
+                +{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  _ANON_KEY
+                </code>{" "}
+                to{" "}
+                <code className="font-mono text-[11px] bg-black/30 px-1.5 py-0.5 rounded">
+                  .env.local
+                </code>{" "}
+                and restart.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSignUp} className="space-y-3 mt-7">
+          <div className="grid grid-cols-2 gap-3">
+            <AuthField label="First name" htmlFor="firstName">
+              <input
+                id="firstName"
+                type="text"
+                autoComplete="given-name"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Alex"
+                className="fld w-full"
+              />
+            </AuthField>
+            <AuthField label="Last name" htmlFor="lastName">
+              <input
+                id="lastName"
+                type="text"
+                autoComplete="family-name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Mendez"
+                className="fld w-full"
+              />
+            </AuthField>
           </div>
 
-          <div className="space-y-5">
-            {!supabase && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Supabase is not configured in this environment</AlertTitle>
-                <AlertDescription>
-                  Add <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code>, then restart.
-                </AlertDescription>
-              </Alert>
-            )}
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="firstName" className="text-sm font-medium" style={{ color: '#8595c0' }}>First name</Label>
-                  <Input id="firstName" type="text" placeholder="John" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lastName" className="text-sm font-medium" style={{ color: '#8595c0' }}>Last name</Label>
-                  <Input id="lastName" type="text" placeholder="Doe" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#8595c0' }}>Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#8595c0' }}>Password</Label>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="role" className="text-sm font-medium" style={{ color: '#8595c0' }}>Certification level</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="emt">EMT</SelectItem>
-                    <SelectItem value="aemt">AEMT</SelectItem>
-                    <SelectItem value="paramedic">Paramedic</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs" style={{ color: '#5a6a93' }}>
-                  Used to scope scenarios and grading to your cert level.
-                </p>
-              </div>
-              <Button
-                type="submit"
-                className="w-full min-h-11 font-semibold"
-                size="lg"
-                disabled={isLoading}
-                style={{ background: 'linear-gradient(180deg, #ff8a32 0%, #ff6a10 100%)', color: '#1a0d02', border: 'none' }}
+          <AuthField label="Email" htmlFor="email">
+            <div className="flex items-center gap-2 fld">
+              <Icons.Mail className="w-4 h-4 text-[var(--text-dim)] shrink-0" />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="bg-transparent flex-1 outline-none"
+              />
+            </div>
+          </AuthField>
+
+          <AuthField label="Password" htmlFor="password">
+            <div className="flex items-center gap-2 fld">
+              <Icons.Lock className="w-4 h-4 text-[var(--text-dim)] shrink-0" />
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="bg-transparent flex-1 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="w-4 h-4 text-[var(--text-dim)] hover:text-white cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {isLoading ? 'Creating account…' : 'Create free account'}
-              </Button>
-            </form>
-          </div>
+                <Icons.Eye className="w-4 h-4" />
+              </button>
+            </div>
+          </AuthField>
 
-          <div className="mt-6 text-center text-sm" style={{ color: '#8595c0' }}>
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-white hover:underline">
-              Sign in
-            </Link>
-          </div>
-        </div>
+          <AuthField label="Certification level" htmlFor="role">
+            <div className="flex rounded-md border border-[var(--border-soft)] bg-white/[0.02] p-0.5">
+              {[
+                { value: "emt", label: "EMT" },
+                { value: "aemt", label: "AEMT" },
+                { value: "paramedic", label: "Paramedic" },
+              ].map((opt) => {
+                const active = role === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRole(opt.value as UserRole)}
+                    className={`flex-1 py-2 rounded text-[12.5px] font-medium transition ${
+                      active
+                        ? "text-white"
+                        : "text-[var(--text-mute)] hover:text-white"
+                    }`}
+                    style={{
+                      background: active ? "rgba(255,122,24,0.12)" : "transparent",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
+              Used to scope scenarios and grading to your cert level.
+            </p>
+          </AuthField>
 
-        <p className="mt-6 text-center text-[11px] font-mono" style={{ color: 'rgba(143,220,246,0.35)' }}>
-          Training only · Not medical advice · Not clinical decision support
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full mt-2 h-11 rounded-md cta-primary text-[13.5px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {isLoading ? (
+              <>
+                <Icons.Refresh className="w-3.5 h-3.5 animate-spin" />
+                Creating account…
+              </>
+            ) : (
+              <>
+                Create free account <Icons.Arrow className="w-3.5 h-3.5" />
+              </>
+            )}
+          </button>
+        </form>
+
+        <p className="text-center text-[12px] text-[var(--text-mute)] mt-5">
+          Already have an account?{" "}
+          <Link href="/login" className="text-[var(--cyan-soft)] hover:text-white">
+            Sign in
+          </Link>
         </p>
+
+        <AuthDisclaimer />
       </div>
-    </main>
+    </AuthShell>
   );
 }
