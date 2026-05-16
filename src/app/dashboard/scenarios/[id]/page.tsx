@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import type { Message, Scenario, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole, DoctorPersonality } from "@/lib/types";
+import type { LegacySupabaseIntervention, Message, Scenario, User as UserType, UserRole, UserAction, ArrestRhythmKind, PartnerSimulationRole, DoctorPersonality } from "@/lib/types";
 import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-adjust";
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
@@ -33,6 +33,7 @@ import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-acti
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
+  useCollection,
   useDoc,
   useSupabase,
   useUser,
@@ -244,6 +245,30 @@ function monitorMenuOptsFromScenario(s: Scenario) {
   };
 }
 
+/**
+ * Tile-catalog gate: an intervention only appears in-scenario if its name
+ * shares a clinical token with one of the admin-curated rows. Common filler
+ * words ("administration", "infusion", etc.) are dropped so two unrelated
+ * "X Administration" rows don't false-match. Parentheticals are stripped
+ * so "Epinephrine (Cardiac Arrest)" reduces to [epinephrine].
+ *
+ * The post-scenario review still grades against the full national baseline
+ * — this only controls what learners can tap.
+ */
+const TILE_MATCH_STOP_WORDS = new Set([
+  'administration', 'application', 'infusion', 'injection',
+  'oral', 'with', 'and', 'for', 'the', 'use', 'using',
+]);
+
+function tileMatchTokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !TILE_MATCH_STOP_WORDS.has(w));
+}
+
 function parsePartnerRow(row: {
   partner_role?: string | null;
   partner_name?: string | null;
@@ -414,11 +439,45 @@ export default function SimulationPage() {
     [protocolMergeDeps],
   );
 
-  const treatmentsMenuEnabled = scenario?.interventionsEnabled !== false;
-  const interventionsForTiles = useMemo(
-    () => (treatmentsMenuEnabled ? availableInterventions : []),
-    [availableInterventions, treatmentsMenuEnabled],
+  const adminInterventionsSpec = useMemoSupabase(
+    () => (supabase ? { table: "interventions" as const } : null),
+    [supabase],
   );
+  const { data: adminInterventions } =
+    useCollection<LegacySupabaseIntervention>(adminInterventionsSpec);
+
+  /**
+   * Admin "Manage Interventions" gates the tile picker. While the DB query is
+   * pending, fall back to the bundled seed so the UI never flickers empty.
+   * Scenario-specific medications (poisoning antidotes, etc.) are added to
+   * the allowlist so they remain tappable even though they aren't in the
+   * admin catalog — same exemption pattern as commit 989a04c.
+   */
+  const adminCuratedNameTokens = useMemo(() => {
+    const tokens = new Set<string>();
+    const catalog: { name: string }[] =
+      adminInterventions && adminInterventions.length > 0
+        ? adminInterventions
+        : seedInterventions;
+    for (const row of catalog) {
+      for (const t of tileMatchTokens(row.name)) tokens.add(t);
+    }
+    const scenarioMeds = scenario?.monitorMenuMedications ?? [];
+    for (const m of scenarioMeds) {
+      for (const t of tileMatchTokens(m.displayName)) tokens.add(t);
+    }
+    return tokens;
+  }, [adminInterventions, scenario?.monitorMenuMedications]);
+
+  const treatmentsMenuEnabled = scenario?.interventionsEnabled !== false;
+  const interventionsForTiles = useMemo(() => {
+    if (!treatmentsMenuEnabled) return [];
+    if (adminCuratedNameTokens.size === 0) return availableInterventions;
+    return availableInterventions.filter((i) => {
+      const tokens = tileMatchTokens(i.name);
+      return tokens.some((t) => adminCuratedNameTokens.has(t));
+    });
+  }, [availableInterventions, treatmentsMenuEnabled, adminCuratedNameTokens]);
 
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
@@ -2735,10 +2794,10 @@ export default function SimulationPage() {
                       Structured protocol interventions are disabled for this scenario. Use Assessment and other tabs to document care.
                     </p>
                   )}
-                  {treatmentsMenuEnabled && availableInterventions.length === 0 && (
+                  {treatmentsMenuEnabled && interventionsForTiles.length === 0 && (
                     <p className="text-muted-foreground text-sm">No interventions available for your certification level.</p>
                   )}
-                  {treatmentsMenuEnabled && availableInterventions.length > 0 && (
+                  {treatmentsMenuEnabled && interventionsForTiles.length > 0 && (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {interventionsForTiles.map((t) => (
                     <InterventionTile
