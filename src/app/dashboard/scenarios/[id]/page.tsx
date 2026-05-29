@@ -2626,7 +2626,7 @@ export default function SimulationPage() {
 
       {/* Right Column */}
       <div
-        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0"
+        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0 lg:overflow-hidden"
         data-tour={WELCOME_TOUR_ANCHORS.log}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-4 py-3">
@@ -2802,7 +2802,7 @@ export default function SimulationPage() {
           </div>
         ) : null}
         <div
-          className="flex flex-col border-t p-4 min-h-0 flex-[2] justify-start"
+          className="flex min-h-0 flex-[3] flex-col justify-start overflow-hidden border-t p-4"
           data-tour={WELCOME_TOUR_ANCHORS.tabs}
         >
           <Tabs
@@ -2949,7 +2949,7 @@ export default function SimulationPage() {
             </TabsContent>
             {scenario.bystanders && scenario.bystanders.length > 0 ? (
               <TabsContent value="bystanders" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-[11rem] flex-1 pr-4">
+                <ScrollArea className="min-h-0 flex-1 pr-4">
                   <div className="space-y-4 pr-2">
                     {(['on_scene', 'phone', 'arriving_later'] as const).map((bucket) => {
                       const bucketBystanders = scenario.bystanders!.filter((b) => b.availability === bucket);
@@ -3030,7 +3030,7 @@ export default function SimulationPage() {
               />
             </TabsContent>
             <TabsContent value="destination" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-[14rem] flex-1 pr-4">
+                <ScrollArea className="min-h-0 flex-1 pr-4">
                     <div className="space-y-5 pr-1">
                         <div>
                             <Label className="flex items-center gap-2 text-sm font-semibold"><Hospital className="h-4 w-4 text-primary" /> Select Hospital Destination</Label>
