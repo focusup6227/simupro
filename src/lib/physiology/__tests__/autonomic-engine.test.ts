@@ -252,6 +252,144 @@ describe('autonomic engine', () => {
     expect(replayed.cumulativeDeltas).toEqual(cum);
   });
 
+  it('sustained hypoxia does not integrate RR to an impossible rate (regression: monitor showed 800/min)', () => {
+    const axes = defaultPathophysiologyAxes();
+    const replayed = replayAutonomicAt(
+      [],
+      600,
+      axes,
+      75,
+      undefined,
+      { ...baseVitals, spo2: '82%' },
+      () => zeroDeltas(),
+    );
+    expect(replayed.cumulativeDeltas.rr).toBeLessThanOrEqual(45);
+    expect(replayed.cumulativeDeltas.rr).toBeGreaterThanOrEqual(-10);
+    const merged = mergeVitalsForDisplay(
+      { ...baseVitals, spo2: '82%' },
+      replayed.cumulativeDeltas,
+    );
+    const rrShown = Number.parseInt(merged.rr, 10);
+    expect(rrShown).toBeLessThanOrEqual(60);
+    expect(rrShown).toBeGreaterThan(16);
+  });
+
+  it('sustained vasoplegic hypotension does not integrate HR to an impossible rate (regression: HR ratcheted to 800+)', () => {
+    const axes = axesFor('SEPSIS_ACUTE');
+    const feedback = buildPhysiologyFeedbackSnapshot({
+      hr: '120',
+      bp: '60/35',
+      rr: '30',
+      spo2: '88%',
+      etco2: '30 mmHg',
+      ph: 7.2,
+      lactateMmol: 6,
+      axes,
+    });
+    const base = { ...baseVitals, bp: '60/35', spo2: '88%' };
+    let st = defaultAutonomicState(undefined, 75);
+    let cum = zeroDeltas();
+    let peakHrShown = -Infinity;
+    for (let sec = 0; sec <= 600; sec++) {
+      const observed = mergeVitalsForDisplay(base, cum);
+      const r = tickAutonomic(st, 1, axes, observed, [], sec, cum, feedback);
+      st = r.state;
+      cum = r.cumulativeDeltas;
+      expect(cum.hr).toBeLessThanOrEqual(150);
+      expect(cum.hr).toBeGreaterThanOrEqual(-50);
+      const shown = Number.parseInt(mergeVitalsForDisplay(base, cum).hr, 10);
+      expect(shown).toBeLessThanOrEqual(300);
+      if (shown > peakHrShown) peakHrShown = shown;
+    }
+    expect(peakHrShown).toBeGreaterThan(80);
+    const finalHr = Number.parseInt(mergeVitalsForDisplay(base, cum).hr, 10);
+    expect(finalHr).toBeGreaterThan(80);
+    expect(finalHr).toBeLessThanOrEqual(300);
+  });
+
+  it('ongoing hemorrhage drives falling BP and rising HR (volume→baroreflex coupling)', () => {
+    const axes = defaultPathophysiologyAxes();
+    const events: AutonomicEvent[] = [
+      {
+        id: 'bleed',
+        sessionId: 's',
+        userId: 'u',
+        kind: 'bleed_rate_set',
+        payload: { rateMlPerMin: 180 },
+        simSeconds: 0,
+        recordedAt: new Date(0).toISOString(),
+      },
+    ];
+    const base = { ...baseVitals, hr: '88 bpm', bp: '86/50', spo2: '91%' };
+    const profile: AutonomicProfile = { baselineBleedRateMlPerMin: 180 };
+    let st = defaultAutonomicState(profile, 80);
+    let cum = zeroDeltas();
+    const sample: Record<number, { sys: number; hr: number }> = {};
+    for (let sec = 0; sec <= 300; sec++) {
+      const observed = mergeVitalsForDisplay(base, cum);
+      const r = tickAutonomic(
+        st,
+        1,
+        axes,
+        observed,
+        events.filter((e) => e.simSeconds === sec),
+        sec,
+        cum,
+      );
+      st = r.state;
+      cum = r.cumulativeDeltas;
+      const m = mergeVitalsForDisplay(base, cum);
+      sample[sec] = {
+        sys: Number.parseInt(m.bp.split('/')[0]!, 10),
+        hr: Number.parseInt(m.hr, 10),
+      };
+    }
+    expect(sample[300]!.sys).toBeLessThan(sample[30]!.sys);
+    expect(sample[300]!.hr).toBeGreaterThan(sample[30]!.hr);
+    expect(st.intravascularVolumeMl).toBeLessThan(st.volumeBaselineMl);
+    expect(sample[300]!.hr).toBeLessThanOrEqual(300);
+  });
+
+  it('SpO₂ desaturates with tension pneumothorax and recovers after decompression (no integration to floor)', () => {
+    const axes = defaultPathophysiologyAxes();
+    const base = { ...baseVitals, spo2: '97%' };
+    const start: AutonomicEvent = {
+      id: 'pno',
+      sessionId: 's',
+      userId: 'u',
+      kind: 'tension_pneumo_start',
+      payload: { severity: 0.7 },
+      simSeconds: 0,
+      recordedAt: new Date(0).toISOString(),
+    };
+    const resolve: AutonomicEvent = {
+      id: 'res',
+      sessionId: 's',
+      userId: 'u',
+      kind: 'tension_pneumo_resolve',
+      payload: {},
+      simSeconds: 60,
+      recordedAt: new Date(0).toISOString(),
+    };
+    const spo2 = (events: AutonomicEvent[], sec: number) =>
+      Number.parseInt(
+        mergeVitalsForDisplay(
+          base,
+          replayAutonomicAt(events, sec, axes, 80, undefined, base, () =>
+            zeroDeltas(),
+          ).cumulativeDeltas,
+        ).spo2,
+        10,
+      );
+    // Desaturates while the pneumo persists, but stays bounded — the old summed
+    // dSpo2 would integrate to the 0 floor; now it tracks the shunt level.
+    expect(spo2([start], 60)).toBeLessThan(95);
+    expect(spo2([start], 60)).toBeGreaterThan(80);
+    expect(spo2([start], 600)).toBeGreaterThan(80); // no drift to floor over 10 min
+    // Recovers toward baseline after decompression.
+    expect(spo2([start, resolve], 130)).toBeGreaterThan(spo2([start], 130) + 4);
+  });
+
   it('intervention parser emits expected stressors', () => {
     const ctx = {
       sessionId: 's',

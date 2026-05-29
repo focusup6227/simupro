@@ -64,11 +64,34 @@ export type AutonomicState = {
   mapBaselineMmHg: number;
   cpapActive: boolean;
   airwaySecured: boolean;
+  /**
+   * Intrinsic MAP (volume + tone derived) at t=0, used as the reference so the
+   * volume/tone *disturbance* applied to displayed BP is zero at sim start and
+   * only grows as the patient bleeds or vasodilates away from baseline.
+   */
+  intrinsicMapBaselineMmHg: number;
+  /**
+   * Baroreflex BP actuator — the systolic mmHg the reflex has added via
+   * vasoconstriction/inotropy. This is the integral of the reflex output,
+   * clamped to a physiologic compensation ceiling so the reflex can't restore
+   * an arbitrarily low pressure to target (once exceeded, BP genuinely falls).
+   */
+  baroBpActuatorSysMmHg: number;
+  /** Systolic component of the volume/tone/pneumo disturbance applied last tick (for telescoping). */
+  bpDisturbancePrevSysMmHg: number;
+  /** Diastolic component of the disturbance applied last tick (for telescoping). */
+  bpDisturbancePrevDiaMmHg: number;
 };
 
 export type TickAutonomicResult = {
   state: AutonomicState;
-  /** Accumulated deltas since baseline tick 0 — for this tick step, engine returns incremental? */
+  /**
+   * The increment applied to `cumulativeDeltas` on this tick. For the
+   * baroreflex/disturbance axes (BP, SpO₂) this is the steady-state drive level
+   * summed into the integral; for the relaxed passive-readout axes (HR, RR) it
+   * is the first-order step toward the target offset, so its sign and magnitude
+   * reflect movement toward the target rather than the target itself.
+   */
   deltasForStep: VitalDeltas;
   /** Total vital deltas from autonomic layer (cumulative since session start / replay). */
   cumulativeDeltas: VitalDeltas;

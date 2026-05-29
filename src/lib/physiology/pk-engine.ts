@@ -400,7 +400,10 @@ export function mergeVitalsForDisplay(
 
   const hr = parseLeadingNumber(baseline.hr);
   if (hr != null && hr > 0) {
-    const merged = Math.max(0, Math.round(hr + deltas.hr));
+    // Backstop against a runaway HR delta (the autonomic sympathetic drive is a
+    // passive integrator with no restoring loop of its own); 300 bpm is a hard
+    // monitor ceiling above any real sinus/SVT/VT rate.
+    const merged = Math.max(0, Math.min(300, Math.round(hr + deltas.hr)));
     const tail = suffixAfterNumber(baseline.hr) || ' bpm';
     out.hr = `${merged}${tail}`.trimEnd();
   }
@@ -417,7 +420,11 @@ export function mergeVitalsForDisplay(
 
   const rr = parseLeadingNumber(baseline.rr);
   if (rr != null && rr > 0) {
-    const merged = Math.max(0, Math.round(rr + deltas.rr));
+    // RR is the only vital whose merge previously lacked an upper clamp, so a
+    // runaway delta (e.g. the unbounded chemoreflex integrator in the autonomic
+    // engine) could render an impossible 3-digit rate on the bezel. Cap at the
+    // same physiologic ceiling (60/min) used by parseRrBpm and the capno engine.
+    const merged = Math.max(0, Math.min(60, Math.round(rr + deltas.rr)));
     const tail = suffixAfterNumber(baseline.rr) || '/min';
     out.rr = `${merged}${tail}`.trimEnd();
   }
