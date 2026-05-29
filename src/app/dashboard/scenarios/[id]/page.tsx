@@ -2641,6 +2641,15 @@ export default function SimulationPage() {
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
         >
           <div className="space-y-4">
+            {messages.filter((m) => m.role !== "user").length === 0 && !isLoading ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+                <SquareTerminal className="h-8 w-8 opacity-40" />
+                <p className="text-sm font-medium">The scene is set.</p>
+                <p className="max-w-xs text-xs">
+                  Start with an assessment, perform a treatment, or talk to bystanders — the patient&apos;s responses appear here.
+                </p>
+              </div>
+            ) : null}
             {messages.map((message, messageIndex) => {
               if (message.role === "user") return null;
               const isPartner = message.role === "partner";
