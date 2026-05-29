@@ -27,7 +27,7 @@ function utcDaysBetween(prevIso: string, todayIso: string): number {
  * Uses UTC calendar dates for streak logic (matches roadmap MVP).
  */
 export async function bumpTrainingStreakAfterSuccessfulSimulation(): Promise<void> {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

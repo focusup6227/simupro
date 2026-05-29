@@ -61,7 +61,7 @@ import { z } from 'zod';
 
 async function getActionUserId(): Promise<string | null> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data } = await supabase.auth.getUser();
     return data.user?.id ?? null;
   } catch {
@@ -178,7 +178,7 @@ export async function processSimulationResults({
     throw new Error('Sign in required to analyze your run.');
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const { data: sessionRow, error: sessionErr } = await supabase
     .from('simulation_sessions')
     .select('id, user_id, scenario_id, actions')

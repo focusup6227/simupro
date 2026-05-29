@@ -12,7 +12,7 @@ import { z } from 'zod';
 const NationalArraySchema = z.array(BaselineInterventionSchema);
 
 async function requireAdmin() {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
