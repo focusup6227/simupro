@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { Check, AlertTriangle } from 'lucide-react';
 
 export type TreatmentSelection = {
   selected: boolean;
@@ -33,6 +33,8 @@ interface InterventionTileProps {
   selected: TreatmentSelection | undefined;
   onToggle: (selected: boolean) => void;
   onSubOptionChange: (label: string, value: string) => void;
+  /** Selected medication still missing a required dose — flags the tile amber. */
+  needsDose?: boolean;
 }
 
 export function InterventionTile({
@@ -40,6 +42,7 @@ export function InterventionTile({
   selected,
   onToggle,
   onSubOptionChange,
+  needsDose = false,
 }: InterventionTileProps) {
   const isOn = Boolean(selected?.selected);
   const subs = isLegacyTileIntervention(intervention) ? intervention.subOptions ?? [] : [];
@@ -67,9 +70,11 @@ export function InterventionTile({
       }}
       className={cn(
         'cursor-pointer border-2 p-3 text-left transition-colors',
-        isOn
-          ? 'border-emerald-500/70 bg-emerald-950/25 ring-1 ring-emerald-500/20'
-          : 'border-border bg-card hover:bg-accent/40',
+        needsDose
+          ? 'border-amber-500/70 bg-amber-950/20 ring-1 ring-amber-500/30'
+          : isOn
+            ? 'border-emerald-500/70 bg-emerald-950/25 ring-1 ring-emerald-500/20'
+            : 'border-border bg-card hover:bg-accent/40',
       )}
     >
       <div className="flex gap-2">
@@ -86,6 +91,12 @@ export function InterventionTile({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-snug">{intervention.name}</p>
+          {needsDose ? (
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-500">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              Enter a dose &amp; route below
+            </p>
+          ) : null}
           {subtitle ? (
             <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{subtitle}</p>
           ) : null}
