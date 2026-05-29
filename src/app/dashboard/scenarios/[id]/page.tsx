@@ -248,30 +248,6 @@ function monitorMenuOptsFromScenario(s: Scenario) {
   };
 }
 
-/**
- * Tile-catalog gate: an intervention only appears in-scenario if its name
- * shares a clinical token with one of the admin-curated rows. Common filler
- * words ("administration", "infusion", etc.) are dropped so two unrelated
- * "X Administration" rows don't false-match. Parentheticals are stripped
- * so "Epinephrine (Cardiac Arrest)" reduces to [epinephrine].
- *
- * The post-scenario review still grades against the full national baseline
- * — this only controls what learners can tap.
- */
-const TILE_MATCH_STOP_WORDS = new Set([
-  'administration', 'application', 'infusion', 'injection',
-  'oral', 'with', 'and', 'for', 'the', 'use', 'using',
-]);
-
-function tileMatchTokens(name: string): string[] {
-  return name
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 3 && !TILE_MATCH_STOP_WORDS.has(w));
-}
-
 function parsePartnerRow(row: {
   partner_role?: string | null;
   partner_name?: string | null;
@@ -451,38 +427,29 @@ export default function SimulationPage() {
   const { data: adminInterventions } =
     useCollection<LegacySupabaseIntervention>(adminInterventionsSpec);
 
+  const treatmentsMenuEnabled = scenario?.interventionsEnabled !== false;
+
   /**
-   * Admin "Manage Interventions" gates the tile picker. While the DB query is
-   * pending, fall back to the bundled seed so the UI never flickers empty.
-   * Scenario-specific medications (poisoning antidotes, etc.) are added to
-   * the allowlist so they remain tappable even though they aren't in the
-   * admin catalog — same exemption pattern as commit 989a04c.
+   * The treatment tile picker is exactly the admin "Manage Interventions"
+   * catalog — nothing more. Learners only see interventions an admin has
+   * published, scoped to their certification level. While the DB query is
+   * pending we fall back to the bundled seed (which mirrors the catalog) so
+   * the grid never flickers empty.
    */
-  const adminCuratedNameTokens = useMemo(() => {
-    const tokens = new Set<string>();
-    const catalog: { name: string }[] =
+  const interventionsForTiles = useMemo<LegacySupabaseIntervention[]>(() => {
+    if (!treatmentsMenuEnabled) return [];
+    const catalog =
       adminInterventions && adminInterventions.length > 0
         ? adminInterventions
         : seedInterventions;
-    for (const row of catalog) {
-      for (const t of tileMatchTokens(row.name)) tokens.add(t);
-    }
-    const scenarioMeds = scenario?.monitorMenuMedications ?? [];
-    for (const m of scenarioMeds) {
-      for (const t of tileMatchTokens(m.displayName)) tokens.add(t);
-    }
-    return tokens;
-  }, [adminInterventions, scenario?.monitorMenuMedications]);
-
-  const treatmentsMenuEnabled = scenario?.interventionsEnabled !== false;
-  const interventionsForTiles = useMemo(() => {
-    if (!treatmentsMenuEnabled) return [];
-    if (adminCuratedNameTokens.size === 0) return availableInterventions;
-    return availableInterventions.filter((i) => {
-      const tokens = tileMatchTokens(i.name);
-      return tokens.some((t) => adminCuratedNameTokens.has(t));
-    });
-  }, [availableInterventions, treatmentsMenuEnabled, adminCuratedNameTokens]);
+    const scopeRole: PartnerSimulationRole =
+      currentUserRole === 'emt' ||
+      currentUserRole === 'aemt' ||
+      currentUserRole === 'paramedic'
+        ? currentUserRole
+        : 'paramedic';
+    return catalog.filter((i) => partnerCanPerform(i, scopeRole));
+  }, [adminInterventions, treatmentsMenuEnabled, currentUserRole]);
 
   const reportForm = useForm<ReportIssueFormValues>({
     resolver: zodResolver(reportIssueSchema),
@@ -1721,6 +1688,7 @@ export default function SimulationPage() {
 
   const handleSubmitTreatments = async (actionType: 'treatment' | 'cardiacArrest' = 'treatment') => {
     const resolveIntervention = (iid: string) =>
+      (adminInterventions ?? []).find((i) => i.id === iid) ??
       availableInterventions.find((i) => i.id === iid) ??
       seedInterventions.find((i) => i.id === iid);
 
@@ -2011,7 +1979,9 @@ export default function SimulationPage() {
   };
 
   const handleTreatmentSelection = (id: string, checked: boolean | 'indeterminate') => {
-    const legacyInt = seedInterventions.find((i) => i.id === id);
+    const legacyInt =
+      (adminInterventions ?? []).find((i) => i.id === id) ??
+      seedInterventions.find((i) => i.id === id);
     const merged = useProtocolStore
       .getState()
       .activeInterventions()
@@ -2241,7 +2211,11 @@ export default function SimulationPage() {
     // Non-shockable: hide defib + antiarrhythmic-only meds.
     return !['PROC_DEFIBRILLATION', 'MED_AMIODARONE', 'MED_LIDOCAINE'].includes(id);
   });
-  const cardiacArrestInterventions = interventionsForTiles.filter((i) =>
+  // The cardiac-arrest panel is a fixed ACLS list keyed by national-baseline
+  // protocol ids (PROC_DEFIBRILLATION, MED_AMIODARONE, …) that only exist in
+  // the protocol store, so it sources from `availableInterventions` rather
+  // than the admin tile catalog.
+  const cardiacArrestInterventions = availableInterventions.filter((i) =>
     filteredCardiacIds.includes(i.id),
   );
 
