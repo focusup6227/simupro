@@ -4,7 +4,7 @@ import { createServiceRoleSupabaseClient } from '@/lib/supabase/admin-client';
 
 export async function DELETE() {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
       error,

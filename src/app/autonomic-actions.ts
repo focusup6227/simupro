@@ -13,7 +13,7 @@ export async function recordAutonomicEvents(
   events: AutonomicEvent[],
 ): Promise<void> {
   if (events.length === 0) return;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -35,7 +35,7 @@ export async function recordAutonomicEvents(
 export async function listAutonomicEvents(
   sessionId: string,
 ): Promise<AutonomicEvent[]> {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

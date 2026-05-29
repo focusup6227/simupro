@@ -17,7 +17,7 @@ export type AcceptDisclaimerResult =
  * gate and surfaces a retry button.
  */
 export async function acceptDisclaimer(): Promise<AcceptDisclaimerResult> {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

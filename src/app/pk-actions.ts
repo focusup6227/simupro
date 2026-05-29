@@ -12,7 +12,7 @@ export async function recordPkDoses(
   doses: DoseRecord[],
 ): Promise<void> {
   if (doses.length === 0) return;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -44,7 +44,7 @@ export async function recordPkDoses(
 export async function listPkDoses(
   sessionId: string,
 ): Promise<DoseRecord[]> {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

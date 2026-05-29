@@ -8,7 +8,7 @@ export type BlogPostRow = Database['public']['Tables']['blog_posts']['Row'];
 
 export async function getPublishedPostsFromDB(): Promise<BlogPostRow[]> {
   try {
-    const client = createServerSupabaseClient();
+    const client = await createServerSupabaseClient();
     const { data, error } = await client
       .from('blog_posts')
       .select('*')
@@ -23,7 +23,7 @@ export async function getPublishedPostsFromDB(): Promise<BlogPostRow[]> {
 
 export async function getPostBySlugFromDB(slug: string): Promise<BlogPostRow | null> {
   try {
-    const client = createServerSupabaseClient();
+    const client = await createServerSupabaseClient();
     const { data, error } = await client
       .from('blog_posts')
       .select('*')
@@ -39,7 +39,7 @@ export async function getPostBySlugFromDB(slug: string): Promise<BlogPostRow | n
 
 export async function getAllPostsFromDB(): Promise<BlogPostRow[]> {
   try {
-    const client = createServerSupabaseClient();
+    const client = await createServerSupabaseClient();
     const { data, error } = await client
       .from('blog_posts')
       .select('*')

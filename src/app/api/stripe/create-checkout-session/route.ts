@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       priceId = annual;
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
       error: userError,

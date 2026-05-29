@@ -48,22 +48,19 @@ const withPWA = withPWAInit({
 const nextConfig = {
   // `standalone` is for Docker/SSH hosts; Vercel expects the default Next.js output.
   ...(process.env.VERCEL ? {} : { output: "standalone" }),
+  // Genkit pulls in @opentelemetry/sdk-node, which optionally requires
+  // @opentelemetry/exporter-jaeger. The bundler resolves that require at build
+  // time even though it's never used unless OTEL_TRACES_EXPORTER=jaeger.
+  // (`serverComponentsExternalPackages` was promoted out of `experimental` in Next 15.)
+  serverExternalPackages: ["@opentelemetry/sdk-node", "pdf-parse"],
   experimental: {
     optimizePackageImports: ["lucide-react"],
     serverActions: {
       bodySizeLimit: "16mb",
-      workerThreads: true,
     },
-    // Genkit pulls in @opentelemetry/sdk-node, which optionally requires
-    // @opentelemetry/exporter-jaeger. Webpack resolves that require at build
-    // time even though it's never used unless OTEL_TRACES_EXPORTER=jaeger.
-    serverComponentsExternalPackages: ["@opentelemetry/sdk-node", "pdf-parse"],
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   images: {
     remotePatterns: [
@@ -104,7 +101,7 @@ export default withSentryConfig(baseConfig, {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   hideSourceMaps: true,
-  disableLogger: true,
+  // `disableLogger` was replaced by `webpack.treeshake.removeDebugLogging` (set below).
 
   webpack: {
     // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
