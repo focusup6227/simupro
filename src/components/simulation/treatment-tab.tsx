@@ -118,7 +118,7 @@ export function TreatmentTab({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 outline-none">
+    <div className="flex flex-col gap-3 outline-none">
       <div className="flex shrink-0 items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">{title}</h3>
         {selectedCount > 0 ? (
@@ -136,7 +136,7 @@ export function TreatmentTab({
       ) : interventions.length === 0 ? (
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ScrollArea className="min-h-0 flex-1 pr-3">
+        <ScrollArea className="max-h-[42vh] min-h-[8rem] pr-3">
           <div className="grid grid-cols-1 gap-3 pr-1 sm:grid-cols-2 xl:grid-cols-3">
             {interventions.map((t) => (
               <InterventionTile
