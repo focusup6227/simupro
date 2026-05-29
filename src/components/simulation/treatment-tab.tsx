@@ -136,7 +136,7 @@ export function TreatmentTab({
       ) : interventions.length === 0 ? (
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ScrollArea className="min-h-[8rem] flex-1 pr-3">
+        <ScrollArea className="min-h-0 flex-1 pr-3">
           <div className="grid grid-cols-1 gap-3 pr-1 sm:grid-cols-2 xl:grid-cols-3">
             {interventions.map((t) => (
               <InterventionTile

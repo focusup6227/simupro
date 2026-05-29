@@ -2626,7 +2626,7 @@ export default function SimulationPage() {
 
       {/* Right Column */}
       <div
-        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0"
+        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0 lg:overflow-hidden"
         data-tour={WELCOME_TOUR_ANCHORS.log}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-4 py-3">
@@ -2641,6 +2641,15 @@ export default function SimulationPage() {
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
         >
           <div className="space-y-4">
+            {messages.filter((m) => m.role !== "user").length === 0 && !isLoading ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+                <SquareTerminal className="h-8 w-8 opacity-40" />
+                <p className="text-sm font-medium">The scene is set.</p>
+                <p className="max-w-xs text-xs">
+                  Start with an assessment, perform a treatment, or talk to bystanders — the patient&apos;s responses appear here.
+                </p>
+              </div>
+            ) : null}
             {messages.map((message, messageIndex) => {
               if (message.role === "user") return null;
               const isPartner = message.role === "partner";
@@ -2793,7 +2802,7 @@ export default function SimulationPage() {
           </div>
         ) : null}
         <div
-          className="flex flex-col border-t p-4 min-h-0 flex-[2] justify-start"
+          className="flex min-h-0 flex-[3] flex-col justify-start overflow-hidden border-t p-4"
           data-tour={WELCOME_TOUR_ANCHORS.tabs}
         >
           <Tabs
@@ -2925,10 +2934,13 @@ export default function SimulationPage() {
                     disabled={showCardiacArrestTab}
                   />
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: `${BP_GRADING_MANUAL_MARKER} Obtain a manual blood pressure (auscultation).` })} disabled={showCardiacArrestTab}><Activity className="mr-2 h-4 w-4" /> Manual Blood Pressure</Button>
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check blood glucose level.'})} disabled={showCardiacArrestTab}><Droplets className="mr-2 h-4 w-4" /> Blood Glucose</Button>
-                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check patient\'s temperature.'})} disabled={showCardiacArrestTab}><Thermometer className="mr-2 h-4 w-4" /> Temperature</Button>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick checks</Label>
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: `${BP_GRADING_MANUAL_MARKER} Obtain a manual blood pressure (auscultation).` })} disabled={isLoading || showCardiacArrestTab}><Activity className="mr-2 h-4 w-4" /> Manual BP</Button>
+                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check blood glucose level.'})} disabled={isLoading || showCardiacArrestTab}><Droplets className="mr-2 h-4 w-4" /> Blood Glucose</Button>
+                    <Button variant="outline" size="sm" onClick={() => submitAction('assessment', { assessment: 'Check patient\'s temperature.'})} disabled={isLoading || showCardiacArrestTab}><Thermometer className="mr-2 h-4 w-4" /> Temperature</Button>
+                  </div>
                 </div>
                 <Button onClick={handleSubmitAssessment} disabled={isLoading || simulationEnded || showCardiacArrestTab} className="w-full">
                     {isLoading ? 'Processing...' : 'Submit Findings'} <ArrowRight className="ml-2" />
@@ -2937,7 +2949,7 @@ export default function SimulationPage() {
             </TabsContent>
             {scenario.bystanders && scenario.bystanders.length > 0 ? (
               <TabsContent value="bystanders" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-[11rem] flex-1 pr-4">
+                <ScrollArea className="min-h-0 flex-1 pr-4">
                   <div className="space-y-4 pr-2">
                     {(['on_scene', 'phone', 'arriving_later'] as const).map((bucket) => {
                       const bucketBystanders = scenario.bystanders!.filter((b) => b.availability === bucket);
@@ -3018,43 +3030,55 @@ export default function SimulationPage() {
               />
             </TabsContent>
             <TabsContent value="destination" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-[14rem] flex-1 pr-4">
+                <ScrollArea className="min-h-0 flex-1 pr-4">
                     <div className="space-y-5 pr-1">
                         <div>
-                            <Label>Select Hospital Destination</Label>
+                            <Label className="flex items-center gap-2 text-sm font-semibold"><Hospital className="h-4 w-4 text-primary" /> Select Hospital Destination</Label>
                             <RadioGroup value={selectedDestination} onValueChange={setSelectedDestination} className="mt-3 space-y-3">
-                                {hospitals.map(hospital => (
-                                    <Card key={hospital.id} className="flex items-center gap-4 p-4">
-                                        <RadioGroupItem value={hospital.id} id={hospital.id} />
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start">
-                                                <Label htmlFor={hospital.id} className="font-bold">{hospital.name}</Label>
+                                {hospitals.map(hospital => {
+                                    const isSelected = selectedDestination === hospital.id;
+                                    return (
+                                    <Label
+                                        key={hospital.id}
+                                        htmlFor={hospital.id}
+                                        className={cn(
+                                            'flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-colors',
+                                            isSelected
+                                                ? 'border-primary/70 bg-primary/5 ring-1 ring-primary/20'
+                                                : 'border-border bg-card hover:bg-accent/40',
+                                        )}
+                                    >
+                                        <RadioGroupItem value={hospital.id} id={hospital.id} className="mt-0.5" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="font-bold leading-snug">{hospital.name}</span>
                                                 {scenario?.hospitalDistances[hospital.id] !== undefined && (
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
                                                         <MapPin className="h-4 w-4"/>
-                                                        <span>{scenario.hospitalDistances[hospital.id]} min</span>
-                                                    </div>
+                                                        {scenario.hospitalDistances[hospital.id]} min
+                                                    </span>
                                                 )}
                                             </div>
-                                            <div className="flex flex-wrap gap-2 mt-2">
+                                            <div className="mt-2 flex flex-wrap gap-2">
                                                 {hospital.capabilities.map(cap => (
                                                     <Badge key={cap} variant="secondary" className="capitalize">{cap}</Badge>
                                                 ))}
                                             </div>
                                         </div>
-                                    </Card>
-                                ))}
+                                    </Label>
+                                    );
+                                })}
                             </RadioGroup>
                         </div>
                         <div className="pt-1">
-                           <Label>Select Transport Mode</Label>
+                           <Label className="flex items-center gap-2 text-sm font-semibold"><Truck className="h-4 w-4 text-primary" /> Select Transport Mode</Label>
                             <RadioGroup value={transportMode} onValueChange={(v) => setTransportMode(v as 'Routine' | 'Emergency')} className="mt-3 flex flex-wrap items-stretch gap-3">
-                                <Label htmlFor="routine-transport" className="flex items-center gap-2 p-4 border rounded-md has-[:checked]:bg-muted flex-1 cursor-pointer">
+                                <Label htmlFor="routine-transport" className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-border p-4 font-medium transition-colors hover:bg-accent/40 has-[:checked]:border-primary/70 has-[:checked]:bg-primary/5 has-[:checked]:ring-1 has-[:checked]:ring-primary/20">
                                     <RadioGroupItem value="Routine" id="routine-transport" className="sr-only" />
                                     <Truck className="h-5 w-5" />
                                     Routine
                                 </Label>
-                                <Label htmlFor="emergency-transport" className="flex items-center gap-2 p-4 border rounded-md has-[:checked]:bg-muted flex-1 cursor-pointer">
+                                <Label htmlFor="emergency-transport" className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-border p-4 font-medium transition-colors hover:bg-accent/40 has-[:checked]:border-red-500/70 has-[:checked]:bg-red-950/20 has-[:checked]:text-red-400 has-[:checked]:ring-1 has-[:checked]:ring-red-500/20">
                                     <RadioGroupItem value="Emergency" id="emergency-transport" className="sr-only" />
                                     <Siren className="h-5 w-5" />
                                     Emergency
@@ -3071,7 +3095,7 @@ export default function SimulationPage() {
                 <div className="space-y-4">
                     <div>
                         <div className="mb-2 flex items-center justify-between">
-                          <Label htmlFor="radio-report-input">AI-generated SBAR report (edit before submitting)</Label>
+                          <Label htmlFor="radio-report-input" className="flex items-center gap-2 text-sm font-semibold"><MessageSquare className="h-4 w-4 text-primary" /> Radio report (SBAR)</Label>
                           {isSpeechSupported && (
                             <Button
                               type="button"
@@ -3104,7 +3128,7 @@ export default function SimulationPage() {
                     </div>
                     <div className="border-t pt-4">
                         <div className="mb-2 flex items-center justify-between">
-                          <Label htmlFor="medical-direction-input">Request Medical Direction</Label>
+                          <Label htmlFor="medical-direction-input" className="flex items-center gap-2 text-sm font-semibold"><PhoneCall className="h-4 w-4 text-primary" /> Request Medical Direction</Label>
                           {isSpeechSupported && (
                             <Button
                               type="button"
