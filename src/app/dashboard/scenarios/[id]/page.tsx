@@ -2290,7 +2290,22 @@ export default function SimulationPage() {
               <User className="h-4 w-4 text-primary" /> Patient Profile
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 pt-4">
+          <CardContent className="space-y-3 pt-4">
+            {(scenario.difficulty || scenario.ageBand || scenario.isPremium) ? (
+              <div className="flex flex-wrap gap-1.5">
+                {scenario.difficulty ? (
+                  <Badge variant="outline" className="capitalize">{scenario.difficulty}</Badge>
+                ) : null}
+                {scenario.ageBand && scenario.ageBand !== 'adult' ? (
+                  <Badge variant="outline" className="capitalize">{scenario.ageBand}</Badge>
+                ) : null}
+                {scenario.isPremium ? (
+                  <Badge className="gap-1 bg-amber-500/15 text-amber-500 hover:bg-amber-500/15">
+                    <Star className="h-3 w-3" /> Premium
+                  </Badge>
+                ) : null}
+              </div>
+            ) : null}
             <p className="text-sm leading-relaxed">{scenario.patientProfile}</p>
             {scenario.description ? (
               <p className="border-t pt-2 text-sm text-muted-foreground leading-relaxed">
@@ -2355,6 +2370,7 @@ export default function SimulationPage() {
                   <p className="mt-1 truncate text-lg font-semibold capitalize">{currentUserRole}</p>
                 </div>
               </div>
+              <Label className="block border-t pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Session</Label>
               {isSpeechSupported ? (
                 <div>
                   <Label className="text-xs text-muted-foreground">
@@ -2417,10 +2433,13 @@ export default function SimulationPage() {
                   </DialogContent>
                 </Dialog>
               </div>
+              <div className="space-y-2 border-t pt-3">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Help &amp; feedback</Label>
+              <div className="grid grid-cols-2 gap-2">
               <Dialog open={reportIssueOpen} onOpenChange={(isOpen) => { setReportIssueOpen(isOpen); if (!isOpen) setIsPaused(false); }}>
                 <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full" onClick={() => setIsPaused(true)}>
-                        <AlertCircle className="mr-2" /> Report Issue
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => setIsPaused(true)}>
+                        <AlertCircle className="mr-2 h-4 w-4" /> Report Issue
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[min(92dvh,800px)] overflow-y-auto">
@@ -2461,6 +2480,7 @@ export default function SimulationPage() {
 
               <Button
                 variant="outline"
+                size="sm"
                 className="w-full"
                 type="button"
                 onClick={() => {
@@ -2473,6 +2493,8 @@ export default function SimulationPage() {
                 <Flag className="mr-2 h-4 w-4" />
                 Bad AI reply?
               </Button>
+              </div>
+              </div>
 
               <Dialog
                 open={badAiReportOpen}
