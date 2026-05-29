@@ -394,6 +394,7 @@ export function LiveStrip({
   leadLabel,
   height,
   paused = false,
+  light = false,
 }: {
   pid: string;
   ctx: EcgScenarioContext;
@@ -403,6 +404,8 @@ export function LiveStrip({
   height: number;
   /** Freezes the sweep cursor (e.g. rhythm quiz pause). */
   paused?: boolean;
+  /** Render on white ECG paper with a pink grid + dark trace (trainer view). */
+  light?: boolean;
 }) {
   const midY = height * 0.5;
   const vScale = 0.55;
@@ -501,7 +504,12 @@ export function LiveStrip({
     return () => cancelAnimationFrame(rafId);
   }, [paused, reduceMotion]);
 
-  const stroke = 'stroke-[#39ff9d]';
+  // Theme: dark monitor (default) vs. white ECG-paper trainer view.
+  const bg = light ? '#ffffff' : '#0d0f0d';
+  const traceColor = light ? '#1c1917' : '#39ff9d';
+  const minorGrid = light ? 'rgba(244,114,182,0.5)' : 'rgba(76,5,25,0.55)';
+  const majorGrid = light ? 'rgba(225,29,72,0.6)' : 'rgba(159,18,57,0.55)';
+  const baselineStroke = light ? 'rgba(0,0,0,0.18)' : 'rgba(113,113,122,0.4)';
 
   const minorCell = ECG_SMALL_SQ_MS / ECG_MS_PER_PIXEL;
   const majorCell = ECG_LARGE_SQ_MS / ECG_MS_PER_PIXEL;
@@ -520,8 +528,19 @@ export function LiveStrip({
   const initialSweepX = phaseRef.current * viewW;
 
   return (
-    <div className="relative overflow-hidden rounded border border-zinc-700/80 bg-[#0d0f0d] shadow-inner">
-      <div className="absolute left-1.5 top-1 z-10 rounded bg-black/80 px-1 py-0.5 font-mono text-[9px] tabular-nums text-zinc-300 ring-1 ring-zinc-600/80">
+    <div
+      className={`relative overflow-hidden rounded shadow-inner ${
+        light ? 'border border-rose-300/70' : 'border border-zinc-700/80'
+      }`}
+      style={{ background: bg }}
+    >
+      <div
+        className={`absolute left-1.5 top-1 z-10 rounded px-1 py-0.5 font-mono text-[9px] tabular-nums ring-1 ${
+          light
+            ? 'bg-white/85 text-rose-700 ring-rose-300/80'
+            : 'bg-black/80 text-zinc-300 ring-zinc-600/80'
+        }`}
+      >
         {leadLabel}
       </div>
       <svg
@@ -542,7 +561,7 @@ export function LiveStrip({
             <path
               d={`M ${minorCell} 0 L 0 0 0 ${minorCell}`}
               fill="none"
-              className="stroke-rose-950/55"
+              stroke={minorGrid}
               strokeWidth={0.35}
             />
           </pattern>
@@ -556,7 +575,7 @@ export function LiveStrip({
               width={majorCell}
               height={majorCell}
               fill="none"
-              className="stroke-rose-800/55"
+              stroke={majorGrid}
               strokeWidth={0.7}
             />
           </pattern>
@@ -595,7 +614,7 @@ export function LiveStrip({
           y1={midY}
           x2={viewW}
           y2={midY}
-          className="stroke-zinc-600/40"
+          stroke={baselineStroke}
           strokeWidth={0.5}
         />
 
@@ -608,7 +627,7 @@ export function LiveStrip({
             d={pathD}
             fill="none"
             strokeWidth={1.6}
-            className={stroke}
+            stroke={traceColor}
             strokeLinecap="butt"
             strokeLinejoin="miter"
             strokeMiterlimit={4}
@@ -620,7 +639,7 @@ export function LiveStrip({
                 d={prevPathD}
                 fill="none"
                 strokeWidth={1.6}
-                className={stroke}
+                stroke={traceColor}
                 strokeLinecap="butt"
                 strokeLinejoin="miter"
                 strokeMiterlimit={4}
@@ -631,7 +650,7 @@ export function LiveStrip({
                 d={pathD}
                 fill="none"
                 strokeWidth={1.6}
-                className={stroke}
+                stroke={traceColor}
                 strokeLinecap="butt"
                 strokeLinejoin="miter"
                 strokeMiterlimit={4}
@@ -653,14 +672,14 @@ export function LiveStrip({
                 y={0}
                 width={cursorGapPx}
                 height={height}
-                fill="#0d0f0d"
+                fill={bg}
               />
               <line
                 x1={0}
                 y1={0}
                 x2={0}
                 y2={height}
-                className={stroke}
+                stroke={traceColor}
                 strokeWidth={1.5}
               />
             </g>

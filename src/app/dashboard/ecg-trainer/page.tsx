@@ -131,6 +131,44 @@ function thinkingMsElapsed(t: QuestionTiming): number {
   return Math.max(0, now - t.questionStart - t.totalPausedMs - activePause);
 }
 
+const NO_PULSE_KINDS = new Set<EcgRhythmKind>([
+  "vfib",
+  "pulseless_vt",
+  "asystole",
+  "pea",
+  "agonal",
+  "ventricular_standstill",
+]);
+
+/**
+ * Clinical pulse quality the patient would present with for the displayed
+ * rhythm — shown above the strips so learners couple rhythm to perfusion
+ * (e.g. PEA reads "No palpable pulse").
+ */
+function pulseQuality(
+  ctx: { kind: EcgRhythmKind; rateBpm: number | null; pulseless: boolean },
+): { label: string; perfusing: boolean } {
+  if (ctx.pulseless || NO_PULSE_KINDS.has(ctx.kind)) {
+    return { label: "No palpable pulse", perfusing: false };
+  }
+  if (ctx.kind === "torsades") {
+    return { label: "Weak / often pulseless", perfusing: false };
+  }
+  if (ctx.kind === "vt") {
+    return { label: "Pulse present — often weak & rapid", perfusing: true };
+  }
+  if (ctx.kind === "idioventricular") {
+    return { label: "Weak, slow pulse", perfusing: true };
+  }
+  if (ctx.kind === "afib") {
+    return { label: "Irregularly irregular pulse", perfusing: true };
+  }
+  const rate = ctx.rateBpm;
+  if (rate != null && rate < 50) return { label: "Slow pulse", perfusing: true };
+  if (rate != null && rate > 150) return { label: "Rapid, weak pulse", perfusing: true };
+  return { label: "Pulse present", perfusing: true };
+}
+
 export default function EcgTrainerPage() {
   const supabase = useSupabase();
   const { user: authUser } = useUser();
@@ -418,34 +456,65 @@ export default function EcgTrainerPage() {
       >
         <div className="p-5 space-y-4">
           {ctx && question && (
-            <div className="grid gap-3">
-              <LiveStrip
-                pid={`trainer-${question.rhythm}-ii`}
-                ctx={ctx}
-                tileW={tileW}
-                leadIdx={1}
-                leadLabel="II"
-                height={120}
-                paused={stripPaused}
-              />
-              <LiveStrip
-                pid={`trainer-${question.rhythm}-iii`}
-                ctx={ctx}
-                tileW={tileW}
-                leadIdx={2}
-                leadLabel="III"
-                height={90}
-                paused={stripPaused}
-              />
-              <LiveStrip
-                pid={`trainer-${question.rhythm}-avf`}
-                ctx={ctx}
-                tileW={tileW}
-                leadIdx={5}
-                leadLabel="aVF"
-                height={90}
-                paused={stripPaused}
-              />
+            <div className="space-y-3">
+              {(() => {
+                const pq = pulseQuality(ctx);
+                return (
+                  <div
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-[12.5px] font-medium"
+                    style={{
+                      background: pq.perfusing
+                        ? "rgba(52,211,153,0.10)"
+                        : "rgba(248,113,113,0.10)",
+                      border: pq.perfusing
+                        ? "1px solid rgba(52,211,153,0.32)"
+                        : "1px solid rgba(248,113,113,0.32)",
+                      color: pq.perfusing ? "#6ee7b7" : "#fda4a4",
+                    }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: pq.perfusing ? "#34d399" : "#f87171" }}
+                    />
+                    <span className="uppercase tracking-[0.18em] text-[10.5px] font-mono opacity-80">
+                      Pulse check
+                    </span>
+                    <span className="ml-auto font-semibold">{pq.label}</span>
+                  </div>
+                );
+              })()}
+              <div className="grid gap-3">
+                <LiveStrip
+                  pid={`trainer-${question.rhythm}-ii`}
+                  ctx={ctx}
+                  tileW={tileW}
+                  leadIdx={1}
+                  leadLabel="II"
+                  height={120}
+                  paused={stripPaused}
+                  light
+                />
+                <LiveStrip
+                  pid={`trainer-${question.rhythm}-iii`}
+                  ctx={ctx}
+                  tileW={tileW}
+                  leadIdx={2}
+                  leadLabel="III"
+                  height={90}
+                  paused={stripPaused}
+                  light
+                />
+                <LiveStrip
+                  pid={`trainer-${question.rhythm}-avf`}
+                  ctx={ctx}
+                  tileW={tileW}
+                  leadIdx={5}
+                  leadLabel="aVF"
+                  height={90}
+                  paused={stripPaused}
+                  light
+                />
+              </div>
             </div>
           )}
 
