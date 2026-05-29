@@ -46,7 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { hospitals } from "@/lib/hospitals-data";
 import { Badge } from "@/components/ui/badge";
-import { InterventionTile } from "@/components/intervention-tile";
+import { TreatmentTab } from "@/components/simulation/treatment-tab";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -1238,7 +1238,15 @@ export default function SimulationPage() {
       partnerRole: PartnerSimulationRole;
     },
   ) => {
-    if (!scenario || !userData || isLoading) return;
+    if (isLoading) return; // request already in flight; button shows "Processing…"
+    if (!scenario || !userData) {
+      toast({
+        title: 'Not ready yet',
+        description: 'The scenario is still loading. Try again in a moment.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsLoading(true);
 
@@ -2237,6 +2245,30 @@ export default function SimulationPage() {
     filteredCardiacIds.includes(i.id),
   );
 
+  const pendingTreatmentCount = Object.values(selectedTreatments).filter(
+    (s) => s.selected,
+  ).length;
+
+  // Human-readable reason the treatment submit is locked, surfaced in the tab so
+  // the button is never a silent no-op. `null` means submission is allowed.
+  const treatmentDisabledReason: string | null = !treatmentsMenuEnabled
+    ? 'Structured interventions are disabled for this scenario.'
+    : simulationEnded
+      ? 'This simulation has ended.'
+      : showCardiacArrestTab
+        ? 'Patient is in cardiac arrest — use the Cardiac Arrest tab.'
+        : null;
+
+  const cardiacDisabledReason: string | null = !treatmentsMenuEnabled
+    ? 'Structured interventions are disabled for this scenario.'
+    : simulationEnded
+      ? 'This simulation has ended.'
+      : hasROSC
+        ? 'ROSC achieved — continue care from the other tabs.'
+        : isAnalyzingAED
+          ? 'AED is analyzing — wait for the rhythm result.'
+          : null;
+
 
   return (
     <div className="relative grid max-lg:h-auto max-lg:min-h-0 gap-4 sm:gap-6 lg:h-[calc(100vh-100px)] lg:grid-cols-3">
@@ -2252,13 +2284,19 @@ export default function SimulationPage() {
 
       {/* Left Column */}
       <div className="lg:col-span-1 space-y-6 flex flex-col">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><User /> Patient Profile</CardTitle>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-muted/30 py-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4 text-primary" /> Patient Profile
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm">{scenario.patientProfile}</p>
-            <p className="text-sm text-muted-foreground">{scenario.description}</p>
+          <CardContent className="space-y-2 pt-4">
+            <p className="text-sm leading-relaxed">{scenario.patientProfile}</p>
+            {scenario.description ? (
+              <p className="border-t pt-2 text-sm text-muted-foreground leading-relaxed">
+                {scenario.description}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
         {vitalsReady ? (
@@ -2302,18 +2340,20 @@ export default function SimulationPage() {
             )}
           </div>
         ) : null}
-        <Card>
-           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Clock /> Performance</CardTitle>
+        <Card className="overflow-hidden">
+           <CardHeader className="border-b bg-muted/30 py-3">
+            <CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-primary" /> Performance</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-              <div>
-                  <Label>Time Elapsed</Label>
-                  <div className="text-2xl font-bold font-mono">{formatTime(time)}</div>
-              </div>
-              <div>
-                  <Label>Current Role</Label>
-                  <div className="capitalize text-lg font-semibold">{currentUserRole}</div>
+          <CardContent className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Elapsed</p>
+                  <p className="mt-1 font-mono text-2xl font-bold tabular-nums">{formatTime(time)}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</p>
+                  <p className="mt-1 truncate text-lg font-semibold capitalize">{currentUserRole}</p>
+                </div>
               </div>
               {isSpeechSupported ? (
                 <div>
@@ -2589,8 +2629,11 @@ export default function SimulationPage() {
         className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0"
         data-tour={WELCOME_TOUR_ANCHORS.log}
       >
-        <div className="shrink-0 border-b p-4">
-          <h2 className="text-xl font-bold flex items-center gap-2"><SquareTerminal /> Simulation Log</h2>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-4 py-3">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <SquareTerminal className="h-5 w-5 text-primary" /> Simulation Log
+          </h2>
+          <span className="font-mono text-sm tabular-nums text-muted-foreground">{formatTime(time)}</span>
         </div>
         <div
           ref={simulationLogScrollRef}
@@ -2709,8 +2752,21 @@ export default function SimulationPage() {
                 </div>
               );
             })}
-            {isLoading && <p>AI is thinking...</p>}
-            {isAnalyzingAED && <p>AED is analyzing...</p>}
+            {isLoading && (
+              <div className="flex items-center gap-2 pl-1 text-sm text-muted-foreground">
+                <span className="flex gap-1">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
+                </span>
+                Patient is responding…
+              </div>
+            )}
+            {isAnalyzingAED && (
+              <div className="flex items-center gap-2 pl-1 text-sm font-medium text-amber-500">
+                <Zap className="h-4 w-4 animate-pulse" /> AED is analyzing rhythm…
+              </div>
+            )}
           </div>
         </div>
         {partner ? (
@@ -2750,8 +2806,8 @@ export default function SimulationPage() {
           >
             <TabsList
               className={cn(
-                "h-auto min-h-10 w-full max-w-full shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:thin]",
-                showCardiacArrestTab ? "inline-flex" : "flex",
+                "h-auto min-h-10 w-full max-w-full shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-lg border p-1 [scrollbar-width:thin]",
+                showCardiacArrestTab ? "inline-flex border-red-500/40 bg-red-950/10" : "flex",
               )}
             >
               {showCardiacArrestTab ? (
@@ -2778,6 +2834,11 @@ export default function SimulationPage() {
                     <Syringe className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">Treatment</span>
                     <span className="sm:hidden">Tx</span>
+                    {pendingTreatmentCount > 0 ? (
+                      <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold leading-none text-white">
+                        {pendingTreatmentCount}
+                      </span>
+                    ) : null}
                   </TabsTrigger>
                   <TabsTrigger value="destination" className="min-h-9 shrink-0 px-2.5 sm:px-3">
                     <Hospital className="mr-0 sm:mr-2 h-4 w-4 shrink-0" />
@@ -2822,43 +2883,19 @@ export default function SimulationPage() {
                     )}
                   </div>
                 ) : (
-                  <>
-                    <ScrollArea className="min-h-[11rem] flex-1 pr-4">
-                        <div className="space-y-4 pr-4">
-                            <Label>Select cardiac arrest interventions</Label>
-                            {!treatmentsMenuEnabled ? (
-                              <p className="text-muted-foreground text-sm">
-                                Structured protocol interventions are disabled for this scenario.
-                              </p>
-                            ) : (
-                              <>
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {cardiacArrestInterventions.map((t) => (
-                              <InterventionTile
-                                key={t.id}
-                                intervention={t}
-                                selected={selectedTreatments[t.id]}
-                                onToggle={(sel) => handleTreatmentSelection(t.id, sel)}
-                                onSubOptionChange={(label, value) =>
-                                  handleSubOptionChange(t.id, label, value)
-                                }
-                              />
-                            ))}
-                            </div>
-                            {cardiacArrestInterventions.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">
-                                No arrest interventions in scope for your level and rhythm.
-                              </p>
-                            ) : null}
-                              </>
-                            )}
-                        </div>
-                    </ScrollArea>
-                    <Button onClick={() => handleSubmitTreatments('cardiacArrest')} disabled={isLoading || simulationEnded || hasROSC || isAnalyzingAED || !treatmentsMenuEnabled} className="w-full mt-4">
-                        {isLoading ? 'Processing...' : 'Perform Actions'} <ArrowRight className="ml-2" />
-                    </Button>
-                    {hasROSC && <p className="text-center text-green-500 font-bold mt-2">Return of Spontaneous Circulation (ROSC) achieved! Proceed with post-arrest care using the other tabs.</p>}
-                  </>
+                  <TreatmentTab
+                    title="Select cardiac arrest interventions"
+                    interventions={cardiacArrestInterventions}
+                    selected={selectedTreatments}
+                    onToggle={handleTreatmentSelection}
+                    onSubOptionChange={handleSubOptionChange}
+                    onSubmit={() => handleSubmitTreatments('cardiacArrest')}
+                    isLoading={isLoading}
+                    enabled={treatmentsMenuEnabled}
+                    disabledReason={cardiacDisabledReason}
+                    submitLabel="Perform Actions"
+                    emptyMessage="No arrest interventions in scope for your level and rhythm."
+                  />
                 )}
             </TabsContent>
             <TabsContent value="assessment">
@@ -2966,37 +3003,19 @@ export default function SimulationPage() {
               </TabsContent>
             ) : null}
             <TabsContent value="treatment" className="flex min-h-0 flex-1 flex-col outline-none">
-               <ScrollArea className="min-h-[11rem] flex-1 pr-4">
-                <div className="space-y-4 pr-4">
-                  <Label>Select treatments to administer</Label>
-                  {!treatmentsMenuEnabled && (
-                    <p className="text-muted-foreground text-sm">
-                      Structured protocol interventions are disabled for this scenario. Use Assessment and other tabs to document care.
-                    </p>
-                  )}
-                  {treatmentsMenuEnabled && interventionsForTiles.length === 0 && (
-                    <p className="text-muted-foreground text-sm">No interventions available for your certification level.</p>
-                  )}
-                  {treatmentsMenuEnabled && interventionsForTiles.length > 0 && (
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {interventionsForTiles.map((t) => (
-                    <InterventionTile
-                      key={t.id}
-                      intervention={t}
-                      selected={selectedTreatments[t.id]}
-                      onToggle={(sel) => handleTreatmentSelection(t.id, sel)}
-                      onSubOptionChange={(label, value) =>
-                        handleSubOptionChange(t.id, label, value)
-                      }
-                    />
-                  ))}
-                  </div>
-                  )}
-                </div>
-               </ScrollArea>
-                <Button onClick={() => handleSubmitTreatments('treatment')} disabled={isLoading || simulationEnded || showCardiacArrestTab || !treatmentsMenuEnabled} className="w-full mt-4">
-                    {isLoading ? 'Processing...' : 'Submit Treatments'} <ArrowRight className="ml-2" />
-                </Button>
+              <TreatmentTab
+                title="Select treatments to administer"
+                interventions={interventionsForTiles}
+                selected={selectedTreatments}
+                onToggle={handleTreatmentSelection}
+                onSubOptionChange={handleSubOptionChange}
+                onSubmit={() => handleSubmitTreatments('treatment')}
+                isLoading={isLoading}
+                enabled={treatmentsMenuEnabled}
+                disabledReason={treatmentDisabledReason}
+                submitLabel="Submit Treatments"
+                emptyMessage="No interventions available for your certification level."
+              />
             </TabsContent>
             <TabsContent value="destination" className="flex min-h-0 flex-1 flex-col outline-none">
                 <ScrollArea className="min-h-[14rem] flex-1 pr-4">
