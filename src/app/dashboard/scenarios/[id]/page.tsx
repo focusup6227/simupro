@@ -2648,7 +2648,7 @@ export default function SimulationPage() {
 
       {/* Right Column */}
       <div
-        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0 lg:overflow-hidden"
+        className="lg:col-span-2 flex flex-col bg-card rounded-lg border lg:h-full lg:min-h-0"
         data-tour={WELCOME_TOUR_ANCHORS.log}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-4 py-3">
@@ -2660,7 +2660,7 @@ export default function SimulationPage() {
         <div
           ref={simulationLogScrollRef}
           onScroll={onSimulationLogScroll}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
+          className="min-h-[10rem] flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-4"
         >
           <div className="space-y-4">
             {messages.filter((m) => m.role !== "user").length === 0 && !isLoading ? (
@@ -2824,16 +2824,13 @@ export default function SimulationPage() {
           </div>
         ) : null}
         <div
-          className="flex min-h-0 flex-[3] flex-col justify-start overflow-hidden border-t p-4"
+          className="flex shrink-0 flex-col border-t p-4"
           data-tour={WELCOME_TOUR_ANCHORS.tabs}
         >
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as ActiveTab)}
-            className={cn(
-              "flex w-full flex-col justify-start gap-2",
-              ["destination", "treatment", "cardiacArrest"].includes(activeTab) ? "min-h-0 flex-1" : "shrink-0",
-            )}
+            className="flex w-full shrink-0 flex-col justify-start gap-2"
           >
             <TabsList
               className={cn(
@@ -2897,7 +2894,7 @@ export default function SimulationPage() {
                 </>
               )}
             </TabsList>
-             <TabsContent value="cardiacArrest" className="flex min-h-0 flex-1 flex-col outline-none">
+             <TabsContent value="cardiacArrest" className="flex flex-col outline-none">
                 {(currentUserRole === 'emt' || currentUserRole === 'aemt') ? (
                   <div className="space-y-4">
                     <AedPanel
@@ -2970,8 +2967,8 @@ export default function SimulationPage() {
               </div>
             </TabsContent>
             {scenario.bystanders && scenario.bystanders.length > 0 ? (
-              <TabsContent value="bystanders" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-0 flex-1 pr-4">
+              <TabsContent value="bystanders" className="flex flex-col outline-none">
+                <ScrollArea className="max-h-[42vh] pr-4">
                   <div className="space-y-4 pr-2">
                     {(['on_scene', 'phone', 'arriving_later'] as const).map((bucket) => {
                       const bucketBystanders = scenario.bystanders!.filter((b) => b.availability === bucket);
@@ -3036,7 +3033,7 @@ export default function SimulationPage() {
                 </ScrollArea>
               </TabsContent>
             ) : null}
-            <TabsContent value="treatment" className="flex min-h-0 flex-1 flex-col outline-none">
+            <TabsContent value="treatment" className="flex flex-col outline-none">
               <TreatmentTab
                 title="Select treatments to administer"
                 interventions={interventionsForTiles}
@@ -3051,8 +3048,8 @@ export default function SimulationPage() {
                 emptyMessage="No interventions available for your certification level."
               />
             </TabsContent>
-            <TabsContent value="destination" className="flex min-h-0 flex-1 flex-col outline-none">
-                <ScrollArea className="min-h-0 flex-1 pr-4">
+            <TabsContent value="destination" className="flex flex-col outline-none">
+                <ScrollArea className="max-h-[42vh] pr-4">
                     <div className="space-y-5 pr-1">
                         <div>
                             <Label className="flex items-center gap-2 text-sm font-semibold"><Hospital className="h-4 w-4 text-primary" /> Select Hospital Destination</Label>
