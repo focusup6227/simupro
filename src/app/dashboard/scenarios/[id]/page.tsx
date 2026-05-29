@@ -2187,37 +2187,39 @@ export default function SimulationPage() {
     return <div className="p-8 text-red-500">Error: Scenario not found.</div>;
   }
   
+  // Fixed manual-ACLS list (paramedic-only tab; EMT/AEMT get the AED panel),
+  // keyed by the admin catalog's canonical intervention ids so the panel is a
+  // strict subset of the admin "Manage Interventions" catalog — anything an
+  // admin removes drops out here too.
   const cardiacArrestInterventionIds = [
-    'PROC_GUIDELINE_CARDIAC_ARREST',
-    'PROC_AED_USE',
-    'PROC_DEFIBRILLATION',
-    'MED_EPI_1_10000',
-    'MED_AMIODARONE',
-    'MED_LIDOCAINE',
-    'PROC_INTUBATION',
-    'PROC_SUPRAGLOTTIC_AIRWAY',
-    'PROC_CARDIAC_MONITORING',
+    'cpr',
+    'apply-monitor-pads',
+    'defibrillation',
+    'epinephrine-cardiac',
+    'amiodarone',
+    'lidocaine',
+    'intubation',
+    'supraglottic-airway',
+    'pulse-rhythm-check',
   ];
 
   /**
-   * Paramedic / admin manual ACLS list — filtered by the AI-reported arrest rhythm
-   * so the UI doesn't suggest defibrillation for asystole or PEA, and doesn't push
-   * antiarrhythmics on a non-shockable rhythm.
+   * Filtered by the AI-reported arrest rhythm so the UI doesn't suggest
+   * defibrillation for asystole or PEA, and doesn't push antiarrhythmics on a
+   * non-shockable rhythm.
    */
   const isShockable = shockableArrestRhythm(currentArrestRhythm as EcgRhythmKind | null);
   const filteredCardiacIds = cardiacArrestInterventionIds.filter((id) => {
     if (!currentArrestRhythm) return true;
     if (isShockable) return true;
     // Non-shockable: hide defib + antiarrhythmic-only meds.
-    return !['PROC_DEFIBRILLATION', 'MED_AMIODARONE', 'MED_LIDOCAINE'].includes(id);
+    return !['defibrillation', 'amiodarone', 'lidocaine'].includes(id);
   });
-  // The cardiac-arrest panel is a fixed ACLS list keyed by national-baseline
-  // protocol ids (PROC_DEFIBRILLATION, MED_AMIODARONE, …) that only exist in
-  // the protocol store, so it sources from `availableInterventions` rather
-  // than the admin tile catalog.
-  const cardiacArrestInterventions = availableInterventions.filter((i) =>
-    filteredCardiacIds.includes(i.id),
-  );
+  // Pull from the admin tile catalog (already scoped to the learner's level),
+  // preserving ACLS order and showing only entries the admin still publishes.
+  const cardiacArrestInterventions = filteredCardiacIds
+    .map((id) => interventionsForTiles.find((i) => i.id === id))
+    .filter((i): i is LegacySupabaseIntervention => Boolean(i));
 
   const pendingTreatmentCount = Object.values(selectedTreatments).filter(
     (s) => s.selected,
