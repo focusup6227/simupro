@@ -122,15 +122,49 @@ export async function POST(request: Request) {
           typeof subscription.customer === 'string'
             ? subscription.customer
             : subscription.customer?.id ?? null;
+
+        // A user can briefly hold more than one subscription (e.g. a duplicate
+        // checkout being cleaned up). Only downgrade if no other active/trialing
+        // subscription remains for this customer; otherwise keep Premium and
+        // point the profile at the surviving subscription.
+        let remaining: Stripe.Subscription | null = null;
+        if (customerId) {
+          const list = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'all',
+            limit: 100,
+          });
+          remaining =
+            list.data.find(
+              (s) =>
+                s.id !== subscription.id &&
+                (s.status === 'active' || s.status === 'trialing'),
+            ) ?? null;
+        }
+
         const { error } = await admin
           .from('profiles')
-          .update({
-            is_premium: false,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscription.id,
-            premium_status: subscription.status ?? 'canceled',
-            premium_current_period_end: toIsoFromUnix(subscriptionPeriodEnd(subscription)),
-          })
+          .update(
+            remaining
+              ? {
+                  is_premium: true,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: remaining.id,
+                  premium_status: remaining.status ?? 'active',
+                  premium_current_period_end: toIsoFromUnix(
+                    subscriptionPeriodEnd(remaining),
+                  ),
+                }
+              : {
+                  is_premium: false,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: subscription.id,
+                  premium_status: subscription.status ?? 'canceled',
+                  premium_current_period_end: toIsoFromUnix(
+                    subscriptionPeriodEnd(subscription),
+                  ),
+                },
+          )
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       }
@@ -145,15 +179,47 @@ export async function POST(request: Request) {
           typeof subscription.customer === 'string'
             ? subscription.customer
             : subscription.customer?.id ?? null;
+
+        // Don't drop Premium if another active/trialing subscription still covers
+        // this customer; only treat as paused when no other sub is keeping them on.
+        let remaining: Stripe.Subscription | null = null;
+        if (customerId) {
+          const list = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'all',
+            limit: 100,
+          });
+          remaining =
+            list.data.find(
+              (s) =>
+                s.id !== subscription.id &&
+                (s.status === 'active' || s.status === 'trialing'),
+            ) ?? null;
+        }
+
         const { error } = await admin
           .from('profiles')
-          .update({
-            is_premium: false,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscription.id,
-            premium_status: 'paused',
-            premium_current_period_end: toIsoFromUnix(subscriptionPeriodEnd(subscription)),
-          })
+          .update(
+            remaining
+              ? {
+                  is_premium: true,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: remaining.id,
+                  premium_status: remaining.status ?? 'active',
+                  premium_current_period_end: toIsoFromUnix(
+                    subscriptionPeriodEnd(remaining),
+                  ),
+                }
+              : {
+                  is_premium: false,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: subscription.id,
+                  premium_status: 'paused',
+                  premium_current_period_end: toIsoFromUnix(
+                    subscriptionPeriodEnd(subscription),
+                  ),
+                },
+          )
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       }

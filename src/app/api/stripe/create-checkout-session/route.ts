@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server-client';
+import { createServiceRoleSupabaseClient } from '@/lib/supabase/admin-client';
 import { enforceCheckoutLimit, RateLimitError } from '@/lib/ratelimit';
 import { captureActionError } from '@/lib/observability';
 
@@ -60,6 +61,48 @@ export async function POST(request: Request) {
 
     const stripe = new Stripe(stripeSecretKey);
 
+    // Reuse the profile's Stripe customer so repeat checkouts don't spawn a new
+    // customer + subscription each time (the cause of past silent double-charges).
+    const admin = createServiceRoleSupabaseClient();
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    let customerId = profile?.stripe_customer_id ?? null;
+
+    if (customerId) {
+      // Don't let a user who already pays open a second checkout.
+      const existing = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 100,
+      });
+      const alreadyActive = existing.data.some(
+        (s) => s.status === 'active' || s.status === 'trialing',
+      );
+      if (alreadyActive) {
+        return NextResponse.json(
+          {
+            error:
+              'You already have an active subscription. Manage it from the billing portal.',
+          },
+          { status: 409 },
+        );
+      }
+    } else {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+        metadata: { user_id: user.id },
+      });
+      customerId = customer.id;
+      await admin
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -67,7 +110,7 @@ export async function POST(request: Request) {
       success_url: `${origin}/billing?success=1`,
       cancel_url: `${origin}/billing?canceled=1`,
       client_reference_id: user.id,
-      customer_email: user.email ?? undefined,
+      customer: customerId,
       metadata: { user_id: user.id, billing_cycle: cycle },
       allow_promotion_codes: true,
       subscription_data: {
