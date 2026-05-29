@@ -73,13 +73,40 @@ const ProcedureRowSchema = z.object({
   procedureData: ProcedureDataSchema,
 });
 
-/** Zod schema for one baseline row (discriminated union). */
+/** Zod schema for one baseline row (discriminated union). Pure clinical shape — used for
+ * national-baseline validation and AI-flow output (the model never emits trust-pipeline fields). */
 export const BaselineInterventionSchema = z.discriminatedUnion('type', [
   MedicationRowSchema,
   ProcedureRowSchema,
 ]);
 
 const NationalBaselineJsonSchema = z.array(BaselineInterventionSchema);
+
+/** Best-effort source link carried on stored extracted rows (trust pipeline Phase 1). */
+export const ProvenanceRefSchema = z.object({
+  page: z.number().int().nonnegative().optional(),
+  charStart: z.number().int().nonnegative().optional(),
+  charEnd: z.number().int().nonnegative().optional(),
+  snippet: z.string().optional(),
+});
+
+const TRUST_FIELDS = {
+  rowId: z.string().optional(),
+  provenance: ProvenanceRefSchema.nullish(),
+} as const;
+
+/**
+ * Stored extracted-intervention shape: the clinical row plus optional trust-pipeline fields
+ * (`rowId`, `provenance`). Use this — not `BaselineInterventionSchema` — when parsing rows that
+ * have been (or will be) persisted to `extracted_interventions`, so the trust fields survive
+ * Zod's default key-stripping.
+ */
+export const StoredInterventionSchema = z.discriminatedUnion('type', [
+  MedicationRowSchema.extend(TRUST_FIELDS),
+  ProcedureRowSchema.extend(TRUST_FIELDS),
+]);
+
+export const StoredInterventionArraySchema = z.array(StoredInterventionSchema);
 
 const cached: { parsed: Intervention[] | null } = { parsed: null };
 

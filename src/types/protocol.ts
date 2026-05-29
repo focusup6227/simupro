@@ -13,6 +13,19 @@ export type InterventionCategory =
 
 export type MedicationRoute = 'IV' | 'IO' | 'IM' | 'IN' | 'PO' | 'SL' | 'NEB';
 
+/**
+ * Best-effort link from an extracted intervention back to the source PDF text.
+ * `charStart`/`charEnd` are offsets into the full extracted document text; `snippet`
+ * is a short surrounding excerpt. All fields are optional — a row that could not be
+ * localized stores `provenance: null` rather than dropping out. (Trust pipeline Phase 1.)
+ */
+export interface ProvenanceRef {
+  page?: number;
+  charStart?: number;
+  charEnd?: number;
+  snippet?: string;
+}
+
 interface InterventionBase {
   id: string;
   name: string;
@@ -20,6 +33,14 @@ interface InterventionBase {
   minLevel: LicensureLevel;
   indications: string[];
   contraindications: string[];
+  /**
+   * Stable per-row identity for the uploaded-protocol trust pipeline (flags/threads/provenance
+   * key off this). Assigned by the extraction pipeline and preserved across re-scrub; absent on
+   * national-baseline rows and on AI-flow output (the model never mints it).
+   */
+  rowId?: string;
+  /** Best-effort source link; `null` when the row could not be localized in the PDF text. */
+  provenance?: ProvenanceRef | null;
 }
 
 export interface Medication extends InterventionBase {

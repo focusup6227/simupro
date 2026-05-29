@@ -5,11 +5,9 @@ import { extractProtocolFromPdfText } from '@/ai/flows/extract-protocol-from-pdf
 import { scrubProtocolExtractionList } from '@/ai/flows/scrub-protocol-extraction';
 import { mergeCatalog } from '@/lib/protocol-merge';
 import { scrubExtractedProtocolList } from '@/lib/protocol-extract-scrub';
-import { BaselineInterventionSchema } from '@/lib/national-baseline';
+import { StoredInterventionArraySchema } from '@/lib/national-baseline';
+import { attachProvenance, ensureRowIds, reconcileRowIds } from '@/lib/protocol-row-provenance';
 import type { Intervention } from '@/types/protocol';
-import { z } from 'zod';
-
-const NationalArraySchema = z.array(BaselineInterventionSchema);
 
 export function chunkPdfText(text: string, maxChunk = 48000): string[] {
   const t = text.trim();
@@ -37,10 +35,19 @@ export type ExtractionPipelineResult =
   | { ok: true; interventions: Intervention[] }
   | { ok: false; error: string };
 
+export type ExtractionOptions = {
+  /** Prior extracted rows (re-scrub) — used to carry `rowId`s forward so flags/threads persist. */
+  priorInterventions?: Intervention[];
+};
+
 /**
- * Full extraction: chunk → model → deterministic scrub → LLM scrub → Zod validate.
+ * Full extraction: chunk → model → deterministic scrub → LLM scrub → Zod validate →
+ * attach provenance + stamp stable row ids.
  */
-export async function extractInterventionsFromPlainText(rawText: string): Promise<ExtractionPipelineResult> {
+export async function extractInterventionsFromPlainText(
+  rawText: string,
+  opts: ExtractionOptions = {},
+): Promise<ExtractionPipelineResult> {
   if (!rawText.trim().length) {
     return { ok: false, error: 'No extractable text in this PDF (it may be image-only).' };
   }
@@ -75,12 +82,17 @@ export async function extractInterventionsFromPlainText(rawText: string): Promis
       console.error('LLM protocol scrub failed; using deterministic scrub only', e);
     }
 
-    const validated = NationalArraySchema.safeParse(finalRows);
+    const validated = StoredInterventionArraySchema.safeParse(finalRows);
     if (!validated.success) {
       return { ok: false, error: 'Extracted protocol failed validation.' };
     }
 
-    return { ok: true, interventions: validated.data };
+    const withProvenance = attachProvenance(rawText, validated.data as Intervention[]);
+    const interventions = opts.priorInterventions
+      ? reconcileRowIds(opts.priorInterventions, withProvenance)
+      : ensureRowIds(withProvenance);
+
+    return { ok: true, interventions };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Extraction failed.';
     return { ok: false, error: msg };

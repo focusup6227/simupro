@@ -3,13 +3,12 @@
 import { profileRowToUser } from '@/lib/db-mappers';
 import { extractInterventionsFromPlainText } from '@/lib/protocol-import-extraction-pipeline';
 import { enforceAiLimit } from '@/lib/ratelimit';
-import { BaselineInterventionSchema } from '@/lib/national-baseline';
+import { StoredInterventionArraySchema } from '@/lib/national-baseline';
+import { ensureRowIds } from '@/lib/protocol-row-provenance';
 import { isAdminUser } from '@/lib/user-permissions';
 import { createServerSupabaseClient } from '@/lib/supabase/server-client';
 import type { Json } from '@/lib/supabase/database.types';
-import { z } from 'zod';
-
-const NationalArraySchema = z.array(BaselineInterventionSchema);
+import type { Intervention } from '@/types/protocol';
 
 async function requireAdmin() {
   const supabase = createServerSupabaseClient();
@@ -83,7 +82,10 @@ export async function adminRescrubProtocolImport(
       await parser.destroy();
     }
 
-    const extracted = await extractInterventionsFromPlainText(rawText);
+    const priorInterventions = Array.isArray(imp.extracted_interventions)
+      ? (imp.extracted_interventions as unknown as Intervention[])
+      : undefined;
+    const extracted = await extractInterventionsFromPlainText(rawText, { priorInterventions });
     if (!extracted.ok) {
       await supabase
         .from(table)
@@ -133,10 +135,13 @@ export async function adminSaveProtocolImportManual(
     } catch {
       return { ok: false, error: 'Invalid JSON.' };
     }
-    const validated = NationalArraySchema.safeParse(parsed);
+    const validated = StoredInterventionArraySchema.safeParse(parsed);
     if (!validated.success) {
       return { ok: false, error: `Schema validation failed: ${validated.error.message}` };
     }
+
+    // Stamp ids onto any rows the admin added by hand; existing rowIds are preserved.
+    const rows = ensureRowIds(validated.data as Intervention[]);
 
     const table = scope === 'user' ? 'user_protocol_imports' : 'workplace_protocol_imports';
     const msg =
@@ -147,7 +152,7 @@ export async function adminSaveProtocolImportManual(
       .from(table)
       .update({
         status: 'ready',
-        extracted_interventions: validated.data as unknown as Json,
+        extracted_interventions: rows as unknown as Json,
         extraction_error: null,
         admin_review_status: 'resolved',
         admin_review_notes: adminNotes.trim() || null,
