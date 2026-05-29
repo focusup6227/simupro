@@ -11,7 +11,7 @@ import type { Json } from '@/lib/supabase/database.types';
 import type { Intervention } from '@/types/protocol';
 
 async function requireAdmin() {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

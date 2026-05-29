@@ -36,7 +36,7 @@ function sanitizeFilename(name: string): string {
 
 async function getSessionUserId(): Promise<string | null> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data } = await supabase.auth.getUser();
     return data.user?.id ?? null;
   } catch {
@@ -45,7 +45,7 @@ async function getSessionUserId(): Promise<string | null> {
 }
 
 async function requirePremiumProfile() {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const userId = await getSessionUserId();
   if (!userId) {
     throw new Error('Sign in required.');
@@ -66,7 +66,7 @@ async function requirePremiumProfile() {
 }
 
 async function markImportFailed(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   target: ExtractionTarget,
   message: string,
 ) {
@@ -95,7 +95,7 @@ async function markImportFailed(
 }
 
 async function runExtraction(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   target: ExtractionTarget,
   storagePath: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -204,7 +204,7 @@ export async function joinProtocolWorkplace(
   await enforceAiLimit(userId);
   try {
     await requirePremiumProfile();
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.rpc('join_protocol_workplace', {
       p_code: joinCode.trim(),
     });
@@ -223,7 +223,7 @@ export async function joinProtocolWorkplace(
 export async function leaveProtocolWorkplace(): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await requirePremiumProfile();
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { error } = await supabase.rpc('leave_protocol_workplace');
     if (error) {
       return { ok: false, error: mapRpcError(error) };
@@ -616,7 +616,7 @@ export async function acknowledgeProtocolImportResolution(
   importId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
