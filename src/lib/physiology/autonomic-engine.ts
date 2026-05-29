@@ -54,14 +54,17 @@ export function defaultAutonomicState(
   const w = weightKg > 0 ? weightKg : 75;
   const volumeBaseline = profile?.initialVolumeMl ?? 70 * w;
   const vb = volumeBaseline > 0 ? volumeBaseline : 70 * w;
+  const initialTone = clamp01(profile?.baselineDistributiveToneFactor ?? 1);
+  const mapBaseline = profile?.baselineMapMmHg ?? 90;
+  // Intrinsic MAP at t=0 (volRatio = 1): mapBaseline · tonePart(initialTone).
+  // Used as the disturbance reference so displayed BP is unperturbed at start.
+  const intrinsicMapBaseline = mapBaseline * (0.25 + 0.75 * initialTone);
 
   return {
     intravascularVolumeMl: vb,
     volumeBaselineMl: vb,
     currentBleedRateMlPerMin: profile?.baselineBleedRateMlPerMin ?? 0,
-    distributiveToneFactor: clamp01(
-      profile?.baselineDistributiveToneFactor ?? 1,
-    ),
+    distributiveToneFactor: initialTone,
     sympatheticDrive: 0,
     baroreflexErrorIntegral: 0,
     workOfBreathing: 0,
@@ -78,9 +81,13 @@ export function defaultAutonomicState(
     lastIntegratedSimSec: -1,
     crashingSecondsAccumulated: 0,
     fluidBolusActiveUntilSimSec: -1,
-    mapBaselineMmHg: profile?.baselineMapMmHg ?? 90,
+    mapBaselineMmHg: mapBaseline,
     cpapActive: false,
     airwaySecured: false,
+    intrinsicMapBaselineMmHg: intrinsicMapBaseline,
+    baroBpActuatorSysMmHg: 0,
+    bpDisturbancePrevSysMmHg: 0,
+    bpDisturbancePrevDiaMmHg: 0,
   };
 }
 
@@ -281,15 +288,38 @@ export function tickAutonomic(
   st.sympatheticDrive +=
     (symTarget - st.sympatheticDrive) * Math.min(1, dtSec / tau);
 
+  // Shock demand: how hard the autonomic system is working to defend MAP. It
+  // persists through compensated shock (unlike the residual baroreflex error,
+  // which the integral actuator drives toward ~0), so HR and RR stay elevated
+  // while the patient is bleeding. Two contributions, both in MAP mmHg:
+  //   • mapDeficit — the volume/tone MAP the body is actively offsetting
+  //     (mapEst below its t=0 intrinsic baseline; grows as the patient bleeds).
+  //   • residualHypotension — uncompensated shortfall still at the bezel (an
+  //     AI-set low baseline, or a saturated/blunted reflex).
+  // Small deadband so trivial losses (ATLS Class I) don't bump the rate.
+  const mapDeficit = Math.max(0, st.intrinsicMapBaselineMmHg - mapEst);
+  const residualHypotension = Math.max(0, mapTarget - MAP_forReflex);
+  const shockDemand = clamp01((mapDeficit + residualHypotension * 1.3 - 4) / 45);
+
+  // A blunted/withdrawn reflex (chronic HTN, β-blockade, low adrenergic
+  // reserve) mounts less tachycardia for the same shock.
+  const reflexGain =
+    clamp01(axes.adrenergicReserve) *
+    Math.max(0.3, clamp01(axes.baroreceptorSensitivity));
+
+  // HR tracks sympathetic *engagement* (shock demand) so sustained
+  // vasoconstriction = sustained tachycardia, plus a small instantaneous-drive
+  // term so drug/feedback effects still register.
+  const MAX_HR_RISE_BPM = 62;
   const emaxHr = 38;
   const dHr =
-    st.sympatheticDrive * emaxHr * clamp01(axes.adrenergicReserve);
+    (shockDemand * MAX_HR_RISE_BPM + st.sympatheticDrive * emaxHr * 0.15) *
+    reflexGain;
 
   const emaxBp = 28;
   const effectiveVascularTone = clamp01(axes.vascularTone) * (1 - (feedback?.vasoplegiaPenalty ?? 0));
   const dBpSys =
     st.sympatheticDrive * emaxBp * Math.max(0.1, effectiveVascularTone);
-  const dBpDia = dBpSys * 0.55;
 
   let spo2ForChem = SpO2_obs ?? 94;
   const hypoxicErr = (92 - spo2ForChem) / 14;
@@ -303,12 +333,24 @@ export function tickAutonomic(
     st.oxygenationDriveDeficit *= 0.65;
   }
 
+  // Tachypnea of shock (sympathetic / hypoperfusion driven — precedes the
+  // metabolic acidosis the chemoreflex would catch) plus the existing
+  // chemoreflex (hypoxia / CO₂ / acidemia).
+  const MAX_RR_RISE_SHOCK = 16;
+  // Only a hypoxic deficit drives RR up; a well-oxygenated patient (SpO₂ > 92,
+  // where oxygenationDriveDeficit goes negative) must not get a hyperoxic
+  // *bradypnea* that cancels the shock/chemoreflex tachypnea. (The signed
+  // deficit is still used by workOfBreathing.)
   let dRr =
-    st.oxygenationDriveDeficit * 7 +
+    shockDemand * MAX_RR_RISE_SHOCK +
+    Math.max(0, st.oxygenationDriveDeficit) * 7 +
     (feedback?.hypercarbicDrive ?? 0) * 5 +
     (feedback?.acidemiaDrive ?? 0) * 6;
+  // Only a *hypoxic* deficit (positive) builds work of breathing; a
+  // well-oxygenated patient (negative deficit) must not accumulate fatigue via
+  // Math.abs and silently trip the RR-damping fatigue threshold below.
   st.workOfBreathing +=
-    (Math.abs(st.oxygenationDriveDeficit) +
+    (Math.max(0, st.oxygenationDriveDeficit) +
       (feedback?.hypercarbicDrive ?? 0) * 0.6 +
       (feedback?.acidemiaDrive ?? 0) * 0.4) *
     0.018 *
@@ -373,16 +415,108 @@ export function tickAutonomic(
     st.decompensationPhase = 'arrested';
   }
 
+  /**
+   * `dHr` and `dRr` are steady-state *offset levels* — where HR / RR should sit
+   * given the current sympathetic / chemoreflex state — not per-second
+   * increments. Summing a level integrates it without bound whenever the axis
+   * has no restoring loop of its own, which is precisely the failure mode that
+   * produced RR 800 and HR 800+ in vasoplegic shock. Instead we relax the
+   * accumulated offset toward the target with a first-order lag. The time
+   * constants come from the BioGears baroreflex model: HR responds fast
+   * (sympathetic τ≈2 s) while the chemoreflex RR arm is slower (~8 s).
+   *
+   * BP is the *controlled* variable, so it's modeled as a capped integral
+   * actuator plus a disturbance level:
+   *   • The baroreflex actuator (summed dBpSys) is clamped to a physiologic
+   *     compensation ceiling — vasoconstriction/inotropy can only support so
+   *     much pressure, so the reflex can no longer restore an arbitrarily low
+   *     pressure to target (which is why blood loss never used to reach the
+   *     monitor).
+   *   • The volume/tone/pneumo *disturbance* is applied as a level (referenced
+   *     to its t=0 value, via a telescoping increment so cumulative.sBp =
+   *     clamped-actuator + current-disturbance). `mapEst` falls as the patient
+   *     bleeds (volRatio↓) or vasodilates (tonePart↓); because the reflex reads
+   *     the resulting observed BP, it keeps firing while the patient bleeds, so
+   *     tachycardia is sustained and BP genuinely drops once compensation maxes
+   *     out. The tension-pneumo term joins this level (it was previously summed
+   *     — the same unbounded-integral bug).
+   * SpO₂ is likewise a disturbance level (edema/pneumo shunt) and relaxes toward
+   * its target rather than summing, so it can't integrate to the 0 floor and
+   * recovers when the cause resolves.
+   */
+  // Time constants are sourced from the BioGears baroreflex model
+  // (libBiogears Nervous.cpp): the lags are physiologic and transfer across
+  // model architectures. (The engine's effector *gains* are normalized to its
+  // multi-compartment circuit and do NOT map onto this lumped-MAP model, so the
+  // offset magnitudes below — MAX_HR_RISE_BPM, MAX_RR_RISE_SHOCK, the actuator
+  // ceiling — are calibrated to the ATLS hemorrhage-class endpoints instead.)
+  const HR_RELAX_TAU_SEC = 2; // BioGears tauHRSympathetic = 2.0 s
+  const RR_RELAX_TAU_SEC = 8; // peripheral chemoreflex ventilation lag (no baroreflex analog)
+  const SPO2_RELAX_TAU_SEC = 20; // matches BioGears tauVolume = 20.0 s
+  const hrAlpha = Math.min(1, dtSec / HR_RELAX_TAU_SEC);
+  const rrAlpha = Math.min(1, dtSec / RR_RELAX_TAU_SEC);
+  const spo2Alpha = Math.min(1, dtSec / SPO2_RELAX_TAU_SEC);
+
+  // Baroreflex BP actuator, carried in MAP mmHg of pressure support. Capped at
+  // the physiologic compensation ceiling — vasoconstriction/inotropy can only
+  // defend so much pressure (~18 MAP, the reflex-saturation analog of Pulse's
+  // hemorrhage benchmark); once saturated, further disturbance drops BP for
+  // real, which is the ATLS compensated→decompensated transition.
+  const BARO_ACTUATOR_MAP_MAX = 18;
+  const BARO_ACTUATOR_MAP_MIN = -10;
+  // Vasoplegia / poor adrenergic reserve lowers the *achievable* compensation
+  // ceiling — a septic patient who can't vasoconstrict can't integrate his way
+  // back to a normal pressure no matter how long the reflex fires. Scaling the
+  // cap by effective vascular tone keeps that BP penalty (otherwise the integral
+  // reaches the same ceiling for everyone, just slower).
+  const actuatorCeiling =
+    BARO_ACTUATOR_MAP_MAX * Math.max(0.2, effectiveVascularTone);
+  const actuatorBefore = st.baroBpActuatorSysMmHg;
+  st.baroBpActuatorSysMmHg = Math.max(
+    BARO_ACTUATOR_MAP_MIN,
+    Math.min(actuatorCeiling, actuatorBefore + dBpSys),
+  );
+  const actuatorDelta = st.baroBpActuatorSysMmHg - actuatorBefore;
+
+  // Pulse-pressure physiology, both MAP-preserving ((sys + 2·dia)/3 = ΔMAP):
+  //   • Volume loss drops stroke volume → systolic falls more than diastolic
+  //     (disturbance sys 1.3×, dia 0.85×).
+  //   • Vasoconstriction raises diastolic more than systolic (actuator sys
+  //     0.7×, dia 1.15×).
+  // Both narrow pulse pressure — the ATLS Class II hallmark — without distorting
+  // the MAP the reflex regulates. Tension pneumo adds an obstructive level.
+  const mapDisturbance = mapEst - st.intrinsicMapBaselineMmHg; // ≤0 when hypovolemic/vasodilated
+  const sysDisturbance = mapDisturbance * 1.3 + dBpPneu;
+  const diaDisturbance = mapDisturbance * 0.85 + dBpPneu * 0.6;
+
   const step: VitalDeltas = zeroDeltas();
-  step.hr = dHr;
-  step.sBp = dBpSys + dBpPneu;
-  step.dBp = dBpDia + dBpPneu * 0.6;
-  step.rr = dRr;
-  step.spo2 = dSpo2;
+  step.hr = (dHr - cumulativeBefore.hr) * hrAlpha;
+  step.rr = (dRr - cumulativeBefore.rr) * rrAlpha;
+  // Telescoping: actuator increment + disturbance increment → cumulative.sBp
+  // converges to (clamped actuator + current disturbance).
+  step.sBp =
+    actuatorDelta * 0.7 + (sysDisturbance - st.bpDisturbancePrevSysMmHg);
+  step.dBp =
+    actuatorDelta * 1.15 + (diaDisturbance - st.bpDisturbancePrevDiaMmHg);
+  // SpO₂ is a disturbance *level* too (dSpo2 = current edema/pneumo offset, not
+  // a per-tick increment). Relax toward it rather than summing, so it can't
+  // integrate to the 0 floor and — crucially — recovers when the cause resolves
+  // (e.g. a decompressed pneumothorax). The 20 s lag models how desaturation
+  // and re-saturation track changing shunt rather than snapping instantly.
+  step.spo2 = (dSpo2 - cumulativeBefore.spo2) * spo2Alpha;
+  st.bpDisturbancePrevSysMmHg = sysDisturbance;
+  st.bpDisturbancePrevDiaMmHg = diaDisturbance;
 
   st.lastIntegratedSimSec = simSec;
 
   const cumulative = mergeAutonomicWithPkDeltas(cumulativeBefore, step);
+
+  // Backstop only: the relaxation above already bounds the HR/RR offsets to
+  // their (clamped) target levels. These guard against pathological inputs and
+  // keep an impossible value off the bezel even if a future change reintroduces
+  // an unbounded term. They should never bind in normal operation.
+  cumulative.rr = Math.max(-10, Math.min(45, cumulative.rr));
+  cumulative.hr = Math.max(-50, Math.min(150, cumulative.hr));
 
   return {
     state: st,
