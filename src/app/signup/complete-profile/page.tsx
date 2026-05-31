@@ -10,6 +10,19 @@ import { useUser, useSupabase } from '@/supabase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { userToProfileInsert } from '@/lib/db-mappers';
+import type { UserRole } from '@/lib/types';
+
+/**
+ * Cert level chosen on the signup form, carried via user_metadata. `user_metadata` is
+ * client-controlled, so we only trust the self-serve cert levels — never `admin`/`tester`/etc.,
+ * which would be a privilege-escalation vector. Defaults to EMT.
+ */
+const SELF_SERVE_ROLES: readonly UserRole[] = ['emt', 'aemt', 'paramedic'];
+function roleFromUser(user: { user_metadata?: Record<string, unknown> } | null): UserRole {
+  const meta = user?.user_metadata ?? {};
+  const role = typeof meta.role === 'string' ? (meta.role as UserRole) : null;
+  return role && SELF_SERVE_ROLES.includes(role) ? role : 'emt';
+}
 
 function displayNameFromUser(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null) {
   if (!user) return 'User';
@@ -64,7 +77,7 @@ export default function CompleteProfilePage() {
           email: user.email ?? '',
           displayName: dn,
           photoURL: photo,
-          role: 'emt',
+          role: roleFromUser(user),
           isAdmin: false,
           hasCompletedTutorial: false,
         }),
