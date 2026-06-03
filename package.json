@@ -15,7 +15,8 @@
     "test:e2e": "playwright test",
     "db:push": "supabase db push --yes --linked",
     "db:push:dry-run": "supabase db push --linked --dry-run",
-    "qa:scenario-roles": "tsx scripts/qa-dashboard-scenarios-roles.ts"
+    "qa:scenario-roles": "tsx scripts/qa-dashboard-scenarios-roles.ts",
+    "trello:setup": "tsx scripts/setup-trello-lists.ts"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.0.0",

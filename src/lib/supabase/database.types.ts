@@ -218,6 +218,7 @@ export interface Database {
           bystanders: Json;
           created_at: string;
           updated_at: string;
+          trello_card_id: string | null;
         };
         Insert: {
           id: string;
@@ -247,6 +248,7 @@ export interface Database {
           icp_mm_hg?: number | null;
           interventions_enabled?: boolean;
           bystanders?: Json;
+          trello_card_id?: string | null;
         };
         Update: Partial<{
           title: string;
@@ -275,6 +277,7 @@ export interface Database {
           icp_mm_hg?: number | null;
           interventions_enabled?: boolean;
           bystanders?: Json;
+          trello_card_id?: string | null;
         }>;
         Relationships: [];
       };
@@ -505,6 +508,7 @@ export interface Database {
           created_at: string;
           status: string;
           responses: Json;
+          trello_card_id: string | null;
         };
         Insert: {
           id: string;
@@ -516,6 +520,7 @@ export interface Database {
           ticket_kind?: string;
           status?: string;
           responses?: Json;
+          trello_card_id?: string | null;
         };
         Update: Partial<{
           user_email: string;
@@ -525,6 +530,7 @@ export interface Database {
           ticket_kind?: string;
           status?: string;
           responses?: Json;
+          trello_card_id?: string | null;
         }>;
         Relationships: [];
       };
@@ -545,6 +551,7 @@ export interface Database {
           resolution_message_for_user: string | null;
           created_at: string;
           updated_at: string;
+          trello_card_id: string | null;
         };
         Insert: {
           id?: string;
@@ -562,6 +569,7 @@ export interface Database {
           resolution_message_for_user?: string | null;
           created_at?: string;
           updated_at?: string;
+          trello_card_id?: string | null;
         };
         Update: Partial<{
           storage_path: string;
@@ -576,6 +584,7 @@ export interface Database {
           admin_resolved_at: string | null;
           resolution_message_for_user: string | null;
           updated_at: string;
+          trello_card_id: string | null;
         }>;
         Relationships: [];
       };
@@ -597,6 +606,7 @@ export interface Database {
           resolution_message_for_user: string | null;
           created_at: string;
           updated_at: string;
+          trello_card_id: string | null;
         };
         Insert: {
           id?: string;
@@ -615,6 +625,7 @@ export interface Database {
           resolution_message_for_user?: string | null;
           created_at?: string;
           updated_at?: string;
+          trello_card_id?: string | null;
         };
         Update: Partial<{
           storage_path: string;
@@ -629,6 +640,7 @@ export interface Database {
           admin_resolved_at: string | null;
           resolution_message_for_user: string | null;
           updated_at: string;
+          trello_card_id: string | null;
         }>;
         Relationships: [];
       };
@@ -669,6 +681,7 @@ export interface Database {
           reviewed_at: string | null;
           created_at: string;
           updated_at: string;
+          trello_card_id: string | null;
         };
         Insert: {
           id: string;
@@ -690,6 +703,7 @@ export interface Database {
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          trello_card_id?: string | null;
         };
         Update: Partial<{
           session_id: string | null;
@@ -699,6 +713,7 @@ export interface Database {
           reviewed_by: string | null;
           reviewed_at: string | null;
           updated_at: string;
+          trello_card_id: string | null;
         }>;
         Relationships: [];
       };
