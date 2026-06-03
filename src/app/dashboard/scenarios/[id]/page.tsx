@@ -463,14 +463,18 @@ export default function SimulationPage() {
 
   /** Assistant-only rows for “bad reply” reporting (index is position in full `messages` array). */
   const assistantReplyPicklist = useMemo(() => {
-    const out: { index: number; preview: string }[] = [];
+    const out: { index: number; preview: string; seq: number }[] = [];
+    let seq = 0;
     messages.forEach((m, i) => {
       if (m.role !== "assistant") return;
+      seq += 1;
       const raw = stripGradingMarkers(m.content);
       const preview = raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
-      out.push({ index: i, preview });
+      out.push({ index: i, preview, seq });
     });
-    return out;
+    // Newest first so the reply the user just saw (the one they're most likely
+    // flagging) is at the top instead of buried under earlier replies.
+    return out.reverse();
   }, [messages]);
 
   useEffect(() => {
@@ -2532,7 +2536,7 @@ export default function SimulationPage() {
                   ) : (
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Which reply was wrong?</p>
-                      <ScrollArea className="max-h-48 rounded-md border p-3">
+                      <ScrollArea className="max-h-80 rounded-md border p-3">
                         <RadioGroup
                           value={
                             badAiReportMessageIndex !== null ? String(badAiReportMessageIndex) : ""
@@ -2540,7 +2544,7 @@ export default function SimulationPage() {
                           onValueChange={(v) => setBadAiReportMessageIndex(parseInt(v, 10))}
                           className="space-y-3"
                         >
-                          {assistantReplyPicklist.map((opt, seq) => (
+                          {assistantReplyPicklist.map((opt, listPos) => (
                             <div key={opt.index} className="flex items-start gap-3">
                               <RadioGroupItem
                                 value={String(opt.index)}
@@ -2552,7 +2556,8 @@ export default function SimulationPage() {
                                 className="cursor-pointer font-normal leading-snug"
                               >
                                 <span className="text-xs font-medium text-muted-foreground">
-                                  Patient reply #{seq + 1}
+                                  Patient reply #{opt.seq}
+                                  {listPos === 0 ? " · latest" : ""}
                                 </span>
                                 <p className="mt-0.5 text-sm">{opt.preview}</p>
                               </Label>
