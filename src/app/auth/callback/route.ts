@@ -34,6 +34,12 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=auth`);
   }
 
+  // Password-recovery / set-password lands here before the profile gate:
+  // migrated users have no profile yet but still need to set a password first.
+  if (next === '/reset-password') {
+    return NextResponse.redirect(`${origin}/reset-password`);
+  }
+
   const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
 
   if (!profile) {

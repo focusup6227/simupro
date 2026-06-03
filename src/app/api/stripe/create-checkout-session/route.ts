@@ -113,6 +113,10 @@ export async function POST(request: Request) {
       customer: customerId,
       metadata: { user_id: user.id, billing_cycle: cycle },
       allow_promotion_codes: true,
+      // A 100%-off-forever promo code (e.g. beta-tester comps) leaves nothing
+      // to charge now or later, so don't force card entry. Paying customers
+      // still have a balance due and are prompted for a card as normal.
+      payment_method_collection: 'if_required',
       subscription_data: {
         metadata: { user_id: user.id, billing_cycle: cycle },
       },
