@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ArrowRight, AlertTriangle, Ban } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Ban, Loader2 } from 'lucide-react';
 import {
   InterventionTile,
   type InterventionTileIntervention,
@@ -174,6 +174,7 @@ export function TreatmentTab({
           </p>
         ) : null}
         <Button onClick={onSubmit} disabled={blocked} className="w-full">
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isLoading ? 'Processing…' : submitLabel}
           {!isLoading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
         </Button>

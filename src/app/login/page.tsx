@@ -62,7 +62,14 @@ export default function LoginPage() {
     } catch (error: unknown) {
       const msg =
         error instanceof Error ? error.message : "An unexpected error occurred.";
-      const isUnverified = /confirm|verify|email.*not.*confirmed/i.test(msg);
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code ?? "")
+          : "";
+      // Prefer Supabase's structured error code; fall back to message matching in case the
+      // SDK/back-end wording changes (which would otherwise hide the "Resend" affordance).
+      const isUnverified =
+        code === "email_not_confirmed" || /confirm|verify|email.*not.*confirmed/i.test(msg);
       if (isUnverified) setShowResend(true);
       toast({
         variant: "destructive",

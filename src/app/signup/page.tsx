@@ -19,6 +19,7 @@ import { useSupabase } from "@/supabase/provider";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/lib/types";
 import { userToProfileInsert } from "@/lib/db-mappers";
+import { captureActionError } from "@/lib/observability";
 import { Icons } from "@/components/app/icons";
 import {
   AuthShell,
@@ -98,7 +99,20 @@ export default function SignUpPage() {
         }),
         { onConflict: "id" },
       );
-      if (profileError) throw profileError;
+      if (profileError) {
+        // Auth succeeded but the profile row didn't land — sending the user to /dashboard
+        // here drops them on an empty, data-less page. Alert and route to the recoverable
+        // complete-profile step, which retries the same upsert before entering the app.
+        captureActionError("signup.profile-upsert", profileError, { userId: user.id });
+        toast({
+          variant: "destructive",
+          title: "Almost there",
+          description:
+            "Your account was created, but we couldn't finish setting up your profile. Let's try that again.",
+        });
+        router.push("/signup/complete-profile");
+        return;
+      }
 
       toast({
         title: "Account Created",

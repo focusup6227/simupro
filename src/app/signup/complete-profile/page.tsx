@@ -128,9 +128,9 @@ export default function CompleteProfilePage() {
            <div className="mx-auto mb-4">
             <AppLogo />
           </div>
-          <CardTitle className="text-3xl font-bold">Complete Your Profile</CardTitle>
+          <CardTitle className="text-3xl font-bold">Finish setting up</CardTitle>
           <CardDescription>
-            Welcome, {displayNameFromUser(user)}! Choose how you&apos;d like to start training.
+            You&apos;re all set, {displayNameFromUser(user)} — confirm below to enter your dashboard.
           </CardDescription>
         </CardHeader>
         <CardContent>

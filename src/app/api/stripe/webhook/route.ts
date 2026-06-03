@@ -5,6 +5,7 @@ import {
   resolveProfileIdForCheckoutSession,
   resolveProfileIdForSubscription,
 } from '@/lib/stripe/resolve-profile-user-id';
+import { captureActionError } from '@/lib/observability';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,26 @@ function toIsoFromUnix(ts?: number | null) {
 
 function subscriptionPeriodEnd(subscription: Stripe.Subscription) {
   return subscription.items.data[0]?.current_period_end ?? null;
+}
+
+/**
+ * A subscription lifecycle event we couldn't map to a profile. Alert (so it's never silent)
+ * but acknowledge with 200: unlike a fresh checkout, the customer already existed, so an
+ * unresolved profile here is usually a deleted account — retrying would never resolve it and
+ * would just produce a Stripe retry storm (e.g. the `subscription.deleted` we ourselves fire
+ * when canceling a sub during account deletion).
+ */
+function unresolvedProfileResponse(event: Stripe.Event, subscription: Stripe.Subscription) {
+  const customerId =
+    typeof subscription.customer === 'string'
+      ? subscription.customer
+      : subscription.customer?.id ?? null;
+  captureActionError(
+    'stripe-webhook.unresolved-profile',
+    new Error(`${event.type}: could not resolve profile user id`),
+    { eventType: event.type, subscriptionId: subscription.id, customerId }
+  );
+  return NextResponse.json({ received: true });
 }
 
 export async function POST(request: Request) {
@@ -36,7 +57,18 @@ export async function POST(request: Request) {
     const payload = await request.text();
     const stripe = new Stripe(stripeSecretKey);
 
-    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    // Signature verification failures are genuine bad requests (not our bug and not
+    // retryable), so keep them at 400 and out of the post-verification error path that
+    // returns 500 to trigger Stripe retries.
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err: unknown) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Invalid signature.' },
+        { status: 400 }
+      );
+    }
 
     const admin = createServiceRoleSupabaseClient();
 
@@ -67,13 +99,24 @@ export async function POST(request: Request) {
         }
 
         if (!userId) {
-          console.error('[stripe-webhook] checkout session: could not resolve profile user id', {
-            eventType: event.type,
-            sessionId: session.id,
-            customerId,
-            client_reference_id: session.client_reference_id ?? null,
-            metadata_user_id: session.metadata?.user_id ?? null,
-          });
+          // Paid but unresolvable to a profile (often a signup/webhook race). Alert and
+          // return 500 so Stripe retries — by the next attempt the profiles row usually
+          // exists and Premium activates instead of silently never being set.
+          captureActionError(
+            'stripe-webhook.unresolved-profile',
+            new Error('checkout session: could not resolve profile user id'),
+            {
+              eventType: event.type,
+              sessionId: session.id,
+              customerId,
+              client_reference_id: session.client_reference_id ?? null,
+              metadata_user_id: session.metadata?.user_id ?? null,
+            }
+          );
+          return NextResponse.json(
+            { error: 'Could not resolve profile for completed checkout.' },
+            { status: 500 }
+          );
         } else {
           const { error } = await admin
             .from('profiles')
@@ -110,6 +153,8 @@ export async function POST(request: Request) {
           })
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else {
+        return unresolvedProfileResponse(event, subscription);
       }
     }
 
@@ -167,6 +212,8 @@ export async function POST(request: Request) {
           )
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else {
+        return unresolvedProfileResponse(event, subscription);
       }
     }
 
@@ -222,6 +269,8 @@ export async function POST(request: Request) {
           )
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else {
+        return unresolvedProfileResponse(event, subscription);
       }
     }
 
@@ -245,6 +294,8 @@ export async function POST(request: Request) {
           })
           .eq('id', userId);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      } else {
+        return unresolvedProfileResponse(event, subscription);
       }
     }
 
@@ -271,7 +322,10 @@ export async function POST(request: Request) {
           userId = await resolveProfileIdForSubscription(admin, stripe, subscription);
           periodEndIso = toIsoFromUnix(subscriptionPeriodEnd(subscription));
         } catch (err) {
-          console.error('[stripe-webhook] failed to retrieve subscription for invoice', err);
+          captureActionError('stripe-webhook.invoice-subscription-retrieve', err, {
+            eventType: event.type,
+            subscriptionId,
+          });
         }
       }
 
@@ -301,9 +355,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true });
   } catch (e: unknown) {
+    // Post-verification processing failure (DB/Stripe). Alert and return 500 so Stripe
+    // retries the event rather than treating it as permanently handled.
+    captureActionError('stripe-webhook.unhandled', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Server error processing webhook.' },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

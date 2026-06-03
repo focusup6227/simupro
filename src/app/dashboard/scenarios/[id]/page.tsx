@@ -32,7 +32,8 @@ import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerIn
 import { BYSTANDER_ROLE_LABEL, BYSTANDER_SUGGESTED_QUESTIONS, BYSTANDER_COLOR_GROUP } from "@/lib/bystander-prompts";
 import type { Bystander } from "@/lib/types";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
-import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users } from "lucide-react";
+import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users, Loader2 } from "lucide-react";
+import { captureActionError } from "@/lib/observability";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -977,10 +978,33 @@ export default function SimulationPage() {
           time_elapsed: time,
         })
         .eq('id', sessionId)
-        .eq('user_id', authUser.id);
+        .eq('user_id', authUser.id)
+        .then(({ error }) => {
+          if (error) {
+            captureActionError('sim.session-save', error, { sessionId });
+            toast({
+              variant: 'destructive',
+              title: "Couldn't save progress",
+              description: 'Check your connection — your latest actions may not be saved.',
+            });
+          }
+        });
     }, 1500);
     return () => clearTimeout(t);
-   }, [supabase, sessionId, authUser, messages, userActions, time, simulationEnded]);
+   }, [supabase, sessionId, authUser, messages, userActions, time, simulationEnded, toast]);
+
+
+  // Warn before closing/reloading the tab while an AI turn is in flight, so an accidental
+  // navigation doesn't drop the submitted action mid-request.
+  useEffect(() => {
+    if (simulationEnded || !isLoading) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isLoading, simulationEnded]);
 
 
   useEffect(() => {
@@ -1111,7 +1135,8 @@ export default function SimulationPage() {
           },
         ]);
       } catch (e: unknown) {
-        console.error(e);
+        // Proactive advice is best-effort — don't toast, but make failures observable.
+        captureActionError('sim.partner-advice', e);
       } finally {
         proactiveInFlightRef.current = false;
       }
@@ -1426,7 +1451,7 @@ export default function SimulationPage() {
       }
 
     } catch (error) {
-      console.error(error);
+      captureActionError('sim.patient-response', error, { scenarioId: id });
       const message = error instanceof Error ? error.message : 'Failed to get patient response.';
       const isRateLimited = /rate ?limit|too many|please wait|going a little fast/i.test(message);
       toast({
@@ -1434,7 +1459,11 @@ export default function SimulationPage() {
         description: isRateLimited ? message : 'Failed to get patient response.',
         variant: 'destructive',
       });
-      setMessages([...newMessages, { role: 'system', content: 'Error: Could not get AI response. Please try again.' }]);
+      // The patient never responded, so this turn didn't happen. Roll back the optimistic
+      // append to `messages`/`userActions` (using the pre-submit closure values) so a retry
+      // doesn't double-log the same assessment/treatment.
+      setMessages([...messages, { role: 'system', content: 'Error: Could not get AI response. Please try again.' }]);
+      setUserActions(userActions);
     } finally {
       setIsLoading(false);
       // Reset only the inputs related to the submitted action
@@ -1443,7 +1472,7 @@ export default function SimulationPage() {
       if (actionType === 'medicalDirection') setMedicalDirectionInput('');
       if (actionType === 'treatment' || actionType === 'cardiacArrest') setSelectedTreatments({});
     }
-  }, [scenario, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId]);
+  }, [scenario, userData, isLoading, messages, time, userActions, toast, currentUserRole, selectedDestination, cprStarted, sessionId, id]);
 
   const [partnerSendBusy, setPartnerSendBusy] = useState(false);
 
@@ -2938,7 +2967,7 @@ export default function SimulationPage() {
                   </div>
                 </div>
                 <Button onClick={handleSubmitAssessment} disabled={isLoading || simulationEnded || showCardiacArrestTab} className="w-full">
-                    {isLoading ? 'Processing...' : 'Submit Findings'} <ArrowRight className="ml-2" />
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</> : <>Submit Findings <ArrowRight className="ml-2" /></>}
                 </Button>
               </div>
             </TabsContent>
@@ -3083,7 +3112,7 @@ export default function SimulationPage() {
                     </div>
                 </ScrollArea>
                  <Button onClick={handleSubmitDestination} disabled={isLoading || simulationEnded || !selectedDestination || !transportMode || showCardiacArrestTab} className="mt-4 w-full shrink-0">
-                    {isLoading ? 'Processing...' : 'Confirm Destination & Transport'} <ArrowRight className="ml-2" />
+                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</> : <>Confirm Destination &amp; Transport <ArrowRight className="ml-2" /></>}
                 </Button>
             </TabsContent>
             <TabsContent value="radioReport" className="flex-none outline-none">
@@ -3117,7 +3146,7 @@ export default function SimulationPage() {
                                 {isGeneratingReport ? "Generating..." : "Generate Radio Report"}
                             </Button>
                             <Button onClick={handleSubmitRadioReport} disabled={isLoading || simulationEnded || showCardiacArrestTab} className="w-full">
-                                Submit Radio Report
+                                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</> : 'Submit Radio Report'}
                             </Button>
                          </div>
                     </div>

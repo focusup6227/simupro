@@ -1,6 +1,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
+import { captureActionError } from '@/lib/observability';
 
 type Admin = SupabaseClient<Database>;
 
@@ -67,7 +68,7 @@ export async function resolveProfileIdForCheckoutSession(
         return await profileIdByEmail(admin, customer.email);
       }
     } catch (err) {
-      console.error('[stripe-webhook] customers.retrieve failed', err);
+      captureActionError('stripe-webhook.customers-retrieve', err, { customerId });
     }
   }
 
@@ -98,7 +99,7 @@ export async function resolveProfileIdForSubscription(
       return await profileIdByEmail(admin, customer.email);
     }
   } catch (err) {
-    console.error('[stripe-webhook] customers.retrieve failed', err);
+    captureActionError('stripe-webhook.customers-retrieve', err, { customerId });
   }
 
   return null;
