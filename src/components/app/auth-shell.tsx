@@ -75,7 +75,13 @@ export function AuthShell({
 }: AuthShellProps) {
   return (
     <main
-      className="app-shell flex items-center justify-center relative overflow-hidden p-4"
+      // Opt the auth flow out of browser auto-translate (Chrome, etc.).
+      // Translating these pages mutates text nodes out from under React, and
+      // when a view swaps (e.g. signup form → "check your email") React's
+      // removeChild on a translator-replaced node throws NotFoundError,
+      // crashing the page mid-signup. See Sentry JAVASCRIPT-NEXTJS-Z.
+      translate="no"
+      className="notranslate app-shell flex items-center justify-center relative overflow-hidden p-4"
       style={{ minHeight: "100vh" }}
     >
       {/* Ambient halos */}
