@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDashboardProfile, useSupabase, useUser } from "@/supabase";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import { LiveStrip } from "@/components/ecg-monitor";
 import {
   ALL_ECG_RHYTHM_KINDS,
@@ -169,6 +170,9 @@ function pulseQuality(
   return { label: "Pulse present", perfusing: true };
 }
 
+/** Free (non-premium, non-staff) users get a taste of the trainer before the paywall. */
+const ECG_FREE_PREVIEW_LIMIT = 5;
+
 export default function EcgTrainerPage() {
   const supabase = useSupabase();
   const { user: authUser } = useUser();
@@ -235,10 +239,22 @@ export default function EcgTrainerPage() {
     }
   };
 
+  // Free users may train up to the preview limit; staff/premium are unlimited.
+  const freePreviewExhausted =
+    !isAuthorized && Boolean(userData) && stats.total >= ECG_FREE_PREVIEW_LIMIT;
+  const canTrain = isAuthorized || (Boolean(userData) && !freePreviewExhausted);
+
   useEffect(() => {
-    if (isAuthorized && !question) newQuestion();
+    if (canTrain && !question) newQuestion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthorized, pool]);
+  }, [canTrain, pool]);
+
+  // Fire the paywall event once the free preview is spent and the lock is about to show.
+  useEffect(() => {
+    if (freePreviewExhausted && !verdict) {
+      void logFunnelEvent("hit_paywall", { source: "ecg_trainer" });
+    }
+  }, [freePreviewExhausted, verdict]);
 
   const ctx = useMemo(() => {
     if (!question) return null;
@@ -251,6 +267,7 @@ export default function EcgTrainerPage() {
 
   const handleAnswer = (pick: EcgRhythmKind) => {
     if (!question || verdict || stripPaused) return;
+    if (freePreviewExhausted) return;
     const correct = pick === question.rhythm;
     const family = RHYTHM_FAMILY[question.rhythm];
     setVerdict({ correct, chosen: pick });
@@ -292,8 +309,8 @@ export default function EcgTrainerPage() {
     );
   }
 
-  // ── Premium-gated state ────────────────────────────────────────────
-  if (!isAuthorized) {
+  // ── Premium-gated state (after the free preview is spent) ──────────
+  if (freePreviewExhausted && !verdict) {
     return (
       <div className="p-8 max-w-2xl mx-auto">
         <Panel accent="orange">
@@ -318,8 +335,9 @@ export default function EcgTrainerPage() {
               </div>
             </div>
             <p className="text-[13.5px] text-[var(--text-mute)] leading-relaxed mb-5">
-              Practice rhythm interpretation across the full taxonomy outside of scenarios.
-              Upgrade to unlock unlimited practice, family-specific drills, and progress tracking.
+              You&apos;ve used your {ECG_FREE_PREVIEW_LIMIT} free ECG drills. Upgrade to Premium
+              for unlimited practice across the full rhythm taxonomy, family-specific drills,
+              and progress tracking.
             </p>
             <Link
               href="/billing"
@@ -358,6 +376,18 @@ export default function EcgTrainerPage() {
             <Icons.Crown className="w-3 h-3" />
             {stats.correct}/{stats.total} · {accuracy}%
           </span>
+          {!isAuthorized && (
+            <span
+              className="tag"
+              style={{
+                background: "rgba(251,191,36,0.12)",
+                border: "1px solid rgba(251,191,36,0.30)",
+                color: "var(--premium)",
+              }}
+            >
+              {Math.max(0, ECG_FREE_PREVIEW_LIMIT - stats.total)} free drills left
+            </span>
+          )}
           <button
             type="button"
             onClick={togglePause}

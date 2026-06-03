@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server-client';
 import { createServiceRoleSupabaseClient } from '@/lib/supabase/admin-client';
 import { enforceCheckoutLimit, RateLimitError } from '@/lib/ratelimit';
 import { captureActionError } from '@/lib/observability';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 export const runtime = 'nodejs';
 
@@ -125,6 +126,12 @@ export async function POST(request: Request) {
     if (!session.url) {
       return NextResponse.json({ error: 'Stripe did not return a checkout URL.' }, { status: 500 });
     }
+
+    await recordFunnelEvent(admin, {
+      event: 'started_checkout',
+      userId: user.id,
+      metadata: { cycle },
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (e: unknown) {

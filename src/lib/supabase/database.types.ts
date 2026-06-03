@@ -65,6 +65,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      funnel_events: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          event: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          event: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<{
+          id: string;
+          user_id: string | null;
+          event: string;
+          metadata: Json;
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

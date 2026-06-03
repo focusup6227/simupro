@@ -26,6 +26,7 @@ import { countLearnerBrowseableScenarios } from "@/lib/scenario-catalog-visibili
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
 import { Panel, Stat, DiffPill } from "@/components/app/app-primitives";
 import { Icons } from "@/components/app/icons";
+import { UpgradeNudge } from "@/components/conversion/upgrade-nudge";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function clockUtc() {
@@ -220,6 +221,10 @@ export default function DashboardPage() {
       <p className="text-[13px] text-[var(--text-mute)] mb-7">
         Your training queue, weak signal report, and live system status.
       </p>
+
+      <div className="mb-5">
+        <UpgradeNudge user={userData} placement="dashboard" />
+      </div>
 
       {/* ── Top 3 metric panels ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">

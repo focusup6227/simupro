@@ -44,6 +44,7 @@ import { pickScenarioOfTheDay } from "@/lib/scenario-of-the-day";
 import { filterScenariosForLearnerBrowse } from "@/lib/scenario-catalog-visibility";
 import { isLegacyScenarioId } from "@/lib/scenarios-data";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import { Panel, DiffPill } from "@/components/app/app-primitives";
 import { Icons } from "@/components/app/icons";
 
@@ -237,6 +238,7 @@ export default function ScenariosPage() {
     const fallback = nonTutorial.filter((s) => !s.isPremium);
     const candidates = accessible.length > 0 ? accessible : fallback;
     if (candidates.length === 0) {
+      void logFunnelEvent("hit_paywall", { source: "scenario_card" });
       router.push("/billing");
       return;
     }
@@ -251,6 +253,7 @@ export default function ScenariosPage() {
       !isTesterOrAdminUser(userData) &&
       !userData.isPremium;
     if (scenario.isPremium && (!userData || isLocked)) {
+      void logFunnelEvent("hit_paywall", { source: "scenario_card" });
       router.push("/billing");
       return;
     }
@@ -580,6 +583,18 @@ export default function ScenariosPage() {
                 <div className="flex flex-wrap gap-1.5 mb-4">
                   {s.difficulty && (
                     <DiffPill level={s.difficulty as never} />
+                  )}
+                  {s.isPremium && (
+                    <span
+                      className="tag"
+                      style={{
+                        background: "rgba(251,191,36,0.12)",
+                        border: "1px solid rgba(251,191,36,0.30)",
+                        color: "var(--premium)",
+                      }}
+                    >
+                      <Icons.Crown className="w-3 h-3" /> Deeper realism
+                    </span>
                   )}
                   {s.tags.map((t) => (
                     <span key={t} className="tag">

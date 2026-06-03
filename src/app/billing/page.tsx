@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useDoc, useSupabase, useMemoSupabase, useUser } from "@/supabase";
 import type { User } from "@/lib/types";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import {
   PREMIUM_ANNUAL_DISPLAY,
   PREMIUM_MONTHLY_DISPLAY,
@@ -102,6 +103,11 @@ function BillingPageContent() {
 
   const success = searchParams.get("success");
   const canceled = searchParams.get("canceled");
+
+  // Top of the conversion funnel — one event per billing-page visit.
+  useEffect(() => {
+    void logFunnelEvent("viewed_billing");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

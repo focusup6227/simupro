@@ -29,6 +29,7 @@ const ADMIN: NavItem[] = [
   { href: "/dashboard/admin",                label: "Admin Overview", icon: Icons.Shield },
   { href: "/dashboard/admin/users",          label: "Users",          icon: Icons.Users },
   { href: "/dashboard/admin/billing",        label: "Billing",        icon: Icons.Card },
+  { href: "/dashboard/admin/conversion",     label: "Conversion",     icon: Icons.Chart },
   { href: "/dashboard/admin/scenarios",      label: "Scenarios",      icon: Icons.Heart },
   { href: "/dashboard/admin/interventions",  label: "Interventions",  icon: Icons.Syringe },
   { href: "/dashboard/admin/support",        label: "Support Tickets",icon: Icons.Msg },

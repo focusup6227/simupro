@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { seedScenarios } from "@/lib/scenarios-data";
 import { DEMO_SCENARIO_ID, DEMO_MAX_AI_TURNS } from "@/lib/demo-config";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import type { Message, UserAction, UserRole } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowRight, Sparkles, User } from "lucide-react";
@@ -66,7 +67,10 @@ export default function DemoPage() {
   const turnsRemaining = DEMO_MAX_AI_TURNS - userActions.length;
   const atTurnLimit = userActions.length >= DEMO_MAX_AI_TURNS;
 
-  const openCta = useCallback(() => setCtaOpen(true), []);
+  const openCta = useCallback(() => {
+    setCtaOpen(true);
+    void logFunnelEvent("hit_paywall", { source: "demo" });
+  }, []);
 
   useLayoutEffect(() => {
     setCockpitHardwareReady(false);

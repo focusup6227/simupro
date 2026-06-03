@@ -24,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import { processSimulationResults } from "@/app/actions";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChartContainer,
@@ -126,6 +127,18 @@ export default function ReportPage() {
   } = useCollection<Insight>(insightsSpec);
   const insight =
     insights?.find((i) => i.id === "ai_feedback") ?? insights?.[0];
+
+  // Free users finishing a report never see the premium deep-dive coaching — show a locked
+  // teaser of it (highest-intent upsell moment). Only once the report has actually loaded.
+  const showUpgradeTeaser = Boolean(
+    insight && !isLoadingUser && !user?.isPremium && !insight?.premiumFeedback,
+  );
+
+  useEffect(() => {
+    if (showUpgradeTeaser) {
+      void logFunnelEvent("hit_paywall", { source: "report_teaser" });
+    }
+  }, [showUpgradeTeaser]);
 
   const simulationFailed = session?.status === "failed";
 
@@ -772,6 +785,96 @@ export default function ReportPage() {
                   />
                 </div>
               )}
+          </div>
+        </Panel>
+      )}
+
+      {/* ── Premium deep-dive teaser (free users) ────────────────── */}
+      {showUpgradeTeaser && (
+        <Panel
+          accent="orange"
+          title={
+            <span className="flex items-center gap-2">
+              <Icons.Crown className="w-4 h-4 text-[var(--premium)]" />
+              Premium deep-dive coaching
+            </span>
+          }
+          sub="See exactly what you'd get with a Premium coaching report"
+          className="mb-5"
+        >
+          <div className="relative">
+            {/* Blurred sample of the real report sections */}
+            <div
+              aria-hidden
+              className="px-5 py-4 grid gap-5 md:grid-cols-2 blur-sm select-none pointer-events-none"
+            >
+              <FeedbackList
+                title="What went well"
+                color="var(--success)"
+                icon={<Icons.CheckCircle className="w-4 h-4" />}
+                items={[
+                  "Early scene-safety call and BSI before patient contact",
+                  "Recognized the time-critical airway threat and prioritized it",
+                ]}
+              />
+              <FeedbackList
+                title="Critical issues"
+                color="var(--danger)"
+                icon={<Icons.X className="w-4 h-4" />}
+                items={[
+                  "Delayed the 12-lead past the 10-minute door target",
+                  "No reassessment of vitals after the first intervention",
+                ]}
+              />
+              <FeedbackList
+                title="Actionable tips"
+                color="var(--premium)"
+                icon={<Icons.Lightbulb className="w-4 h-4" />}
+                items={[
+                  "Anchor your assessment to a fixed primary-survey order",
+                  "Re-check vitals within 5 minutes of every drug given",
+                ]}
+              />
+              <FeedbackList
+                title="Protocol references"
+                color="var(--cyan-soft)"
+                icon={<Icons.Book className="w-4 h-4" />}
+                items={[
+                  "AHA Guidelines for CPR & ECC — high-quality compressions",
+                  "NAEMSP position on prehospital 12-lead acquisition",
+                ]}
+              />
+            </div>
+
+            {/* Lock overlay + CTA */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-3 px-6">
+              <span
+                className="w-11 h-11 rounded-md flex items-center justify-center"
+                style={{ background: "rgba(251,191,36,0.12)", color: "var(--premium)" }}
+              >
+                <Icons.Crown className="w-5 h-5" />
+              </span>
+              <div className="max-w-md">
+                <div className="text-[14px] font-semibold text-white">
+                  Unlock your full coaching report
+                </div>
+                <p className="text-[12.5px] text-[var(--text-mute)] mt-1 leading-relaxed">
+                  Premium turns every run into structured coaching — what went well, the
+                  critical misses and <em>why</em> they matter, protocol references, and
+                  tailored drills.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void logFunnelEvent("nudge_clicked", { placement: "report_teaser" });
+                  router.push("/billing");
+                }}
+                className="cta-primary h-10 px-5 rounded-md text-[13.5px] font-semibold inline-flex items-center justify-center gap-2"
+              >
+                <Icons.Crown className="w-3.5 h-3.5" /> Upgrade to Premium
+              </button>
+            </div>
           </div>
         </Panel>
       )}

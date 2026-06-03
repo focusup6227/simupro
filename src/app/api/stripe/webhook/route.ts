@@ -6,6 +6,7 @@ import {
   resolveProfileIdForSubscription,
 } from '@/lib/stripe/resolve-profile-user-id';
 import { captureActionError } from '@/lib/observability';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 export const runtime = 'nodejs';
 
@@ -129,6 +130,15 @@ export async function POST(request: Request) {
             })
             .eq('id', userId);
           if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+          if (isPremium) {
+            const cycle = session.metadata?.billing_cycle ?? null;
+            await recordFunnelEvent(admin, {
+              event: 'converted',
+              userId,
+              metadata: cycle ? { cycle } : {},
+            });
+          }
         }
       }
     }
