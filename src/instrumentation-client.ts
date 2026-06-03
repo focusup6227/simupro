@@ -7,6 +7,13 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://5d758342dcc1c36e2c99f4e89e5cef9f@o4511347953631232.ingest.us.sentry.io/4511347956776960",
 
+  integrations: [
+    Sentry.feedbackIntegration({
+      // Match the user's OS light/dark preference.
+      colorScheme: "system",
+    }),
+  ],
+
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
   // Enable logs to be sent to Sentry
