@@ -131,6 +131,22 @@ describe('reconcilePatientResponse — inappropriate CPR (perfusing patients onl
     expect(output.conditionChange).toMatch(/inappropriate CPR/i);
     expect(corrections).toContain('cpr_reversal');
   });
+
+  it('drops pathophysiology stressors invented for CPR on a perfusing patient', () => {
+    const { output, corrections } = reconcilePatientResponse(
+      makePriorState(),
+      'Started CPR',
+      makeOutput({
+        vitals: { ...perfusingVitals },
+        stressors: [
+          { kind: 'ai_stressor', payload: { subtype: 'metabolic_worsening', severity: 0.1 } },
+        ],
+      }),
+    );
+
+    expect(corrections).toContain('cpr_stressor_drop');
+    expect(output.stressors).toEqual([]);
+  });
 });
 
 describe('reconcilePatientResponse — ROSC', () => {

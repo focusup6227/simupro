@@ -288,6 +288,16 @@ export function reconcilePatientResponse(
         'Patient still has a pulse—inappropriate CPR; stop compressions and reassess. ' +
         (output.conditionChange ?? '').trim();
     }
+
+    // CPR (or a similar mechanical intervention) on a patient who is and stays
+    // perfusing is a mechanical error — its harm is pain / rib injury / arrhythmia
+    // risk, which belongs in the narrative. Don't let the model feed pathophysiology
+    // stressors (sepsis/metabolic/etc.) into the deterministic engine as a penalty
+    // for the wrong action.
+    if (treatmentIsCpr && priorPerfusing && output.stressors && output.stressors.length > 0) {
+      corrections.push('cpr_stressor_drop');
+      output.stressors = [];
+    }
   }
 
   // Rule 5 — arrest⇔pulse consistency (no half-states).
