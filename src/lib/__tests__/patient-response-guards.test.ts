@@ -132,6 +132,27 @@ describe('reconcilePatientResponse — inappropriate CPR (perfusing patients onl
     expect(corrections).toContain('cpr_reversal');
   });
 
+  it('does NOT flag inappropriate CPR when the prior BP was unobtainable (peri-arrest, e.g. pediatric FBAO)', () => {
+    const { output, corrections } = reconcilePatientResponse(
+      makePriorState({
+        wasArrested: false,
+        rawVitals: { hr: '50 bpm, bradycardic', bp: 'Not obtainable', rr: '0/min', spo2: 'Not obtainable', gcs: '3' },
+      }),
+      'CPR / back blows, attempt to remove the FBAO',
+      makeOutput({
+        vitals: { ...arrestVitals, hr: 'PEA @ 50 bpm' },
+        arrestRhythm: 'pea',
+        conditionChange: 'The infant remains in cardiac arrest due to airway obstruction.',
+      }),
+    );
+
+    expect(corrections).not.toContain('cpr_reversal');
+    expect(output.conditionChange).not.toMatch(/inappropriate CPR/i);
+    expect(output.conditionChange).not.toMatch(/still has a pulse/i);
+    expect(output.arrestRhythm).toBe('pea');
+    expect(output.vitals.bp).toBe('0/0 (no pulse)');
+  });
+
   it('drops pathophysiology stressors invented for CPR on a perfusing patient', () => {
     const { output, corrections } = reconcilePatientResponse(
       makePriorState(),

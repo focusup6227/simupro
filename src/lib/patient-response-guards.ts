@@ -277,8 +277,16 @@ export function reconcilePatientResponse(
     const outputArrested = Boolean(
       output.arrestRhythm || output.patientIsDeceased || vitalsSuggestPulselessArrest(output.vitals),
     );
-    const priorPerfusing = prior.rawVitals ? vitalsSuggestPerfusion(prior.rawVitals) : true;
-    if (treatmentIsCpr && priorPerfusing && outputArrested) {
+    // The inappropriate-CPR reversal may only fire when the prior turn had a
+    // genuinely MEASURABLE perfusing blood pressure. Absence of arrest keywords is
+    // NOT enough: a non-arrest patient whose BP is "Not obtainable"/absent (e.g. a
+    // peri-arrest infant in airway obstruction) is not someone we can claim "still
+    // has a pulse" for — asserting that, mid-CPR, recreates the exact contradiction
+    // this layer exists to prevent (and would tell the medic to stop compressions
+    // on an arresting patient).
+    const priorParsed = parseVitalsToNumbers(prior.rawVitals);
+    const priorHasPerfusingBp = priorParsed.sys !== null && priorParsed.sys > 0;
+    if (treatmentIsCpr && priorHasPerfusingBp && outputArrested) {
       corrections.push('cpr_reversal');
       output.arrestRhythm = undefined;
       output.arrestRhythmRationale = undefined;
@@ -294,7 +302,7 @@ export function reconcilePatientResponse(
     // risk, which belongs in the narrative. Don't let the model feed pathophysiology
     // stressors (sepsis/metabolic/etc.) into the deterministic engine as a penalty
     // for the wrong action.
-    if (treatmentIsCpr && priorPerfusing && output.stressors && output.stressors.length > 0) {
+    if (treatmentIsCpr && priorHasPerfusingBp && output.stressors && output.stressors.length > 0) {
       corrections.push('cpr_stressor_drop');
       output.stressors = [];
     }
