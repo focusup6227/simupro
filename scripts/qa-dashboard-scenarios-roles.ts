@@ -12,7 +12,8 @@ import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { seedScenarios } from "@/lib/scenarios-data";
 import { provideDynamicPatientResponses } from "@/ai/flows/provide-dynamic-patient-responses";
-import { applyDynamicPatientOutputGuards } from "@/lib/patient-response-guards";
+import { reconcilePatientResponse } from "@/lib/patient-response-guards";
+import { buildPriorPatientState } from "@/lib/patient-state";
 import type { UserAction } from "@/lib/types";
 
 function loadEnvLocal() {
@@ -87,7 +88,11 @@ async function oneTurn(
     isPremium: true,
   });
 
-  return applyDynamicPatientOutputGuards({ currentVitals, treatment }, raw);
+  const priorState = buildPriorPatientState({
+    priorVitals: currentVitals,
+    scenario,
+  });
+  return reconcilePatientResponse(priorState, treatment, raw).output;
 }
 
 async function main() {

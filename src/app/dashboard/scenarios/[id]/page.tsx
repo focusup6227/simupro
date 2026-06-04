@@ -34,6 +34,7 @@ import type { Bystander } from "@/lib/types";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users, Loader2 } from "lucide-react";
 import { captureActionError } from "@/lib/observability";
+import { buildPriorPatientState } from "@/lib/patient-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -1366,6 +1367,14 @@ export default function SimulationPage() {
         ? (useMetabolicStore.getState().snapshotForAi() ?? undefined)
         : undefined;
 
+      const priorState = buildPriorPatientState({
+        lastAssistantMessage,
+        priorVitals,
+        decompensationPhase: autonomicSnapshot?.decompensationPhase,
+        patientAlreadyDeceased,
+        scenario,
+      });
+
       const response = await getPatientResponse({
         scenario: scenario.details,
         assessment: assessmentText,
@@ -1381,6 +1390,7 @@ export default function SimulationPage() {
         engineSummary,
         metabolicSnapshot,
         patientAlreadyDeceased,
+        priorState,
       });
       
       const newVitals = response.vitals;

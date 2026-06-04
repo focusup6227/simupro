@@ -1,5 +1,26 @@
 /** Shared parsing for scenario / AI vitals strings (monitor + ECG context). */
 
+/** Minimal vitals shape shared by scenario / AI / message vitals strings. */
+export interface VitalsLike {
+  hr: string;
+  bp: string;
+  rr: string;
+  spo2: string;
+  gcs: string;
+  etco2?: string;
+}
+
+/** Parsed numeric vitals (`null` when absent / unparseable / pulseless). */
+export interface VitalsNumbers {
+  hr: number | null;
+  sys: number | null;
+  dia: number | null;
+  rr: number | null;
+  spo2: number | null;
+  gcs: number | null;
+  etco2: number | null;
+}
+
 export function parseBpString(bp: string | null | undefined): {
   bpSys: number | null;
   bpDia: number | null;
@@ -82,4 +103,38 @@ export function parseRrForMonitor(rr: string | number | null | undefined): strin
   if (typeof rr === 'number') return Number.isFinite(rr) ? String(Math.round(rr)) : '';
   const m = String(rr).match(/(\d{1,3})/);
   return m ? m[1]! : '';
+}
+
+/** First 1–3 digit integer in a string, or `null`. */
+function firstInt(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const m = String(s).match(/(\d{1,3})/);
+  return m ? Number.parseInt(m[1]!, 10) : null;
+}
+
+/** True if an HR string is an arrest-format label rather than a perfusing rate. */
+export function hrIsArrestFormat(hr: string | null | undefined): boolean {
+  if (!hr) return false;
+  return /asystole|v-?fib|vfib|pulseless|pea\b|no pulse|cardiac arrest/i.test(hr);
+}
+
+/**
+ * Parse a vitals-string block into numbers. Arrest-format HR ("PEA @ 40 bpm",
+ * "V-fib", "Asystole") yields `hr = null` because there is no perfusing rate;
+ * a "0/0" BP yields `sys/dia = null` (parseBpString requires 2–3 digit fields).
+ */
+export function parseVitalsToNumbers(v: VitalsLike | null | undefined): VitalsNumbers {
+  if (!v) {
+    return { hr: null, sys: null, dia: null, rr: null, spo2: null, gcs: null, etco2: null };
+  }
+  const { bpSys, bpDia } = parseBpString(v.bp);
+  return {
+    hr: hrIsArrestFormat(v.hr) ? null : parseHeartRateBpm(v.hr),
+    sys: bpSys,
+    dia: bpDia,
+    rr: firstInt(v.rr),
+    spo2: firstInt(v.spo2),
+    gcs: firstInt(v.gcs),
+    etco2: firstInt(v.etco2),
+  };
 }

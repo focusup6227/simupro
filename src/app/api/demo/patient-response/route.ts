@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { provideDynamicPatientResponses } from "@/ai/flows/provide-dynamic-patient-responses";
-import { applyDynamicPatientOutputGuards } from "@/lib/patient-response-guards";
+import { reconcilePatientResponse } from "@/lib/patient-response-guards";
+import { buildPriorPatientState } from "@/lib/patient-state";
 import { seedScenarios } from "@/lib/scenarios-data";
 import { DEMO_SCENARIO_ID, DEMO_MAX_AI_TURNS } from "@/lib/demo-config";
 import type { UserAction } from "@/lib/types";
@@ -107,12 +108,15 @@ export async function POST(request: Request) {
           isPremium: false,
         });
 
-    const result = applyDynamicPatientOutputGuards(
-      { currentVitals, treatment, patientAlreadyDeceased },
-      raw,
-    );
+    const priorState = buildPriorPatientState({
+      lastAssistantMessage: patientCondition ? { conditionChange: patientCondition } : undefined,
+      priorVitals: currentVitals,
+      patientAlreadyDeceased,
+      scenario,
+    });
+    const { output } = reconcilePatientResponse(priorState, treatment, raw);
 
-    return NextResponse.json(result);
+    return NextResponse.json(output);
   } catch (e: unknown) {
     if (e instanceof RateLimitError) {
       return NextResponse.json(

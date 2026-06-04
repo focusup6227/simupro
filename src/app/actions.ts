@@ -43,11 +43,16 @@ import {
   type GenerateRadioReportOutput,
 } from "@/ai/flows/generate-radio-report";
 import { UserActionSchema, type Insight, type UserAction } from '@/lib/types';
-import { applyDynamicPatientOutputGuards } from '@/lib/patient-response-guards';
+import {
+  reconcilePatientResponse,
+  vitalsSuggestPulselessArrest,
+} from '@/lib/patient-response-guards';
+import type { PriorPatientState } from '@/lib/patient-state';
+import { parseVitalsToNumbers } from '@/lib/vitals-parse';
 import { adjustScoresForBloodPressure } from '@/lib/bp-grading-adjust';
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 import { enforceAiLimit, RateLimitError } from "@/lib/ratelimit";
-import { captureActionError } from "@/lib/observability";
+import { captureActionError, captureActionMessage } from "@/lib/observability";
 import { profileRowToUser, scenarioRowToScenario } from '@/lib/db-mappers';
 import {
   BaselineInterventionSchema,
@@ -97,32 +102,73 @@ export async function generateScenario(
 export type GetPatientResponseInput = DynamicPatientResponseInput & {
   /**
    * Set by the runner when the engine has already declared the patient
-   * deceased on a prior turn. Used by `applyDynamicPatientOutputGuards` to
-   * suppress AI hallucinations of the patient continuing to speak / move
-   * after death.
+   * deceased on a prior turn. Used to short-circuit the AI round-trip and to
+   * pin the deceased-state response.
    */
   patientAlreadyDeceased?: boolean;
+  /**
+   * Structured prior-patient-state from the runner (`buildPriorPatientState`).
+   * Threaded into the deterministic reconciler. Runner-only — stripped before
+   * the Genkit flow call. Falls back to a vitals-derived state for older
+   * clients / the first turn.
+   */
+  priorState?: PriorPatientState;
 };
+
+/**
+ * Build a best-effort prior state when the runner didn't send one (first turn
+ * or an older client). Scenario age/weight aren't available here, so we lean on
+ * the vitals + engine phase that the flow input already carries.
+ */
+function fallbackPriorState(
+  input: GetPatientResponseInput,
+  deceased: boolean,
+): PriorPatientState {
+  const v = input.currentVitals ?? null;
+  return {
+    vitals: parseVitalsToNumbers(v),
+    rawVitals: v,
+    wasArrested: v ? vitalsSuggestPulselessArrest(v) : false,
+    priorArrestRhythm: null,
+    wasDeceased: deceased,
+    priorCondition: input.patientCondition ?? '',
+    engineArrested: input.decompensationPhase === 'arrested',
+    enginePhase: input.decompensationPhase ?? '',
+    ageBandYears: null,
+    weightKg: 75,
+  };
+}
+
+function reportReconcileCorrections(
+  corrections: string[],
+  userId: string | null,
+  userRole: string,
+): void {
+  if (corrections.length === 0) return;
+  captureActionMessage('getPatientResponse.reconcile', corrections.join(','), {
+    userId,
+    userRole,
+  });
+}
 
 export async function getPatientResponse(
   input: GetPatientResponseInput
 ): Promise<DynamicPatientResponseOutput> {
   const userId = await gateAi("getPatientResponse");
-  // Strip the runner-only flag before sending the input to the model so we
-  // don't leak it through Genkit schema validation.
-  const { patientAlreadyDeceased, ...flowInput } = input;
+  // Strip the runner-only fields before sending the input to the model so we
+  // don't leak them through Genkit schema validation.
+  const { patientAlreadyDeceased, priorState, ...flowInput } = input;
+  const deceased = Boolean(patientAlreadyDeceased) || Boolean(priorState?.wasDeceased);
+  const prior: PriorPatientState =
+    priorState ?? fallbackPriorState(input, deceased);
   try {
     // Hard short-circuit: if the patient is already dead, don't even pay for
-    // the AI round-trip — synthesize a deterministic deceased-state response.
-    if (patientAlreadyDeceased) {
-      return applyDynamicPatientOutputGuards(
-        {
-          currentVitals: input.currentVitals,
-          treatment: input.treatment,
-          patientAlreadyDeceased: true,
-        },
-        // Stub output — guard will overwrite vitals + speech with
-        // canonical deceased values.
+    // the AI round-trip — synthesize a deterministic deceased-state response
+    // and let the reconciler's deceased clamp pin it.
+    if (deceased) {
+      const { output, corrections } = reconcilePatientResponse(
+        { ...prior, wasDeceased: true },
+        input.treatment,
         {
           patientResponse: '',
           vitals:
@@ -136,17 +182,18 @@ export async function getPatientResponse(
             },
         },
       );
+      reportReconcileCorrections(corrections, userId, input.userRole);
+      return output;
     }
 
     const raw = await provideDynamicResponsesFlow(flowInput);
-    return applyDynamicPatientOutputGuards(
-      {
-        currentVitals: input.currentVitals,
-        treatment: input.treatment,
-        patientAlreadyDeceased,
-      },
+    const { output, corrections } = reconcilePatientResponse(
+      prior,
+      input.treatment,
       raw,
     );
+    reportReconcileCorrections(corrections, userId, input.userRole);
+    return output;
   } catch (e) {
     rethrow("getPatientResponse", e, {
       userId,
