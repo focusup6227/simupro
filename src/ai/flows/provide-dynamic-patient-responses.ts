@@ -208,8 +208,11 @@ For evolving **extra** pathophysiology the engine does not know (rebleed, sepsis
 Based on the scenario, the user's role, the history of actions, and the latest action, generate the next state of the simulation.
 
 **Clinical reasoning (must follow):**
+- **Pulse ⇔ arrest are mutually exclusive (HARD RULE — never violate):** At any instant the patient is EITHER *perfusing* (a palpable pulse with a measurable perfusing BP) OR *in cardiac arrest* (pulseless: \`vitals.bp\` = "0/0 (no pulse)" with an \`arrestRhythm\` set). These states are mutually exclusive. A single turn must **never** assert both — e.g. do **not** write "patient still has a pulse / stop CPR" while also saying the patient "remains in cardiac arrest." That is clinically incoherent. If you say cardiac arrest, the patient is pulseless and CPR is correct; if you say there is a pulse, the patient is **not** in arrest.
+- **PEA is pulseless — CPR is CORRECT in PEA:** **PEA (Pulseless Electrical Activity)** is organized electrical complexes at an organized rate but with **NO palpable pulse** and **no perfusing BP** ("0/0"). PEA **is** cardiac arrest. CPR is **required and appropriate** in PEA (and in VF, pulseless VT, and asystole). Never mistake an organized PEA rate for "having a pulse," and never label CPR as inappropriate during any arrest rhythm.
 - **Causal discipline:** Do not switch a patient from **perfusing** to **pulseless** solely because the user clicked an intervention. State changes must follow from assessment findings, time progression, pathology, or treatments with **known physiologic effects**—not from UI choices alone.
-- **Inappropriate CPR:** If **Current Vital Signs** and the scenario support a **palpable circulation / perfusing blood pressure** (non-trivial BP, organized rate) and the patient is **not** already in cardiac arrest, initiating CPR is an **error**. Describe **pain, confusion, resistance, rib injury risk, or bystander alarm**—do **not** set \`arrestRhythm\` and do **not** declare VF/asystole. Keep vitals consistent with a **live, perfusing** patient unless a **separate** credible event occurs (e.g., actual loss of pulse after a believable delay).
+- **Inappropriate CPR (perfusing patients ONLY):** Initiating CPR is an **error** **only** when the patient has a genuine **palpable pulse with a measurable perfusing BP** AND is **not** in any arrest rhythm. In that case describe **pain, confusion, resistance, rib injury risk, or bystander alarm**, keep vitals consistent with a **live, perfusing** patient, and do **not** set \`arrestRhythm\`. A pulseless patient (any \`arrestRhythm\`, including PEA, or \`bp\` = "0/0") is the **opposite** case — CPR is correct there; never flag it as inappropriate.
+- **Arrest-state continuity:** Once the patient is pulseless (you set \`arrestRhythm\`, or **Current Vital Signs / Previous Condition** indicate arrest — e.g. \`bp\` "0/0", an arrest-rhythm \`hr\`, or a "cardiac arrest" condition), the patient **remains pulseless and CPR remains appropriate** until a genuine **ROSC** event occurs. The ONLY exit from arrest is ROSC, which you must narrate explicitly and signal via EtCO₂ ≥ 35 mmHg, a numeric \`vitals.hr\`, and a perfusing \`vitals.bp\` (and omit \`arrestRhythm\`). Do **not** spontaneously restore a pulse or relabel ongoing CPR as "inappropriate" for an already-arrested patient.
 - **Arrest rhythms (\`arrestRhythm\`):** Set **only** when the patient is **actually pulseless** in-universe (scenario started in arrest, or you have established pulselessness through vitals/narrative over time). Wrong treatment on a stable patient must **not** automatically produce VF, asystole, or PEA.
 - **Patient demise (\`patientIsDeceased\`):** Use **sparingly**—only after prolonged refractory arrest, unsurvivable injury, or untreated lethal trajectory **over multiple turns**. Do not kill the patient as a shortcut penalty for one mistake.
 
@@ -306,10 +309,19 @@ const provideDynamicPatientResponsesFlow = ai.defineFlow(
       };
     }
 
+    // Defensive consistency: an arrest rhythm (including PEA) is pulseless by definition,
+    // so the BP must read "0/0 (no pulse)". If the model set an arrestRhythm but left a
+    // perfusing BP, force the pulseless value so the displayed vitals can't contradict the
+    // arrest state (the inverse — a perfusing patient — keeps the model's BP untouched).
+    let vitals = output.vitals;
+    if (output.arrestRhythm && !/\b0\s*\/\s*0\b/.test(vitals.bp)) {
+      vitals = { ...vitals, bp: '0/0 (no pulse)' };
+    }
+
     return {
       ...output,
       patientResponse: output.patientResponse,
-      vitals: output.vitals,
+      vitals,
       stressors: stressorsForClient,
       metabolicLabs,
     } as DynamicPatientResponseOutput;
