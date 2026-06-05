@@ -25,9 +25,10 @@ export const WELCOME_TOUR_STEPS: TourStep[] = [
     title: "Welcome to your first run",
     body: (
       <p>
-        We will spend 30 seconds pointing out the major panels. Use{" "}
-        <strong>Next</strong> or arrow keys to step through, or skip whenever
-        you want.
+        We will spend 30 seconds pointing out the major panels. After this
+        tour, follow the <strong>Orientation checklist</strong> — it ticks off
+        live as you work through each objective. Use <strong>Next</strong> or
+        arrow keys to step through, or skip whenever you want.
       </p>
     ),
   },
@@ -62,8 +63,9 @@ export const WELCOME_TOUR_STEPS: TourStep[] = [
     body: (
       <p>
         Your partner can answer quick clinical questions and take delegated
-        tasks. For this orientation case, a 4-lead and a glucose check will
-        get you most of the way.
+        tasks. Work the Orientation checklist above the tabs — applying a
+        4-lead, checking a glucose, and taking a blood pressure cover most of
+        it.
       </p>
     ),
   },

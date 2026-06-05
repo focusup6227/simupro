@@ -27,6 +27,8 @@ import { isTesterOrAdminUser } from "@/lib/user-permissions";
 import { Panel, Stat, DiffPill } from "@/components/app/app-primitives";
 import { Icons } from "@/components/app/icons";
 import { UpgradeNudge } from "@/components/conversion/upgrade-nudge";
+import { OrientationBanner } from "@/components/orientation-banner";
+import { isOrientationScenario } from "@/lib/orientation";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function clockUtc() {
@@ -171,7 +173,9 @@ export default function DashboardPage() {
   // Scenario picks — first 5 published, prioritized for the queue
   const queue = useMemo(() => {
     const all = (scenarios ?? [])
-      .filter((s) => s.status === "published" && s.id !== "welcome-tutorial");
+      .filter(
+        (s) => s.status === "published" && !isOrientationScenario(s.id),
+      );
     return all.slice(0, 5);
   }, [scenarios]);
 
@@ -222,7 +226,8 @@ export default function DashboardPage() {
         Your training queue, weak signal report, and live system status.
       </p>
 
-      <div className="mb-5">
+      <div className="mb-5 space-y-4">
+        <OrientationBanner user={userData} />
         <UpgradeNudge user={userData} placement="dashboard" />
       </div>
 

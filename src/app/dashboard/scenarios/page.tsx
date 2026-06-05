@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { pickScenarioOfTheDay } from "@/lib/scenario-of-the-day";
 import { filterScenariosForLearnerBrowse } from "@/lib/scenario-catalog-visibility";
 import { isLegacyScenarioId } from "@/lib/scenarios-data";
+import { isOrientationScenario } from "@/lib/orientation";
 import { isTesterOrAdminUser } from "@/lib/user-permissions";
 import { logFunnelEvent } from "@/app/funnel-actions";
 import { Panel, DiffPill } from "@/components/app/app-primitives";
@@ -167,7 +168,7 @@ export default function ScenariosPage() {
     if (!browseScenarios.length) return [];
     const q = searchTerm.trim().toLowerCase();
     return browseScenarios.filter((scenario) => {
-      if (scenario.id === "welcome-tutorial") return false;
+      if (isOrientationScenario(scenario.id)) return false;
       const searchMatch =
         q.length === 0 ||
         scenario.title.toLowerCase().includes(q) ||
@@ -220,7 +221,7 @@ export default function ScenariosPage() {
   const handleRandomScenario = () => {
     if (!filteredScenarios || filteredScenarios.length === 0) return;
     const nonTutorial = filteredScenarios.filter(
-      (s) => s.id !== "welcome-tutorial",
+      (s) => !isOrientationScenario(s.id),
     );
     if (nonTutorial.length === 0) {
       if (filteredScenarios.length > 0) {

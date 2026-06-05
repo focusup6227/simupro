@@ -71,6 +71,8 @@ import {
   WELCOME_TOUR_STEPS,
   WELCOME_TOUR_STORAGE_KEY,
 } from "@/lib/welcome-tour-steps";
+import { OrientationChecklist } from "@/components/orientation-checklist";
+import { isOrientationScenario, orientationProgress } from "@/lib/orientation";
 import { listPkDoses, recordPkDoses } from "@/app/pk-actions";
 import { listAutonomicEvents, recordAutonomicEvents } from "@/app/autonomic-actions";
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from "@/lib/feature-flags";
@@ -350,6 +352,17 @@ export default function SimulationPage() {
   /** Latest rhythm kind currently being rendered on the monitor (for the rhythm-ID quiz). */
   const [observedRhythm, setObservedRhythm] = useState<EcgRhythmKind | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  /**
+   * Orientation (first-run) guidance. Shown only on the tutorial scenario for
+   * learners who have not finished it. The objective checklist ticks off live
+   * from the action log as the learner exercises each panel of the runner.
+   */
+  const showOrientationGuide =
+    isOrientationScenario(id) && !userData?.hasCompletedTutorial;
+  const orientation = useMemo(
+    () => orientationProgress(userActions, simulationEnded),
+    [userActions, simulationEnded],
+  );
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [badAiReportOpen, setBadAiReportOpen] = useState(false);
   const [badAiReportMessageIndex, setBadAiReportMessageIndex] = useState<number | null>(null);
@@ -900,13 +913,14 @@ export default function SimulationPage() {
         // Tutorial-only: scripted partner intro that walks the learner into the
         // first concrete steps. Keeps fresh users from staring at a blank
         // monitor + tab list while the AI flows warm up.
-        if (scenario.id === 'welcome-tutorial' && !userData?.hasCompletedTutorial) {
+        if (isOrientationScenario(scenario.id) && !userData?.hasCompletedTutorial) {
           seededMessages.push({
             role: 'partner',
             content:
               `Hey, I'm ${rolled.name} — your ${rolled.role.toUpperCase()} partner for this run. ` +
-              `Let's keep it simple: open the Equipment drawer on the left and put on the 4-lead and pulse-ox so the monitor lights up, ` +
-              `then jump to the Assessment tab and grab a blood glucose. I'll back you up if you get stuck.`,
+              `Work the Orientation checklist on the right and you'll have the runner down in a few minutes: ` +
+              `open the Equipment drawer to put on the 4-lead and pulse-ox so the monitor lights up, then use the Assessment tab to grab a blood glucose and a blood pressure. ` +
+              `Pick a hospital under Destination, and End the run when you're ready. I'll back you up if you get stuck.`,
             partnerName: rolled.name,
             partnerRole: rolled.role,
             urgency: 'low',
@@ -960,7 +974,7 @@ export default function SimulationPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!sessionId) return;
-    if (id !== 'welcome-tutorial') return;
+    if (!isOrientationScenario(id)) return;
     if (userData?.hasCompletedTutorial) return;
     try {
       if (window.localStorage.getItem(WELCOME_TOUR_STORAGE_KEY) === '1') return;
@@ -1201,6 +1215,17 @@ export default function SimulationPage() {
           .eq('user_id', authUser.id);
         if (error) throw error;
 
+      // Finishing the orientation run marks the tutorial done up front, so the
+      // dashboard banner clears even if the learner leaves before the AI
+      // debrief renders (the report page also sets this, idempotently).
+      if (isOrientationScenario(scenario.id) && !userData?.hasCompletedTutorial) {
+        const { error: tutorialErr } = await supabase
+          .from('profiles')
+          .update({ has_completed_tutorial: true })
+          .eq('id', authUser.id);
+        if (tutorialErr) console.error('orientation completion flag:', tutorialErr);
+      }
+
       if (!failed) {
         await bumpTrainingStreakAfterSuccessfulSimulation();
       }
@@ -1218,7 +1243,7 @@ export default function SimulationPage() {
         description: e instanceof Error ? e.message : 'Could not save session data to the database.',
       });
     }
-  }, [router, id, time, userActions, toast, scenario, authUser, supabase, simulationEnded, sessionId]);
+  }, [router, id, time, userActions, toast, scenario, authUser, supabase, simulationEnded, sessionId, userData]);
 
 
   const submitAction = useCallback(async (
@@ -2820,6 +2845,11 @@ export default function SimulationPage() {
             )}
           </div>
         </div>
+        {showOrientationGuide ? (
+          <div className="shrink-0 border-b px-4 pb-3 pt-3">
+            <OrientationChecklist progress={orientation} />
+          </div>
+        ) : null}
         {partner ? (
           <div
             className="shrink-0 border-b px-4 pb-3 pt-1"

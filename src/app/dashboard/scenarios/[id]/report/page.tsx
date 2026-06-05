@@ -49,6 +49,7 @@ import type {
   ProtocolWin,
 } from "@/lib/types";
 import type { Json } from "@/lib/supabase/database.types";
+import { isOrientationScenario } from "@/lib/orientation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Panel, DiffPill } from "@/components/app/app-primitives";
 import { Icons } from "@/components/app/icons";
@@ -181,7 +182,7 @@ export default function ReportPage() {
       );
       if (upsertError) throw upsertError;
 
-      if (scenario.id === "welcome-tutorial") {
+      if (isOrientationScenario(scenario.id)) {
         const { error: profileErr } = await client
           .from("profiles")
           .update({ has_completed_tutorial: true })

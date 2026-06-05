@@ -10,7 +10,7 @@ const legacySeedScenariosBase: Scenario[] = [
         id: "welcome-tutorial",
         title: "Welcome to Simu-Pro — Orientation patient",
         description:
-            "A short, low-stakes run: learn the layout (assessment, vitals, treatment, transport) while ruling out hypoglycemia in a stable adult with mild confusion.",
+            "A short, can't-fail run with a stable patient. Follow the live orientation checklist to learn the runner — monitor, equipment, assessment, and transport — while ruling out hypoglycemia in an adult with mild confusion.",
         patientProfile: "60 y/o Male, type 2 diabetes, found seated at home with confusion reported by family.",
         patientPresentation:
             "Awake, cooperative but slow to answer; no focal deficits voiced; skin warm and dry; no acute respiratory distress; family reports skipped lunch after morning insulin.",
@@ -22,10 +22,10 @@ const legacySeedScenariosBase: Scenario[] = [
         ageBand: "adult",
         defaultWeightKg: 88,
         details:
-            "This is your orientation scenario — not a trap case. You will use the same authoring-driven physiology layers as the rest of the catalog (comorbidities, optional autonomic baseline, and weight-aware PK when treatments apply), but the patient stays hemodynamically stable so you can focus on the UI.\n\n" +
-            "What to try first: open the Assessment flow and obtain a blood glucose. Glance at the monitor / vitals strip if your layout shows it; repeat vitals after interventions when you are ready.\n\n" +
-            "When you are comfortable, explore Treatment (even if you only document a plan), choose a receiving facility under Destination, and use Radio / report tabs as your course expects. End the simulation from the controls when you are done; your debrief report will mark the tutorial complete for your profile.\n\n" +
-            "Learning objective: demonstrate a structured first pass (assessment + point-of-care glucose) before transport for an altered patient with diabetes risk.",
+            "This is your orientation — a stable patient you cannot fail. It runs on the same authoring-driven physiology as the rest of the catalog, but stays hemodynamically stable so you can focus on driving the runner. A live checklist on the right tracks five objectives; work them in any order.\n\n" +
+            "1) Open the Equipment drawer and apply the 4-lead and pulse-ox to light up the monitor. 2) In the Assessment tab, check a blood glucose. 3) Take a blood pressure for a full set of vitals. 4) Pick a receiving facility under Destination. 5) End the run for your debrief.\n\n" +
+            "Your AI partner will nudge you if you stall, and ending the run marks the tutorial complete on your profile — so we will not nag you again. Explore Treatment, Radio, and report tabs as your course expects; nothing here is graded against you.\n\n" +
+            "Learning objective: drive the runner end-to-end — light up the monitor, complete a structured first pass with a point-of-care glucose, and choose a destination before transport.",
         difficulty: "Beginner",
         tags: ["Tutorial", "Medical", "AMS"],
         initialVitals: {
@@ -52,22 +52,25 @@ const legacySeedScenariosBase: Scenario[] = [
         },
         suggestedActions: {
             emt: [
-                "Perform a brief primary survey (mental status, airway, breathing, circulation) before or after your glucose check.",
-                "Review the on-screen vitals / monitor layout.",
-                "Obtain a focused SAMPLE history from family if offered in your flow.",
+                "Apply the 4-lead and pulse-ox from the Equipment drawer to light up the monitor.",
+                "Take a blood pressure for a full set of vitals.",
+                "Perform a brief primary survey (mental status, airway, breathing, circulation).",
+                "Choose a receiving facility under Destination, then end the run.",
             ],
             aemt: [
+                "Apply the 4-lead and pulse-ox to light up the monitor, then take a blood pressure.",
                 "Perform a brief primary survey (mental status, airway, breathing, circulation).",
                 "Establish IV access only if your protocol and comfort level call for it in this stable presentation.",
-                "Repeat vitals after any intervention.",
+                "Choose a receiving facility under Destination, then end the run.",
             ],
             paramedic: [
+                "Apply the 4-lead and pulse-ox to light up the monitor, then take a blood pressure.",
                 "Perform a brief primary survey (mental status, airway, breathing, circulation).",
                 "Consider a 12-lead ECG if your training path includes it for AMS workups.",
-                "Document transport priority and handoff expectations in the radio report when ready.",
+                "Choose a receiving facility under Destination, then end the run.",
             ],
         },
-        criticalFailures: ["Failure to check a blood glucose level."],
+        criticalFailures: [],
         status: "published",
     },
     {
