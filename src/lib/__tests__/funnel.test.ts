@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
-import { recordFunnelEvent } from '@/lib/funnel';
+import {
+  recordFunnelEvent,
+  FUNNEL_EVENTS,
+  MONETIZATION_FUNNEL_EVENTS,
+  ENGAGEMENT_FUNNEL_EVENTS,
+} from '@/lib/funnel';
 
 type Admin = SupabaseClient<Database>;
 
@@ -55,5 +60,33 @@ describe('recordFunnelEvent', () => {
     await expect(
       recordFunnelEvent(admin, { event: 'started_checkout', userId: 'u1' }),
     ).resolves.toBeUndefined();
+  });
+
+  it('records a scenario engagement milestone event', async () => {
+    const { admin, insert } = makeAdmin();
+    await recordFunnelEvent(admin, {
+      event: 'scenario_completed',
+      userId: 'u1',
+      metadata: { scenarioId: 'welcome-tutorial', scenarioTitle: 'Welcome', timeElapsed: 420 },
+    });
+    expect(insert).toHaveBeenCalledWith({
+      event: 'scenario_completed',
+      user_id: 'u1',
+      metadata: { scenarioId: 'welcome-tutorial', scenarioTitle: 'Welcome', timeElapsed: 420 },
+    });
+  });
+});
+
+describe('funnel event sets', () => {
+  it('combines monetization + engagement events with no overlap', () => {
+    expect(FUNNEL_EVENTS).toEqual([
+      ...MONETIZATION_FUNNEL_EVENTS,
+      ...ENGAGEMENT_FUNNEL_EVENTS,
+    ]);
+    const overlap = MONETIZATION_FUNNEL_EVENTS.filter((e) =>
+      (ENGAGEMENT_FUNNEL_EVENTS as readonly string[]).includes(e),
+    );
+    expect(overlap).toEqual([]);
+    expect(new Set(FUNNEL_EVENTS).size).toBe(FUNNEL_EVENTS.length);
   });
 });

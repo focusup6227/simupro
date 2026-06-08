@@ -32,6 +32,7 @@ import { getPatientResponse, generateRadioReport, getPartnerAdvice, runPartnerIn
 import { BYSTANDER_ROLE_LABEL, BYSTANDER_SUGGESTED_QUESTIONS, BYSTANDER_COLOR_GROUP } from "@/lib/bystander-prompts";
 import type { Bystander } from "@/lib/types";
 import { bumpTrainingStreakAfterSuccessfulSimulation } from "@/app/training-actions";
+import { logFunnelEvent } from "@/app/funnel-actions";
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users, Loader2 } from "lucide-react";
 import { captureActionError } from "@/lib/observability";
 import { buildPriorPatientState } from "@/lib/patient-state";
@@ -712,7 +713,35 @@ export default function SimulationPage() {
 
   const [hasGivenReport, setHasGivenReport] = useState(false);
   const canEndSimulation = !!selectedDestination && hasGivenReport;
-  
+
+  // Engagement-funnel milestones. Each completion gate is logged exactly once per session so
+  // the admin conversion view can show *where* learners drop off between start and finish.
+  // Refs dedupe across re-renders without re-firing when state objects are recreated.
+  const radioReportMilestoneRef = useRef(false);
+  const destinationMilestoneRef = useRef(false);
+
+  useEffect(() => {
+    if (!sessionId || !scenario) return;
+    if (hasGivenReport && !radioReportMilestoneRef.current) {
+      radioReportMilestoneRef.current = true;
+      void logFunnelEvent('scenario_reached_radio_report', {
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+      });
+    }
+  }, [hasGivenReport, sessionId, scenario]);
+
+  useEffect(() => {
+    if (!sessionId || !scenario) return;
+    if (selectedDestination && !destinationMilestoneRef.current) {
+      destinationMilestoneRef.current = true;
+      void logFunnelEvent('scenario_reached_destination', {
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+      });
+    }
+  }, [selectedDestination, sessionId, scenario]);
+
   // Auto-show the arrest tab when the AI declares a structured arrest rhythm
   // (mid-scenario codes), or when the user has already started CPR on a
   // category='cardiac-arrest' scenario.
@@ -804,6 +833,11 @@ export default function SimulationPage() {
         if (existing) {
           setSessionId(existing.id);
 
+          void logFunnelEvent('scenario_resumed', {
+            scenarioId: scenario.id,
+            scenarioTitle: scenario.title,
+          });
+
           const restoredMessages = (existing.messages as Message[] | null) ?? null;
           const restoredActions = (existing.actions as UserAction[] | null) ?? [];
 
@@ -882,6 +916,11 @@ export default function SimulationPage() {
           partner_name: rolled.name,
         });
         if (error) throw error;
+
+        void logFunnelEvent('scenario_started', {
+          scenarioId: scenario.id,
+          scenarioTitle: scenario.title,
+        });
 
         setSessionId(newSessionId);
         setPartner(rolled);
@@ -1200,6 +1239,12 @@ export default function SimulationPage() {
           .eq('id', sessionId)
           .eq('user_id', authUser.id);
         if (error) throw error;
+
+      void logFunnelEvent(failed ? 'scenario_failed' : 'scenario_completed', {
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+        timeElapsed: time,
+      });
 
       if (!failed) {
         await bumpTrainingStreakAfterSuccessfulSimulation();
