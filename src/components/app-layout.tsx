@@ -51,6 +51,11 @@ const DisclaimerGate = dynamic(
   () => import("./disclaimer-gate").then((m) => m.DisclaimerGate),
   { ssr: false },
 );
+const RoleConfirmationGate = dynamic(
+  () =>
+    import("./role-confirmation-gate").then((m) => m.RoleConfirmationGate),
+  { ssr: false },
+);
 const ProtocolImportHydrator = dynamic(
   () =>
     import("./protocol-import-hydrator").then((m) => m.ProtocolImportHydrator),
@@ -266,6 +271,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       </Dialog>
 
       <DisclaimerGate profile={userData ?? null} isLoading={isLoading} />
+      <RoleConfirmationGate profile={userData ?? null} isLoading={isLoading} />
       <ProtocolImportHydrator />
     </div>
   );
