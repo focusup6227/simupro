@@ -91,6 +91,8 @@ export default function CompleteProfilePage() {
           role,
           isAdmin: false,
           hasCompletedTutorial: false,
+          // They just picked a tier here, so the dashboard role gate shouldn't re-prompt.
+          roleConfirmedAt: new Date().toISOString(),
         }),
         { onConflict: 'id' }
       );
