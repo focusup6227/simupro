@@ -40,12 +40,23 @@ export default function CompleteProfilePage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [role, setRole] = useState<UserRole>('emt');
+  const [roleInitialized, setRoleInitialized] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.replace('/signup');
     }
   }, [user, isUserLoading, router]);
+
+  // Seed the picker from the cert level chosen on the signup form (carried in user_metadata),
+  // once, when the user resolves — without clobbering a manual change afterward.
+  useEffect(() => {
+    if (user && !roleInitialized) {
+      setRole(roleFromUser(user));
+      setRoleInitialized(true);
+    }
+  }, [user, roleInitialized]);
 
   const handleProfileCompletion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +88,7 @@ export default function CompleteProfilePage() {
           email: user.email ?? '',
           displayName: dn,
           photoURL: photo,
-          role: roleFromUser(user),
+          role,
           isAdmin: false,
           hasCompletedTutorial: false,
         }),
@@ -136,12 +147,36 @@ export default function CompleteProfilePage() {
         <CardContent>
             <form onSubmit={handleProfileCompletion} className="space-y-6">
                 <div className="space-y-2">
-                    <Label htmlFor="start-tier">Starting certification tier</Label>
-                    <p id="start-tier" className="text-sm text-muted-foreground">
-                      Your simulations start at <strong className="text-foreground">EMT</strong>. After signup, open{" "}
-                      <strong className="text-foreground">Dashboard → Settings</strong> to attest program completion dates
-                      and unlock <strong className="text-foreground">AEMT</strong> and{" "}
-                      <strong className="text-foreground">Paramedic</strong>.
+                    <Label htmlFor="cert-tier">Certification level</Label>
+                    <div
+                      id="cert-tier"
+                      className="flex rounded-md border border-input bg-background p-0.5"
+                    >
+                      {([
+                        { value: 'emt', label: 'EMT' },
+                        { value: 'aemt', label: 'AEMT' },
+                        { value: 'paramedic', label: 'Paramedic' },
+                      ] as const).map((opt) => {
+                        const active = role === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setRole(opt.value)}
+                            className={`flex-1 py-2 rounded text-sm font-medium transition ${
+                              active
+                                ? 'bg-primary/10 text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Scopes scenarios and grading to your level. You can change this anytime in{" "}
+                      <strong className="text-foreground">Settings</strong>.
                     </p>
                 </div>
                 <Button type="submit" className="w-full min-h-11" size="lg" disabled={isLoading}>

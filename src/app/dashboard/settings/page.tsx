@@ -5,9 +5,8 @@
 //   - useDashboardProfile, useAuth, useUser, useSupabase
 //   - react-hook-form + zod UserProfileSchema
 //   - Photo upload via FileReader (base64 dataURL)
-//   - Certification attestation: emt/aemt program completion dates +
-//     maxSelectableClinicalCertRole + effectiveClinicalTierFromProfile
-//     gating + tester role override
+//   - Certification level: freely self-selectable clinical tier (emt/aemt/paramedic),
+//     no attestation gate; tester role override applies to test_role
 //   - Profile upsert via supabase.from('profiles').update(...)
 //   - Stripe portal: POST /api/stripe/create-portal-session
 //   - Account deletion: DELETE /api/account, auth.signOut, redirect
@@ -25,11 +24,6 @@ import { useAuth, useUser, useSupabase, useDashboardProfile } from "@/supabase";
 import type { Database } from "@/lib/supabase/database.types";
 import type { User, UserProfile } from "@/lib/types";
 import { UserProfileSchema } from "@/lib/types";
-import {
-  certificationTier,
-  effectiveClinicalTierFromProfile,
-  maxSelectableClinicalCertRole,
-} from "@/lib/certification-attestation";
 import { useToast } from "@/hooks/use-toast";
 import {
   PREMIUM_MONTHLY_DISPLAY,
@@ -74,8 +68,6 @@ export default function SettingsPage() {
   });
 
   const photoUrlValue = form.watch("photoURL");
-  const watchedEmtDate = form.watch("emtProgramCompletedOn") ?? "";
-  const watchedAemtDate = form.watch("aemtProgramCompletedOn") ?? "";
 
   useEffect(() => {
     if (userData) {
@@ -98,29 +90,6 @@ export default function SettingsPage() {
       });
     }
   }, [userData, form]);
-
-  const mergedEmtForUnlock =
-    watchedEmtDate.trim() || userData?.emtProgramCompletedOn || "";
-  const mergedAemtForUnlock =
-    watchedAemtDate.trim() || userData?.aemtProgramCompletedOn || "";
-
-  const maxSelectableRole = maxSelectableClinicalCertRole({
-    emtCompletedOn: mergedEmtForUnlock,
-    aemtCompletedOn: mergedAemtForUnlock,
-  });
-  const serverClinicalTier = userData
-    ? effectiveClinicalTierFromProfile({
-        role: userData.role,
-        testRole: userData.testRole ?? null,
-      })
-    : 0;
-  const maxTierSelectable = Math.max(
-    certificationTier(maxSelectableRole),
-    serverClinicalTier,
-  );
-
-  const isRoleSelectable = (cert: UserProfile["role"]) =>
-    certificationTier(cert) <= maxTierSelectable;
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -153,44 +122,9 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const emtSave =
-        typeof values.emtProgramCompletedOn === "string" &&
-        values.emtProgramCompletedOn.trim() !== ""
-          ? values.emtProgramCompletedOn.trim()
-          : null;
-      const aemtSave =
-        typeof values.aemtProgramCompletedOn === "string" &&
-        values.aemtProgramCompletedOn.trim() !== ""
-          ? values.aemtProgramCompletedOn.trim()
-          : null;
-
-      const tierForm = certificationTier(values.role);
-      const tierServer = effectiveClinicalTierFromProfile({
-        role: userData.role,
-        testRole: userData.testRole ?? null,
-      });
-      const maxTierFromDates = certificationTier(
-        maxSelectableClinicalCertRole({
-          emtCompletedOn: emtSave ?? userData.emtProgramCompletedOn,
-          aemtCompletedOn: aemtSave ?? userData.aemtProgramCompletedOn,
-        }),
-      );
-
-      if (tierForm > tierServer && tierForm > maxTierFromDates) {
-        toast({
-          variant: "destructive",
-          title: "Certification tier",
-          description:
-            "Add program completion dates (not in the future) before moving up to AEMT or Paramedic, or confirm your tier with support.",
-        });
-        return;
-      }
-
       const patch: Database["public"]["Tables"]["profiles"]["Update"] = {
         display_name: values.displayName,
         photo_url: values.photoURL || null,
-        emt_program_completed_on: emtSave,
-        aemt_program_completed_on: aemtSave,
       };
 
       if (userData.role === "tester") patch.test_role = values.role;
@@ -379,101 +313,45 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Certification attestation + role */}
+                {/* Certification level — freely self-selectable */}
                 {showRoleSelector && (
-                  <>
-                    <div
-                      className="rounded-md p-4 space-y-4"
-                      style={{
-                        background: "rgba(255,255,255,0.02)",
-                        border: "1px solid var(--border-soft)",
-                      }}
-                    >
-                      <div>
-                        <p className="text-[13px] font-medium text-white mb-1">
-                          Program completion dates
-                        </p>
-                        <p className="text-[11.5px] text-[var(--text-mute)] leading-relaxed">
-                          You attest these dates accurately reflect when you finished each training program for the tier above EMT. Dates can&apos;t be in the future. AEMT unlocks after EMT date; Paramedic after AEMT date.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
-                            EMT program completed
-                          </label>
-                          <input
-                            type="date"
-                            className="fld w-full"
-                            {...form.register("emtProgramCompletedOn")}
-                          />
-                          <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
-                            Unlock AEMT simulations after this date.
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-1.5 block">
-                            AEMT program completed
-                          </label>
-                          <input
-                            type="date"
-                            className="fld w-full"
-                            {...form.register("aemtProgramCompletedOn")}
-                          />
-                          <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
-                            Unlock Paramedic simulations after this date.
-                          </p>
-                        </div>
-                      </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-2 block">
+                      {roleSelectorLabel}
+                    </label>
+                    <div className="flex rounded-md border border-[var(--border-soft)] bg-white/[0.02] p-0.5">
+                      {[
+                        { value: "emt", label: "EMT" },
+                        { value: "aemt", label: "AEMT" },
+                        { value: "paramedic", label: "Paramedic" },
+                      ].map((opt) => {
+                        const active = form.watch("role") === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() =>
+                              form.setValue("role", opt.value as never)
+                            }
+                            className="flex-1 py-2 rounded text-[12.5px] font-medium transition"
+                            style={{
+                              color: active ? "white" : "var(--text-mute)",
+                              background: active
+                                ? "rgba(255,122,24,0.12)"
+                                : "transparent",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
-
-                    {/* Role selector */}
-                    <div>
-                      <label className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-mute)] font-mono mb-2 block">
-                        {roleSelectorLabel}
-                      </label>
-                      <div className="flex rounded-md border border-[var(--border-soft)] bg-white/[0.02] p-0.5">
-                        {[
-                          { value: "emt", label: "EMT" },
-                          { value: "aemt", label: "AEMT" },
-                          { value: "paramedic", label: "Paramedic" },
-                        ].map((opt) => {
-                          const active = form.watch("role") === opt.value;
-                          const disabled = !isRoleSelectable(opt.value as never);
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() =>
-                                form.setValue("role", opt.value as never)
-                              }
-                              className="flex-1 py-2 rounded text-[12.5px] font-medium transition disabled:opacity-30 disabled:pointer-events-none"
-                              style={{
-                                color: active
-                                  ? "white"
-                                  : "var(--text-mute)",
-                                background: active
-                                  ? "rgba(255,122,24,0.12)"
-                                  : "transparent",
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
-                        {!isRoleSelectable("aemt")
-                          ? "Add a valid EMT completion date to choose AEMT."
-                          : !isRoleSelectable("paramedic")
-                          ? "Add a valid AEMT completion date to choose Paramedic."
-                          : userData?.role === "tester"
-                          ? "This role applies when you run scenarios from the Tester Dashboard."
-                          : "This is your default role for simulations."}
-                      </p>
-                    </div>
-                  </>
+                    <p className="text-[10.5px] text-[var(--text-dim)] font-mono mt-1.5">
+                      {userData?.role === "tester"
+                        ? "This role applies when you run scenarios from the Tester Dashboard."
+                        : "Scopes scenarios and grading to your level. Change it anytime."}
+                    </p>
+                  </div>
                 )}
               </>
             )}

@@ -97,7 +97,7 @@ export function SupabaseAppProvider({ children }: { children: React.ReactNode })
           email: user.email ?? '',
           displayName: fullName ?? user.email?.split('@')[0] ?? 'User',
           photoURL: photo ?? null,
-          role: 'student',
+          role: 'emt',
           isAdmin: false,
           hasCompletedTutorial: false,
         })
