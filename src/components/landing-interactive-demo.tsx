@@ -571,6 +571,7 @@ export function LandingInteractiveDemo() {
                       hasROSC={false}
                       onLogAction={(label) => appendAedLog(label)}
                       disabled={isLoading || atTurnLimit}
+                      simTimeSeconds={missionTimeSec}
                     />
                   </CardContent>
                 </Card>

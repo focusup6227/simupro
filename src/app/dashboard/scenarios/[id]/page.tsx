@@ -2968,6 +2968,7 @@ export default function SimulationPage() {
                       hasROSC={hasROSC}
                       onLogAction={handleEcgAction}
                       disabled={isLoading || simulationEnded || isAnalyzingAED}
+                      simTimeSeconds={time}
                     />
                     {hasROSC && (
                       <p className="text-center text-sm font-semibold text-emerald-600">

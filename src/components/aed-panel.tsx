@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePhysiologyStore } from "@/stores/physiology-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,13 @@ import {
   type EcgRhythmKind,
 } from "@/lib/ecg-rhythm";
 import type { ArrestRhythmKind } from "@/lib/types";
+import {
+  aedTransition,
+  epiDoseStatus,
+  formatMmSs,
+  type AedEvent,
+  type AedPhase,
+} from "@/lib/aed-state";
 
 type AedRole = "emt" | "aemt";
 
@@ -26,14 +33,13 @@ interface AedPanelProps {
   onDeliveredShock?: () => void;
   /** Disable buttons while a parent-side analysis or AI call is running. */
   disabled?: boolean;
+  /** Current simulation clock in seconds. Drives the epinephrine re-dose interval. */
+  simTimeSeconds: number;
 }
 
-type Phase =
-  | 'apply_pads'
-  | 'analyzing'
-  | 'charging'
-  | 'shock_ready'
-  | 'shock_delivered';
+const ANALYSIS_MS = 2200;
+const CHARGE_MS = 1500;
+const POST_SHOCK_MS = 800;
 
 export function AedPanel({
   role,
@@ -42,48 +48,82 @@ export function AedPanel({
   onLogAction,
   onDeliveredShock,
   disabled,
+  simTimeSeconds,
 }: AedPanelProps) {
-  const [phase, setPhase] = useState<Phase>('apply_pads');
+  const [phase, setPhase] = useState<AedPhase>('apply_pads');
   const [shockCount, setShockCount] = useState(0);
   const [ivAccess, setIvAccess] = useState(false);
   const [epiCount, setEpiCount] = useState(0);
+  const [lastEpiAt, setLastEpiAt] = useState<number | null>(null);
+  const epiStatus = epiDoseStatus(lastEpiAt, simTimeSeconds);
 
-  // Rhythm change resets to apply/ready as appropriate
+  // Read the rhythm when analysis finishes, not when the button was pressed.
+  const rhythmRef = useRef(currentArrestRhythm);
   useEffect(() => {
-    if (phase === 'shock_ready' || phase === 'shock_delivered') {
-      setPhase('apply_pads');
-    }
-  }, [currentArrestRhythm, phase]);
+    rhythmRef.current = currentArrestRhythm;
+  }, [currentArrestRhythm]);
+  const isShockable = () =>
+    shockableArrestRhythm(rhythmRef.current as EcgRhythmKind | null);
 
-  const applyPads = () => {
-    setPhase('analyzing');
-    usePhysiologyStore.getState().applyMonitorPads();
-    onLogAction('Apply Pads');
-    // Simulate analysis delay (State 2)
-    window.setTimeout(() => {
-      const shockable = shockableArrestRhythm(currentArrestRhythm as EcgRhythmKind | null);
-      setPhase(shockable ? 'charging' : 'shock_ready'); // non-shockable still goes to ready for clarity
-    }, 2200);
+  const timersRef = useRef<number[]>([]);
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  const dispatch = (event: AedEvent) => setPhase((p) => aedTransition(p, event));
+  const after = (ms: number, fn: () => void) => {
+    timersRef.current.push(window.setTimeout(fn, ms));
   };
 
-  const startCharge = () => {
-    setPhase('charging');
-    onLogAction('AED analyzing — Charging');
+  // A rhythm change only matters if it disarms a pending shock.
+  const [prevRhythm, setPrevRhythm] = useState(currentArrestRhythm);
+  if (prevRhythm !== currentArrestRhythm) {
+    setPrevRhythm(currentArrestRhythm);
+    setPhase(
+      aedTransition(phase, {
+        type: 'rhythm_changed',
+        shockable: shockableArrestRhythm(currentArrestRhythm as EcgRhythmKind | null),
+      }),
+    );
+  }
+
+  const runAnalysis = () => {
+    after(ANALYSIS_MS, () => {
+      const shockable = isShockable();
+      dispatch({ type: 'analysis_complete', shockable });
+      if (shockable) {
+        onLogAction('AED analyzing — Charging');
+        after(CHARGE_MS, () => dispatch({ type: 'charge_complete' }));
+      } else {
+        onLogAction('AED: no shock advised');
+      }
+    });
+  };
+
+  const applyPads = () => {
+    dispatch({ type: 'apply_pads' });
+    usePhysiologyStore.getState().applyMonitorPads();
+    onLogAction('Apply Pads');
+    runAnalysis();
+  };
+
+  const analyzeRhythm = () => {
+    dispatch({ type: 'analyze' });
+    onLogAction('AED analyzing rhythm');
+    runAnalysis();
   };
 
   const deliverShock = () => {
-    setPhase('shock_delivered');
+    dispatch({ type: 'deliver_shock' });
     setShockCount((c) => c + 1);
     onLogAction('Delivered AED shock');
     onDeliveredShock?.();
-    // Auto transition to CPR cycle after shock (State 5)
-    window.setTimeout(() => {
-      setPhase('apply_pads');
-    }, 800);
+    after(POST_SHOCK_MS, () => dispatch({ type: 'post_shock_elapsed' }));
   };
 
   const resumeCpr = () => {
-    setPhase('apply_pads');
+    dispatch({ type: 'resume_cpr' });
     onLogAction('Resumed CPR');
   };
 
@@ -93,6 +133,9 @@ export function AedPanel({
   };
 
   const giveEpi = () => {
+    // Guard in the handler too — rapid clicks can land before the disabled re-render.
+    if (epiDoseStatus(lastEpiAt, simTimeSeconds).state === 'locked') return;
+    setLastEpiAt(simTimeSeconds);
     setEpiCount((c) => c + 1);
     onLogAction("Administered epinephrine 1 mg IV/IO");
   };
@@ -151,17 +194,11 @@ export function AedPanel({
             </div>
           )}
 
-          {/* State 3: Charging - "Charging — Resume CPR" */}
+          {/* State 3: Charging — compressions continue while the AED charges */}
           {phase === 'charging' && (
-            <Button
-              size="sm"
-              variant="default"
-              onClick={resumeCpr}
-              disabled={isLocked}
-            >
-              <ArrowRight className="mr-1.5 size-4" />
-              Charging — Resume CPR
-            </Button>
+            <div className="text-sm font-semibold text-sky-400 sm:col-span-2">
+              Shock advised — Charging. Continue CPR.
+            </div>
           )}
 
           {/* State 4: Shock Ready - "Clear Patient", show shock */}
@@ -178,11 +215,44 @@ export function AedPanel({
             </Button>
           )}
 
-          {/* State 5: Shock Delivered -> CPR timer transition handled in handler */}
+          {/* State 5: Shock Delivered — auto-advances to CPR */}
           {phase === 'shock_delivered' && (
             <div className="text-sm font-semibold text-emerald-400 sm:col-span-2">
               Shock Delivered — Resume CPR now
             </div>
+          )}
+
+          {/* No shock advised — back to compressions */}
+          {phase === 'no_shock' && (
+            <Button
+              size="sm"
+              variant="default"
+              className="sm:col-span-2"
+              onClick={resumeCpr}
+              disabled={isLocked}
+            >
+              <ArrowRight className="mr-1.5 size-4" />
+              No Shock Advised — Resume CPR
+            </Button>
+          )}
+
+          {/* CPR cycle — re-analyze when the two-minute prompt fires */}
+          {phase === 'cpr' && (
+            <>
+              <p className="text-sm text-muted-foreground sm:col-span-2">
+                Continue high-quality CPR. Re-analyze every 2 minutes.
+              </p>
+              <Button
+                size="sm"
+                variant="default"
+                className="sm:col-span-2"
+                onClick={analyzeRhythm}
+                disabled={isLocked}
+              >
+                <HeartPulse className="mr-1.5 size-4" />
+                Analyze Rhythm
+              </Button>
+            </>
           )}
         </div>
 
@@ -201,14 +271,29 @@ export function AedPanel({
               variant="outline"
               size="sm"
               onClick={giveEpi}
-              disabled={isLocked || !ivAccess}
+              disabled={isLocked || !ivAccess || epiStatus.state === 'locked'}
             >
               <Syringe className="mr-1.5 size-4" />
-              Push epinephrine 1 mg
+              {epiStatus.state === 'locked'
+                ? `Next epi in ${formatMmSs(epiStatus.secondsUntilDue)}`
+                : "Push epinephrine 1 mg"}
             </Button>
             {!ivAccess && (
               <p className="text-[11px] text-muted-foreground sm:col-span-2">
                 IV/IO access required before epi push.
+              </p>
+            )}
+            {epiStatus.state !== 'no_doses' && (
+              <p
+                className={`text-[11px] sm:col-span-2 ${
+                  epiStatus.state === 'due'
+                    ? "font-semibold text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {epiStatus.state === 'due'
+                  ? `Epi due — last dose ${formatMmSs(epiStatus.secondsSinceLast)} ago.`
+                  : `Last epi ${formatMmSs(epiStatus.secondsSinceLast)} ago · repeat every 3–5 min.`}
               </p>
             )}
           </div>
@@ -224,7 +309,7 @@ export function AedPanel({
   );
 }
 
-function PhaseBanner({ phase, hasROSC }: { phase: Phase; hasROSC: boolean }) {
+function PhaseBanner({ phase, hasROSC }: { phase: AedPhase; hasROSC: boolean }) {
   if (hasROSC) return null;
   let label = "";
   let tone = "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
@@ -237,7 +322,7 @@ function PhaseBanner({ phase, hasROSC }: { phase: Phase; hasROSC: boolean }) {
       tone = "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30";
       break;
     case 'charging':
-      label = "State 3: Charging — Resume CPR";
+      label = "State 3: Shock Advised — Charging, continue CPR";
       tone = "bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30";
       break;
     case 'shock_ready':
@@ -247,6 +332,14 @@ function PhaseBanner({ phase, hasROSC }: { phase: Phase; hasROSC: boolean }) {
     case 'shock_delivered':
       label = "State 5: Shock Delivered — Resume CPR";
       tone = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30";
+      break;
+    case 'no_shock':
+      label = "No Shock Advised — Resume CPR";
+      tone = "bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30";
+      break;
+    case 'cpr':
+      label = "CPR in progress — Analyze at 2 minutes";
+      tone = "bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30";
       break;
   }
   return (
