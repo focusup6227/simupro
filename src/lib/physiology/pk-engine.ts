@@ -11,6 +11,12 @@ import { VITAL_AXES, zeroDeltas } from '@/lib/physiology/pk-types';
 import type { PathophysiologyAxes } from '@/lib/physiology/types';
 import { DRUG_PK_CATALOG } from '@/lib/physiology/drug-pk-catalog';
 import type { PhysiologyFeedbackSnapshot } from '@/lib/physiology/feedback';
+import {
+  ADULT_RR_CEILING,
+  ADULT_SINUS_HR_CEILING_BPM,
+  minPulsePressure,
+  repairPulsePressure,
+} from '@/lib/physiology/vital-plausibility';
 
 /** Hemodynamic perfusion coupling factor — low CO blunts every clearance route. */
 function hemodynamicCouplingFactor(axes: PathophysiologyAxes): number {
@@ -403,18 +409,35 @@ export function mergeVitalsForDisplay(
     // Backstop against a runaway HR delta (the autonomic sympathetic drive is a
     // passive integrator with no restoring loop of its own); 300 bpm is a hard
     // monitor ceiling above any real sinus/SVT/VT rate.
-    const merged = Math.max(0, Math.min(300, Math.round(hr + deltas.hr)));
+    let raw = hr + deltas.hr;
+    // Engine/drug-driven tachycardia is sinus/compensatory, so a positive delta
+    // can't carry the rate past the sinus ceiling. A baseline already above it
+    // (an authored or AI-labeled tachyarrhythmia) is left where it is.
+    if (deltas.hr > 0) {
+      raw = Math.min(raw, Math.max(hr, ADULT_SINUS_HR_CEILING_BPM));
+    }
+    const merged = Math.max(0, Math.min(300, Math.round(raw)));
     const tail = suffixAfterNumber(baseline.hr) || ' bpm';
     out.hr = `${merged}${tail}`.trimEnd();
   }
 
   const bp = baseline.bp.match(BP_RE);
   if (bp) {
-    const sys = Math.max(0, Math.round(Number.parseInt(bp[1]!, 10) + deltas.sBp));
-    const dia = Math.max(
-      0,
-      Math.min(sys, Math.round(Number.parseInt(bp[2]!, 10) + deltas.dBp)),
-    );
+    const baseSys = Number.parseInt(bp[1]!, 10);
+    const baseDia = Number.parseInt(bp[2]!, 10);
+    const sys = Math.max(0, Math.round(baseSys + deltas.sBp));
+    let dia = Math.max(0, Math.min(sys, Math.round(baseDia + deltas.dBp)));
+    // The autonomic layer narrows pulse pressure on purpose (vasoconstriction
+    // + falling stroke volume), but deltas alone must not collapse it to an
+    // impossible 92/80 or 76/76. Floor at the plausible minimum — or at the
+    // baseline's own pulse pressure if that is already narrower.
+    if (sys > 0) {
+      const floorPp = Math.min(
+        Math.max(0, baseSys - baseDia),
+        minPulsePressure(sys),
+      );
+      dia = repairPulsePressure(sys, dia, floorPp).dia;
+    }
     out.bp = `${sys}/${dia}`;
   }
 
@@ -424,7 +447,11 @@ export function mergeVitalsForDisplay(
     // runaway delta (e.g. the unbounded chemoreflex integrator in the autonomic
     // engine) could render an impossible 3-digit rate on the bezel. Cap at the
     // same physiologic ceiling (60/min) used by parseRrBpm and the capno engine.
-    const merged = Math.max(0, Math.min(60, Math.round(rr + deltas.rr)));
+    let raw = rr + deltas.rr;
+    if (deltas.rr > 0) {
+      raw = Math.min(raw, Math.max(rr, ADULT_RR_CEILING));
+    }
+    const merged = Math.max(0, Math.min(60, Math.round(raw)));
     const tail = suffixAfterNumber(baseline.rr) || '/min';
     out.rr = `${merged}${tail}`.trimEnd();
   }
@@ -441,6 +468,64 @@ export function mergeVitalsForDisplay(
     const merged = Math.max(3, Math.min(15, Math.round(gcs + deltas.gcs)));
     const tail = suffixAfterNumber(baseline.gcs);
     out.gcs = `${merged}${tail}`.trimEnd();
+  }
+
+  return out;
+}
+
+/**
+ * Inverse of {@link mergeVitalsForDisplay}: given vitals that already *include*
+ * `deltas` (what the monitor showed / what the AI reported moving from), return
+ * the baseline that re-merges to them.
+ *
+ * The AI patient flow is handed the merged (AI baseline + PK + autonomic)
+ * vitals and returns new vitals continuous with them. Storing that output
+ * straight back as the baseline would count every engine delta twice on the
+ * next merge — and again each turn — which compounds into runaway HR/RR and a
+ * collapsing pulse pressure. Callers subtract the live deltas first.
+ *
+ * Non-numeric fields (arrest HR, "0/0 (no pulse)") pass through unchanged,
+ * mirroring the merge. Values are floored at physiologic minimums, not capped,
+ * so a re-merge reproduces the input to within rounding.
+ */
+export function unmergeVitalsFromDisplay(
+  displayed: ScenarioVitals,
+  deltas: VitalDeltas,
+): ScenarioVitals {
+  const out: ScenarioVitals = { ...displayed };
+
+  const hr = parseLeadingNumber(displayed.hr);
+  if (hr != null && hr > 0 && deltas.hr) {
+    const base = Math.max(1, Math.round(hr - deltas.hr));
+    out.hr = `${base}${suffixAfterNumber(displayed.hr) || ' bpm'}`.trimEnd();
+  }
+
+  const bp = displayed.bp.match(BP_RE);
+  if (bp && (deltas.sBp || deltas.dBp)) {
+    const sys = Math.max(1, Math.round(Number.parseInt(bp[1]!, 10) - deltas.sBp));
+    const dia = Math.max(
+      0,
+      Math.min(sys, Math.round(Number.parseInt(bp[2]!, 10) - deltas.dBp)),
+    );
+    out.bp = displayed.bp.replace(BP_RE, `${sys}/${dia}`);
+  }
+
+  const rr = parseLeadingNumber(displayed.rr);
+  if (rr != null && rr > 0 && deltas.rr) {
+    const base = Math.max(1, Math.round(rr - deltas.rr));
+    out.rr = `${base}${suffixAfterNumber(displayed.rr) || '/min'}`.trimEnd();
+  }
+
+  const spo2 = parseLeadingNumber(displayed.spo2);
+  if (spo2 != null && deltas.spo2) {
+    const base = Math.max(0, Math.min(100, Math.round(spo2 - deltas.spo2)));
+    out.spo2 = `${base}${suffixAfterNumber(displayed.spo2) || '%'}`.trimEnd();
+  }
+
+  const gcs = parseLeadingNumber(displayed.gcs);
+  if (gcs != null && deltas.gcs) {
+    const base = Math.max(3, Math.min(15, Math.round(gcs - deltas.gcs)));
+    out.gcs = `${base}${suffixAfterNumber(displayed.gcs)}`.trimEnd();
   }
 
   return out;

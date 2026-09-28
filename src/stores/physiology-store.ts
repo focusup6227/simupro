@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETICS_ENGINE } from '@/lib/feature-flags';
-import { mergeVitalsForDisplay } from '@/lib/physiology/pk-engine';
+import { mergeVitalsForDisplay, unmergeVitalsFromDisplay } from '@/lib/physiology/pk-engine';
+import { mergeAutonomicWithPkDeltas } from '@/lib/physiology/autonomic-engine';
+import { zeroDeltas } from '@/lib/physiology/pk-types';
 import type { VitalDeltas } from '@/lib/physiology/pk-types';
 import {
   defaultLungMechanics,
@@ -504,4 +506,33 @@ export function scenarioVitalsFromStore(): Scenario['initialVitals'] | null {
     );
   }
   return merged;
+}
+
+/** Live PK + autonomic deltas currently layered on top of the AI baseline. */
+function liveEngineDeltas(): VitalDeltas {
+  let d = zeroDeltas();
+  if (ENABLE_PHARMACOKINETICS_ENGINE) {
+    d = mergeAutonomicWithPkDeltas(d, usePkStore.getState().deltas);
+  }
+  if (ENABLE_AUTONOMIC_ENGINE) {
+    d = mergeAutonomicWithPkDeltas(d, useAutonomicStore.getState().cumulativeDeltas);
+  }
+  return d;
+}
+
+/**
+ * Store AI-reported vitals as the new baseline. The AI was shown the *merged*
+ * vitals (`scenarioVitalsFromStore`) and answers continuous with them, so its
+ * output already contains the live engine deltas; subtract them before storing
+ * or the next merge re-applies them (the compounding that pushed HR to 300 and
+ * BP to 76/76 in engine-backed scenarios). Non-vital fields pass through.
+ */
+export function applyAiReportedVitals(vitals: PhysiologyVitalsUpdate): void {
+  const { hr, bp, rr, spo2, gcs } = vitals;
+  if (hr === undefined || bp === undefined || rr === undefined || spo2 === undefined || gcs === undefined) {
+    usePhysiologyStore.getState().updateVitals(vitals);
+    return;
+  }
+  const baseline = unmergeVitalsFromDisplay({ hr, bp, rr, spo2, gcs }, liveEngineDeltas());
+  usePhysiologyStore.getState().updateVitals({ ...vitals, ...baseline });
 }

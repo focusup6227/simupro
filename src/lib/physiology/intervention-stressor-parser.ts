@@ -155,6 +155,37 @@ export function parseTreatmentSelectionsToStressors(
   return out;
 }
 
+/**
+ * Partner-performed treatments arrive as bare intervention ids plus free-text
+ * chatter / log detail (no sub-option picker). Build the equivalent selection
+ * map so they feed the same deterministic events as learner-picked treatments
+ * — otherwise a partner-applied tourniquet never stops the engine's bleed.
+ * Sub-options are inferred from the text, defaulting to the conservative
+ * choice (direct pressure, low-flow O₂).
+ */
+export function partnerTreatmentSelections(
+  treatmentIds: readonly string[],
+  narrative: string,
+): TreatmentSelectionMap {
+  const out: TreatmentSelectionMap = {};
+  for (const id of treatmentIds) {
+    const subOptions: Record<string, string> = {};
+    if (id === 'bleeding-control') {
+      subOptions['Method'] = /tourniquet|\btq\b|windlass/i.test(narrative)
+        ? 'Tourniquet Application'
+        : /pack/i.test(narrative)
+          ? 'Wound Packing'
+          : 'Direct Pressure';
+    } else if (id === 'oxygen') {
+      const lpm = narrative.match(/(\d{1,2})\s*(?:l|lpm|liters?)\b/i)?.[1];
+      const highFlow = /non-?rebreather|\bnrb\b|high[-\s]flow|\bbvm\b|bag[-\s]valve/i.test(narrative);
+      subOptions['Flow Rate (L/min)'] = lpm ?? (highFlow ? '15' : '4');
+    }
+    out[id] = { selected: true, subOptions };
+  }
+  return out;
+}
+
 export function aiStressorRowToAutonomicEvent(
   row: {
     kind: string;

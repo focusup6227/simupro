@@ -80,7 +80,7 @@ import { ENABLE_AUTONOMIC_ENGINE, ENABLE_METABOLIC_ENGINE, ENABLE_PHARMACOKINETI
 import { learnerMayOpenScenario } from "@/lib/scenario-catalog-visibility";
 import { summarizeRecentMedications } from "@/lib/pk-recent-medications";
 import { parseTreatmentSelectionsToDoses } from "@/lib/physiology/dose-parser";
-import { parseTreatmentSelectionsToStressors, aiStressorRowToAutonomicEvent } from "@/lib/physiology/intervention-stressor-parser";
+import { parseTreatmentSelectionsToStressors, aiStressorRowToAutonomicEvent, partnerTreatmentSelections } from "@/lib/physiology/intervention-stressor-parser";
 import type { DoseRecord } from "@/lib/physiology/pk-types";
 import { usePharmacokineticsTick } from "@/hooks/use-pharmacokinetics-tick";
 import { useAutonomicTick } from "@/hooks/use-autonomic-tick";
@@ -91,7 +91,7 @@ import { resolveScenarioWeightKg } from "@/lib/physiology/scenario-physiology-de
 import { usePkStore } from "@/stores/pk-store";
 import { useAutonomicStore } from "@/stores/autonomic-store";
 import { useMetabolicStore } from "@/stores/metabolic-store";
-import { usePhysiologyStore, scenarioVitalsFromStore } from "@/stores/physiology-store";
+import { usePhysiologyStore, scenarioVitalsFromStore, applyAiReportedVitals } from "@/stores/physiology-store";
 import { useScenarioMonitorPipStore } from "@/stores/scenario-monitor-pip-store";
 import { AedPanel } from "@/components/aed-panel";
 import { RhythmIdQuiz } from "@/components/rhythm-id-quiz";
@@ -1419,6 +1419,7 @@ export default function SimulationPage() {
         decompensationPhase: autonomicSnapshot?.decompensationPhase,
         patientAlreadyDeceased,
         scenario,
+        engineState: autonomicSnapshot,
       });
 
       const response = await getPatientResponse({
@@ -1502,7 +1503,8 @@ export default function SimulationPage() {
       }
 
       setMessages(updatedMessages);
-      usePhysiologyStore.getState().updateVitals(newVitals);
+      // AI vitals already include the live engine deltas — store them net of those.
+      applyAiReportedVitals(newVitals);
 
       if (response.patientIsDeceased) {
         toast({
@@ -1603,6 +1605,29 @@ export default function SimulationPage() {
           .map((id) => seedInterventions.find((i) => i.id === id)?.name)
           .filter((n): n is string => Boolean(n));
         const hasTx = treatmentNames.length > 0;
+        // Partner treatments must reach the deterministic engine too (e.g. a
+        // partner tourniquet stops the modeled bleed), same as picked ones.
+        const partnerAutonomicEvents =
+          ENABLE_AUTONOMIC_ENGINE && hasTx && sessionId && authUser?.id
+            ? parseTreatmentSelectionsToStressors(
+                partnerTreatmentSelections(
+                  result.treatmentIds,
+                  `${result.chatter} ${result.assessmentDetail} ${trimmed}`,
+                ),
+                {
+                  sessionId,
+                  userId: authUser.id,
+                  patientWeightKg: usePhysiologyStore.getState().weightKg,
+                  simSeconds: simulationTimeRef.current,
+                },
+              )
+            : [];
+        if (partnerAutonomicEvents.length > 0 && sessionId) {
+          useAutonomicStore.getState().recordLocalEvents(partnerAutonomicEvents);
+          void recordAutonomicEvents(sessionId, partnerAutonomicEvents).catch((e: unknown) => {
+            console.error(e);
+          });
+        }
         await submitAction(
           hasTx ? "treatment" : "assessment",
           {
@@ -1653,6 +1678,8 @@ export default function SimulationPage() {
       isPediatricScenario,
       submitAction,
       toast,
+      sessionId,
+      authUser,
     ],
   );
 

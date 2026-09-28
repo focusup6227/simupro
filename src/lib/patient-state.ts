@@ -39,6 +39,67 @@ export interface PriorPatientState {
   ageBandYears: number | null;
   /** Resolved patient mass (kg) for physiology scaling. */
   weightKg: number;
+  /**
+   * Present only when the deterministic autonomic engine owns this scenario's
+   * hemodynamic trajectory (the scenario seeds an `autonomicProfile`). The
+   * reconciler then paces AI-reported deterioration instead of letting the
+   * model run its own, faster, decline on top of the engine's.
+   */
+  enginePacing?: EnginePacingState | null;
+  /** Sim seconds elapsed since the previous logged action (paces deterioration budgets). */
+  secondsSincePriorTurn?: number | null;
+}
+
+export interface EnginePacingState {
+  /** Engine had an active bleed and it is now controlled (tourniquet / packing / pressure). */
+  hemorrhageControlled: boolean;
+  /**
+   * The engine has registered supportive care that slows decline (supplemental
+   * O₂, CPAP, secured airway, or controlled hemorrhage).
+   */
+  supportiveCare: boolean;
+}
+
+/** Engine-state fields the runner passes in to derive {@link EnginePacingState}. */
+export interface EngineSnapshotForPacing {
+  currentBleedRateMlPerMin: number;
+  supplementalO2Boost: number;
+  cpapActive: boolean;
+  airwaySecured: boolean;
+}
+
+/** Residual ooze (mL/min) at or below which an initially bleeding patient counts as controlled. */
+const HEMORRHAGE_CONTROLLED_ML_PER_MIN = 10;
+
+export function deriveEnginePacing(
+  profile: Scenario['autonomicProfile'] | undefined,
+  engine: EngineSnapshotForPacing | null | undefined,
+): EnginePacingState | null {
+  if (!profile) return null;
+  const hadBleed = (profile.baselineBleedRateMlPerMin ?? 0) > HEMORRHAGE_CONTROLLED_ML_PER_MIN;
+  const hemorrhageControlled =
+    hadBleed &&
+    engine != null &&
+    engine.currentBleedRateMlPerMin <= HEMORRHAGE_CONTROLLED_ML_PER_MIN;
+  const supportiveCare =
+    hemorrhageControlled ||
+    (engine != null &&
+      (engine.supplementalO2Boost > 0 || engine.cpapActive || engine.airwaySecured));
+  return { hemorrhageControlled, supportiveCare };
+}
+
+/**
+ * Sim seconds between the current (last) logged action and the one before it.
+ * `null` when fewer than two actions are logged or times are unusable.
+ */
+export function secondsBetweenLastActions(
+  actions: ReadonlyArray<{ time: number }> | null | undefined,
+): number | null {
+  if (!actions || actions.length < 2) return null;
+  const cur = actions[actions.length - 1]!.time;
+  const prev = actions[actions.length - 2]!.time;
+  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+  return Math.max(0, cur - prev);
 }
 
 /** Representative ages (years) per authoring band, for pediatric-aware vitals bounds. */
@@ -66,8 +127,13 @@ export interface BuildPriorPatientStateArgs {
   decompensationPhase?: string;
   /** Runner truth-source for prior death. */
   patientAlreadyDeceased?: boolean;
-  /** Scenario for age-band / weight resolution. */
-  scenario: Pick<Scenario, 'defaultWeightKg' | 'ageBand'>;
+  /** Scenario for age-band / weight resolution (and engine-owned pacing via `autonomicProfile`). */
+  scenario: Pick<Scenario, 'defaultWeightKg' | 'ageBand'> &
+    Partial<Pick<Scenario, 'autonomicProfile'>>;
+  /** Live autonomic-engine state, when the engine is enabled. */
+  engineState?: EngineSnapshotForPacing | null;
+  /** Sim seconds since the previous logged action. */
+  secondsSincePriorTurn?: number | null;
 }
 
 /** Derive the structured prior-patient-state from the runner's available signals. */
@@ -77,6 +143,8 @@ export function buildPriorPatientState({
   decompensationPhase,
   patientAlreadyDeceased,
   scenario,
+  engineState,
+  secondsSincePriorTurn,
 }: BuildPriorPatientStateArgs): PriorPatientState {
   const enginePhase = decompensationPhase ?? '';
   const engineArrested = enginePhase === 'arrested';
@@ -95,5 +163,7 @@ export function buildPriorPatientState({
     enginePhase,
     ageBandYears: ageBand ? AGE_BAND_YEARS[ageBand] : null,
     weightKg: resolveScenarioWeightKg(scenario),
+    enginePacing: deriveEnginePacing(scenario.autonomicProfile, engineState),
+    secondsSincePriorTurn: secondsSincePriorTurn ?? null,
   };
 }

@@ -52,7 +52,7 @@ import {
   detectAssessmentIntervention,
   stripPerformedInterventionNarration,
 } from '@/lib/assessment-intervention';
-import type { PriorPatientState } from '@/lib/patient-state';
+import { secondsBetweenLastActions, type PriorPatientState } from '@/lib/patient-state';
 import { parseVitalsToNumbers } from '@/lib/vitals-parse';
 import { adjustScoresForBloodPressure } from '@/lib/bp-grading-adjust';
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
@@ -181,8 +181,15 @@ export async function getPatientResponse(
     flowInput.assessment = `${input.assessment}\n${assessmentOnlyModelNote(assessmentIntervention)}`;
   }
   const deceased = Boolean(patientAlreadyDeceased) || Boolean(priorState?.wasDeceased);
-  const prior: PriorPatientState =
+  const basePrior: PriorPatientState =
     priorState ?? fallbackPriorState(input, deceased);
+  // Turn timing paces engine-owned deterioration; derive it from the action log
+  // when the runner didn't supply it.
+  const prior: PriorPatientState = {
+    ...basePrior,
+    secondsSincePriorTurn:
+      basePrior.secondsSincePriorTurn ?? secondsBetweenLastActions(input.userActions),
+  };
   try {
     // Hard short-circuit: if the patient is already dead, don't even pay for
     // the AI round-trip — synthesize a deterministic deceased-state response
