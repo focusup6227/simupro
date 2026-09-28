@@ -36,6 +36,7 @@ import { logFunnelEvent } from "@/app/funnel-actions";
 import { AlertCircle, ArrowRight, Activity, Clock, Flag, Hospital, MapPin, MessageSquare, Siren, SquareTerminal, Stethoscope, Syringe, User, Truck, Droplets, Thermometer, PhoneCall, Pause, Play, Zap, ListChecks, BookOpen, Star, Lock, Mic, MicOff, Users, Loader2 } from "lucide-react";
 import { captureActionError } from "@/lib/observability";
 import { buildPriorPatientState } from "@/lib/patient-state";
+import { detectAssessmentIntervention } from "@/lib/assessment-intervention";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   useCollection,
@@ -1436,6 +1437,7 @@ export default function SimulationPage() {
         metabolicSnapshot,
         patientAlreadyDeceased,
         priorState,
+        learnerAssessmentChannel: actionType === 'assessment' && !partnerBroadcast,
       });
       
       const newVitals = response.vitals;
@@ -1695,7 +1697,18 @@ export default function SimulationPage() {
   const handleSubmitAssessment = () => {
     const assessmentText = assessmentInput.trim();
     if (assessmentText) {
-      submitAction("assessment", { assessment: assessmentText });
+      const intervention = detectAssessmentIntervention(assessmentText);
+      void submitAction("assessment", { assessment: assessmentText }).then(() => {
+        if (!intervention.looksLikeIntervention) return;
+        // Leave a trail in the transcript: the order was NOT carried out.
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'system',
+            content: `Not performed · ${intervention.matched.join(', ')}. Assessment is for questions and findings — use the Treatment tab${partner ? ` or tell ${partner.name} in the partner box` : ''} to perform interventions.`,
+          },
+        ]);
+      });
     } else {
       toast({ title: 'No Input', description: 'Please enter your assessment findings.', variant: 'destructive' });
     }
@@ -2312,6 +2325,13 @@ export default function SimulationPage() {
   const pendingTreatmentCount = Object.values(selectedTreatments).filter(
     (s) => s.selected,
   ).length;
+
+  // Non-blocking nudge: orders typed into Assessment are not performed.
+  const assessmentInterventionHint = detectAssessmentIntervention(assessmentInput);
+  const destinationConfirmed = userActions.some((a) => Boolean(a.destination));
+  const radioReportSubmitted = userActions.some((a) =>
+    a.assessment.startsWith('Gave the following radio report'),
+  );
 
   // Human-readable reason the treatment submit is locked, surfaced in the tab so
   // the button is never a silent no-op. `null` means submission is allowed.
@@ -3018,6 +3038,33 @@ export default function SimulationPage() {
                     className="h-24"
                     disabled={showCardiacArrestTab}
                   />
+                  {assessmentInterventionHint.looksLikeIntervention && (
+                    <div
+                      role="status"
+                      className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200"
+                    >
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        <p>
+                          This looks like an intervention ({assessmentInterventionHint.matched.join(', ')}). Assessment is for questions and findings — it won&apos;t be performed or graded from here.
+                          {partner ? ` Use the Treatment tab, or tell ${partner.name} in the partner box above.` : ' Use the Treatment tab to perform it.'}
+                        </p>
+                        <Button type="button" variant="outline" size="sm" className="h-7" onClick={() => setActiveTab('treatment')}>
+                          <Syringe className="mr-1.5 h-3.5 w-3.5" /> Open Treatment
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {destinationConfirmed && !radioReportSubmitted && (
+                    <div className="mt-2 flex items-center justify-between gap-2 rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 shrink-0" /> En route — give your radio report to the receiving hospital in the Comms tab.
+                      </span>
+                      <Button type="button" variant="outline" size="sm" className="h-7 shrink-0" onClick={() => setActiveTab('radioReport')}>
+                        Open Comms
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick checks</Label>

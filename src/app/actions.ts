@@ -47,6 +47,11 @@ import {
   reconcilePatientResponse,
   vitalsSuggestPulselessArrest,
 } from '@/lib/patient-response-guards';
+import {
+  assessmentOnlyModelNote,
+  detectAssessmentIntervention,
+  stripPerformedInterventionNarration,
+} from '@/lib/assessment-intervention';
 import type { PriorPatientState } from '@/lib/patient-state';
 import { parseVitalsToNumbers } from '@/lib/vitals-parse';
 import { adjustScoresForBloodPressure } from '@/lib/bp-grading-adjust';
@@ -113,6 +118,13 @@ export type GetPatientResponseInput = DynamicPatientResponseInput & {
    * clients / the first turn.
    */
   priorState?: PriorPatientState;
+  /**
+   * True when this turn came straight from the learner's Assessment box (not a
+   * partner delegation / radio / medical direction). Assessment is questions
+   * and findings only, so any intervention typed there must not be narrated as
+   * performed. Runner-only — stripped before the Genkit flow call.
+   */
+  learnerAssessmentChannel?: boolean;
 };
 
 /**
@@ -157,7 +169,17 @@ export async function getPatientResponse(
   const userId = await gateAi("getPatientResponse");
   // Strip the runner-only fields before sending the input to the model so we
   // don't leak them through Genkit schema validation.
-  const { patientAlreadyDeceased, priorState, ...flowInput } = input;
+  const { patientAlreadyDeceased, priorState, learnerAssessmentChannel, ...flowInput } = input;
+  // An intervention typed into Assessment is NOT performed (no treatment was
+  // recorded). Tell the model explicitly, then strip any narration that still
+  // describes it being done — see `src/lib/assessment-intervention.ts`.
+  const assessmentIntervention =
+    learnerAssessmentChannel && !input.treatment.trim()
+      ? detectAssessmentIntervention(input.assessment)
+      : null;
+  if (assessmentIntervention?.looksLikeIntervention) {
+    flowInput.assessment = `${input.assessment}\n${assessmentOnlyModelNote(assessmentIntervention)}`;
+  }
   const deceased = Boolean(patientAlreadyDeceased) || Boolean(priorState?.wasDeceased);
   const prior: PriorPatientState =
     priorState ?? fallbackPriorState(input, deceased);
@@ -192,6 +214,13 @@ export async function getPatientResponse(
       input.treatment,
       raw,
     );
+    if (assessmentIntervention?.looksLikeIntervention) {
+      const stripped = stripPerformedInterventionNarration(output.patientResponse);
+      if (stripped.changed) {
+        output.patientResponse = stripped.text;
+        corrections.push('assessment_intervention_narration');
+      }
+    }
     reportReconcileCorrections(corrections, userId, input.userRole);
     return output;
   } catch (e) {
