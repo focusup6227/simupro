@@ -66,7 +66,7 @@ import {
   toLicensureLevel,
 } from '@/lib/national-baseline';
 import { filterInterventionsByLearnerLevel, mergeCatalog } from '@/lib/protocol-merge';
-import { effectiveSimulationRole } from '@/lib/user-permissions';
+import { resolveSessionRole } from '@/lib/session-role';
 import { z } from 'zod';
 
 async function getActionUserId(): Promise<string | null> {
@@ -257,7 +257,7 @@ export async function processSimulationResults({
   const supabase = await createServerSupabaseClient();
   const { data: sessionRow, error: sessionErr } = await supabase
     .from('simulation_sessions')
-    .select('id, user_id, scenario_id, actions')
+    .select('id, user_id, scenario_id, actions, user_role')
     .eq('id', sessionId)
     .maybeSingle();
 
@@ -299,7 +299,9 @@ export async function processSimulationResults({
   const user = profileRowToUser(profileRow);
 
   try {
-    const simRole = effectiveSimulationRole(user);
+    // Grade at the tier the run was played at (the session snapshot), not
+    // whatever the profile says now — learners can change tier any time.
+    const simRole = resolveSessionRole(sessionRow.user_role, user);
     const learnerLevel = toLicensureLevel(simRole);
 
     let mergedCatalog = getNationalBaselineInterventions();

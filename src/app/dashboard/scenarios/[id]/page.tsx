@@ -15,6 +15,7 @@ import { stripGradingMarkers, BP_GRADING_MANUAL_MARKER } from "@/lib/bp-grading-
 import type { EcgRhythmKind } from "@/lib/ecg-rhythm";
 import { shockableArrestRhythm } from "@/lib/ecg-rhythm";
 import { effectiveSimulationRole, isTesterOrAdminUser } from "@/lib/user-permissions";
+import { resolveSessionRole } from "@/lib/session-role";
 import {
   rollPartnerForUser,
   partnerAvatarLetter,
@@ -286,19 +287,14 @@ export default function SimulationPage() {
   );
   const { data: scenario, isLoading: isLoadingScenario } = useDoc<Scenario>(scenarioSpec);
 
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('emt');
+  // Tier pinned to the simulation_sessions row once created/resumed — the live
+  // profile role must not drift a run mid-session (see lib/session-role.ts).
+  const [sessionUserRole, setSessionUserRole] = useState<UserRole | null>(null);
 
   const { data: userData, isLoading: isUserDataLoading } = useDashboardProfile();
 
-  useEffect(() => {
-    if (userData) {
-      if (userData.role === 'tester') {
-        setCurrentUserRole(userData.testRole || 'emt');
-      } else {
-        setCurrentUserRole(userData.role);
-      }
-    }
-  }, [userData]);
+  const currentUserRole: UserRole =
+    sessionUserRole ?? (userData ? effectiveSimulationRole(userData) : 'emt');
 
   useEffect(() => {
     useProtocolStore.getState().setUserLevel(toLicensureLevel(currentUserRole));
@@ -832,6 +828,8 @@ export default function SimulationPage() {
         if (existingError) throw existingError;
 
         if (existing) {
+          const resumedRole = resolveSessionRole(existing.user_role, userData);
+          setSessionUserRole(resumedRole);
           setSessionId(existing.id);
 
           void logFunnelEvent('scenario_resumed', {
@@ -872,7 +870,7 @@ export default function SimulationPage() {
           {
             let p = parsePartnerRow(existing);
             if (!p) {
-              p = rollPartnerForUser(effectiveSimulationRole(userData));
+              p = rollPartnerForUser(resumedRole);
               await supabase
                 .from('simulation_sessions')
                 .update({
@@ -905,18 +903,20 @@ export default function SimulationPage() {
             ? crypto.randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-        const rolled = rollPartnerForUser(effectiveSimulationRole(userData));
+        const sessionRole = effectiveSimulationRole(userData);
+        const rolled = rollPartnerForUser(sessionRole);
         const { error } = await supabase.from('simulation_sessions').insert({
           id: newSessionId,
           user_id: authUser.id,
           scenario_id: scenario.id,
           scenario_title: scenario.title,
           status: 'in-progress',
-          user_role: effectiveSimulationRole(userData),
+          user_role: sessionRole,
           partner_role: rolled.role,
           partner_name: rolled.name,
         });
         if (error) throw error;
+        setSessionUserRole(sessionRole);
 
         void logFunnelEvent('scenario_started', {
           scenarioId: scenario.id,
