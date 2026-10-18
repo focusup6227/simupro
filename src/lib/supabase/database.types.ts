@@ -112,6 +112,7 @@ export interface Database {
           total_completed_simulations: number;
           disclaimer_accepted_at: string | null;
           disclaimer_accepted_version: string | null;
+          role_confirmed_at: string | null;
           active_protocol_import_id: string | null;
           protocol_workplace_id: string | null;
           active_workplace_protocol_import_id: string | null;
@@ -140,6 +141,7 @@ export interface Database {
           total_completed_simulations?: number;
           disclaimer_accepted_at?: string | null;
           disclaimer_accepted_version?: string | null;
+          role_confirmed_at?: string | null;
           active_protocol_import_id?: string | null;
           protocol_workplace_id?: string | null;
           active_workplace_protocol_import_id?: string | null;
@@ -165,6 +167,7 @@ export interface Database {
           total_completed_simulations?: number;
           disclaimer_accepted_at?: string | null;
           disclaimer_accepted_version?: string | null;
+          role_confirmed_at?: string | null;
           active_protocol_import_id?: string | null;
           protocol_workplace_id?: string | null;
           active_workplace_protocol_import_id?: string | null;

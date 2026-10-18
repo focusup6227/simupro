@@ -78,6 +78,8 @@ export type User = {
   disclaimerAcceptedAt?: string | null;
   /** Version tag of the disclaimer the user accepted; lets us re-prompt on material legal updates. */
   disclaimerAcceptedVersion?: string | null;
+  /** ISO timestamp when the user confirmed their certification tier on the role gate; null = not yet confirmed. */
+  roleConfirmedAt?: string | null;
   /** UTC-date streak rules (see training-actions). */
   currentStreak?: number;
   longestStreak?: number;

@@ -61,6 +61,7 @@ export function profileRowToUser(r: ProfileRow): User {
     hasCompletedTutorial: r.has_completed_tutorial,
     disclaimerAcceptedAt: r.disclaimer_accepted_at ?? null,
     disclaimerAcceptedVersion: r.disclaimer_accepted_version ?? null,
+    roleConfirmedAt: r.role_confirmed_at ?? null,
     currentStreak: r.current_streak,
     longestStreak: r.longest_streak,
     lastTrainingActivityDate: r.last_training_activity_date ?? undefined,
@@ -83,6 +84,8 @@ export function userToProfileInsert(opts: {
   testRole?: string | null;
   isAdmin?: boolean;
   hasCompletedTutorial?: boolean;
+  /** Stamp when the user has already chosen their tier (signup picker), so the role gate doesn't re-prompt. */
+  roleConfirmedAt?: string | null;
 }) {
   return {
     id: opts.id,
@@ -93,6 +96,7 @@ export function userToProfileInsert(opts: {
     test_role: opts.testRole ?? null,
     is_admin: opts.isAdmin ?? false,
     has_completed_tutorial: opts.hasCompletedTutorial ?? false,
+    role_confirmed_at: opts.roleConfirmedAt ?? null,
   };
 }
 
