@@ -431,7 +431,20 @@ describe('Dose parser fixtures for every catalog drug', () => {
   it('lidocaine → uses weightKg when range only', () => {
     const out = dose('lidocaine', { Dosage: '1.0-1.5mg/kg IV/IO' });
     expect(out).not.toBeNull();
-    expect(out!.doseMg).toBeGreaterThan(0);
+    // Midpoint 1.25 mg/kg × weight — never the flat "1.5mg" substring.
+    expect(out!.doseMg).toBeCloseTo(1.25 * ctx.patientWeightKg, 5);
+  });
+
+  it('per-kg doses scale with weight for any drug (mcg/kg, mg/kg)', () => {
+    const fent = dose('fentanyl', { 'Dosage (mcg)': '1 mcg/kg' });
+    expect(fent!.doseMg).toBeCloseTo(ctx.patientWeightKg / 1000, 6);
+    const ket = dose('ketamine', { 'Dosage - Pain (mg)': '0.5 mg/kg' });
+    expect(ket!.doseMg).toBeCloseTo(0.5 * ctx.patientWeightKg, 5);
+  });
+
+  it('flat doses are unchanged by the per-kg parser', () => {
+    expect(dose('amiodarone', { 'Dosage (Arrest)': '300mg IV/IO push' })!.doseMg).toBe(300);
+    expect(dose('fentanyl', { 'Dosage (mcg)': '50mcg' })!.doseMg).toBeCloseTo(0.05, 6);
   });
 
   it('dopamine infusion → mcg/kg/min', () => {

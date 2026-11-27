@@ -173,7 +173,33 @@ function parseRangeMidpoint(s: string): number | null {
   return null;
 }
 
-function parseDoseToMg(text: string): number | null {
+/**
+ * Weight-based dose, e.g. `1.0-1.5mg/kg` or `1 mcg/kg`. A range resolves to
+ * its midpoint. Must run before {@link MG_RE}/{@link MCG_RE}, which would
+ * otherwise read `1.5mg/kg` as a flat 1.5 mg.
+ */
+const PER_KG_RE = new RegExp(
+  String.raw`(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?\s*(mcg|mg|mEq|g)\s*\/\s*kg\b(?!\s*\/)`,
+  'i',
+);
+
+function parsePerKgDoseToMg(text: string, weightKg: number): number | null {
+  const m = text.match(PER_KG_RE);
+  if (!m || !(weightKg > 0)) return null;
+  const lo = Number.parseFloat(m[1]!);
+  const hi = m[2] != null ? Number.parseFloat(m[2]) : lo;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+  const perKg = (lo + hi) / 2;
+  const unit = m[3]!.toLowerCase();
+  const toMg = unit === 'mcg' ? 1 / 1000 : unit === 'g' ? 1000 : 1;
+  return perKg * toMg * weightKg;
+}
+
+function parseDoseToMg(text: string, weightKg?: number): number | null {
+  if (weightKg != null) {
+    const perKg = parsePerKgDoseToMg(text, weightKg);
+    if (perKg != null) return perKg;
+  }
   const mg = text.match(MG_RE);
   if (mg) {
     const n = Number.parseFloat(mg[1]!);
@@ -269,7 +295,7 @@ function chooseDoseText(
 }
 
 function parseLidocaineMg(weightKg: number, text: string): number {
-  const mg = parseDoseToMg(text);
+  const mg = parseDoseToMg(text, weightKg);
   if (mg != null) return mg;
   return Math.round(1.25 * weightKg);
 }
@@ -322,7 +348,8 @@ export function parseInterventionSelectionToDose(
   } else if (canonicalId === 'lidocaine') {
     doseMg = parseLidocaineMg(ctx.patientWeightKg, doseText || flatText);
   } else {
-    doseMg = parseDoseToMg(doseText) ?? parseDoseToMg(flatText);
+    const w = ctx.patientWeightKg;
+    doseMg = parseDoseToMg(doseText, w) ?? parseDoseToMg(flatText, w);
   }
   if (doseMg == null || doseMg <= 0) return null;
 
