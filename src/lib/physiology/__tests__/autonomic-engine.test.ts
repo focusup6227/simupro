@@ -412,6 +412,23 @@ describe('autonomic engine', () => {
     expect(evs.some((e) => e.kind === 'bleed_rate_set')).toBe(true);
   });
 
+  it('NASEMSO protocol-tile procedures feed the same bleed/airway events', () => {
+    const evs = parseTreatmentSelectionsToStressors(
+      {
+        PROC_TOURNIQUET: { selected: true, subOptions: {} },
+        PROC_HEMORRHAGE_CONTROL: { selected: true, subOptions: {} },
+        PROC_RSI: { selected: true, subOptions: {} },
+      },
+      { sessionId: 's', userId: 'u', patientWeightKg: 80, simSeconds: 10 },
+    );
+    const tq = evs.find((e) => e.kind === 'bleed_rate_set');
+    expect(tq?.payload).toEqual({ rateMlPerMin: 0 });
+    const pack = evs.find((e) => e.kind === 'bleed_rate_change');
+    expect(pack?.payload).toEqual({ deltaMlPerMin: -35 });
+    const airway = evs.find((e) => e.kind === 'airway_secured');
+    expect(airway?.payload).toEqual({ interventionId: 'PROC_RSI' });
+  });
+
   it('mergeAutonomicWithPkDeltas sums axes', () => {
     const a = zeroDeltas();
     a.hr = 5;

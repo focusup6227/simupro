@@ -38,6 +38,21 @@ function parseLpm(flowLabel: string | undefined): number {
   return Number.isFinite(n) && n >= 0 ? n : 2;
 }
 
+/**
+ * NASEMSO protocol-catalog procedure tiles carry no sub-option picker, so map
+ * them onto the legacy intervention id + the sub-option their name implies.
+ * Without this a protocol-tile tourniquet never stops the engine's bleed.
+ */
+const PROTOCOL_PROCEDURE_ALIAS: Record<
+  string,
+  { id: string; subOptions?: Record<string, string> }
+> = {
+  PROC_TOURNIQUET: { id: 'bleeding-control', subOptions: { Method: 'Tourniquet Application' } },
+  PROC_HEMORRHAGE_CONTROL: { id: 'bleeding-control', subOptions: { Method: 'Wound Packing' } },
+  PROC_RSI: { id: 'intubation' },
+  PROC_SURGICAL_CRIC: { id: 'intubation' },
+};
+
 function isKind(x: string): x is AutonomicEventKind {
   return (AUTONOMIC_EVENT_KINDS as readonly string[]).includes(x);
 }
@@ -52,10 +67,12 @@ export function parseTreatmentSelectionsToStressors(
 ): AutonomicEvent[] {
   const out: AutonomicEvent[] = [];
 
-  for (const [id, details] of Object.entries(selected)) {
+  for (const [rawId, details] of Object.entries(selected)) {
     if (!details?.selected) continue;
 
-    const sub = details.subOptions ?? {};
+    const alias = PROTOCOL_PROCEDURE_ALIAS[rawId];
+    const id = alias?.id ?? rawId;
+    const sub = { ...(alias?.subOptions ?? {}), ...(details.subOptions ?? {}) };
 
     const base = {
       sessionId: ctx.sessionId,
@@ -121,7 +138,7 @@ export function parseTreatmentSelectionsToStressors(
           ...base,
           id: uid(),
           kind: 'airway_secured',
-          payload: { interventionId: id },
+          payload: { interventionId: rawId },
         });
         break;
       }
